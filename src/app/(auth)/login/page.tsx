@@ -29,7 +29,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/courses");
+    router.push("/");
     router.refresh();
   };
 

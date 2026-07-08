@@ -31,7 +31,7 @@ export default async function SiteHeader() {
   const viewRole = cookieStore.get("view_role")?.value;
 
   const { data: profile } = await svc.from("profiles")
-    .select("role, full_name, avatar_url")
+    .select("role, full_name, avatar_url, subscription_until")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -86,6 +86,12 @@ export default async function SiteHeader() {
                   Ученик
                 </button>
               </form>
+            </div>
+          )}
+          {realRole === "student" && profile?.subscription_until && new Date(profile.subscription_until) > new Date() && (
+            <div className="flex items-center gap-1.5 text-xs text-secondary-500 font-semibold bg-secondary-50 px-2.5 py-1 rounded-full" title={`Подписка активна до ${new Date(profile.subscription_until).toLocaleDateString("ru-RU")}`}>
+              <span className="w-2 h-2 rounded-full bg-secondary-500 inline-block" />
+              {Math.ceil((new Date(profile.subscription_until).getTime() - Date.now()) / 86400000)} дн.
             </div>
           )}
           <BellIcon />
