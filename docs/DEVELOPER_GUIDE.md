@@ -2,12 +2,48 @@
 
 ## Стек
 
-- **Frontend**: Next.js (App Router, Server Components + Client Components), React, Tailwind CSS
-- **Backend**: Next.js API Routes (Route Handlers)
-- **Database**: Supabase (PostgreSQL)
-- **Auth**: Supabase Auth (email/password)
-- **Storage**: Supabase Storage (bucket `lesson-files`)
-- **Hosting**: Vercel (целевой)
+| Компонент | Технология | Аккаунт |
+|-----------|-----------|---------|
+| **Frontend** | Next.js 16 (App Router, Server/Client Components), React 19, Tailwind CSS 4 | — |
+| **Backend** | Next.js API Routes (Route Handlers) | — |
+| **База данных** | Supabase (PostgreSQL) | outmilker@gmail.com |
+| **Аутентификация** | Supabase Auth (email/password) | там же |
+| **Хранилище файлов** | Supabase Storage (bucket `lesson-files`) | там же |
+| **Хостинг/сервер** | Vercel (Hobby Free) | outmilker@gmail.com (GitHub OAuth) |
+| **CDN/DNS** | Cloudflare (Free) | outmilker@gmail.com |
+| **Git** | GitHub | outmilker1978 |
+| **Домен** | outmilk.online (reg.ru) | outmilker@gmail.com |
+
+### Связи между сервисами
+
+```
+Пользователь (браузер)
+    ↓
+naranja.outmilk.online
+    ↓
+Cloudflare (CDN, прокси)  ← DNS: adel.ns.cloudflare.com / ben.ns.cloudflare.com
+    ↓
+Vercel (сервер, SSR)     ← GitHub push → авто-деплой
+    ↓
+Supabase (БД, Auth, Storage)
+```
+
+- **GitHub** → **Vercel**: push в `main` → авто-деплой
+- **Vercel** → **Supabase**: подключение по URL + anon key + service role key (через переменные окружения)
+- **Cloudflare** → **Vercel**: DNS-запись CNAME `naranja` → `cname.vercel-dns.com`
+- **Cloudflare** → **GitHub Pages**: DNS-запись CNAME `tvhamsters` → `outmilker1978.github.io`
+- **reg.ru**: NS-серверы `outmilk.online` делегированы на Cloudflare
+
+### Переменные окружения (Vercel)
+
+| Переменная | Откуда | Назначение |
+|-----------|--------|-----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API | URL для клиента Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | там же | Публичный anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | там же (Service Role) | Админ-доступ к БД (обходит RLS) |
+| `NEXT_PUBLIC_SITE_URL` | https://naranja.outmilk.online | Редиректы после выхода |
+| `YANDEX_API_KEY` | AI Studio Yandex Cloud | Перевод текстов через Yandex Translate API |
+| `YANDEX_FOLDER_ID` | AI Studio Yandex Cloud | Каталог в Yandex Cloud |
 
 ---
 
