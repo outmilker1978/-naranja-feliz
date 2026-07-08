@@ -2,6 +2,8 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, "Liberation Mono", monospace;
   --color-primary-50: #FFF0ED;
   --color-primary-100: #FFD9D1;
   --color-primary-200: #FFB3A3;
