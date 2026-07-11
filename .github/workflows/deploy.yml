@@ -46,6 +46,7 @@ jobs:
       - name: Create container revision
         run: |
           echo "$YC_SA_KEY" > /tmp/yc-sa-key.json
+          yc config set service-account-key /tmp/yc-sa-key.json
           ENV_VARS="NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co"
           ENV_VARS="$ENV_VARS,NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Uyz3DPUyEZFkfXzDTOUiJg_aupb397O"
           ENV_VARS="$ENV_VARS,SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_KEY"
@@ -65,7 +66,6 @@ jobs:
           YC_SA_KEY: ${{ secrets.YC_SA_KEY_JSON }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           YANDEX_KEY: ${{ secrets.YANDEX_API_KEY }}
-          YC_SERVICE_ACCOUNT_KEY_FILE: /tmp/yc-sa-key.json
 
       - name: Health check
         run: |
