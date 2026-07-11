@@ -45,6 +45,9 @@ test-cases/
 # generated binary artifacts
 *.docx
 
+# service account keys
+gh-actions-sa-key.json
+
 # vercel
 .vercel
 

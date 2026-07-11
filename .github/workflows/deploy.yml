@@ -55,7 +55,14 @@ jobs:
             --memory 1GB \
             --cores 1 \
             --execution-timeout 300s \
-            --concurrency 8
+            --concurrency 8 \
+            --environment \
+            NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co,\
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Uyz3DPUyEZFkfXzDTOUiJg_aupb397O,\
+            SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }},\
+            NEXT_PUBLIC_SITE_URL=https://naranja.outmilk.online,\
+            YANDEX_API_KEY=${{ secrets.YANDEX_API_KEY }},\
+            YANDEX_FOLDER_ID=b1gsrqv6ri6jr7ue41fc
         env:
           YC_SERVICE_ACCOUNT_KEY_FILE: /tmp/yc-sa-key.json
 
