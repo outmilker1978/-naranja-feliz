@@ -127,7 +127,7 @@ export default async function StudentLessonPage({
 
       {(lesson as any).cover_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-4 bg-zinc-100">
-          <img src={(lesson as any).cover_url} alt="" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+          <img src={(lesson as any).cover_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
         </div>
       )}
 

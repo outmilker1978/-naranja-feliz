@@ -42,7 +42,7 @@ export default async function CatalogPage() {
             <div className="grid md:grid-cols-[280px_1fr] gap-0">
               {course.image_url ? (
                 <div className="h-48 md:h-full overflow-hidden">
-                  <img src={course.image_url} alt={course.title} className="w-full h-full object-cover" />
+                  <img src={course.image_url} alt={course.title} loading="lazy" className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className="h-48 md:h-full bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">

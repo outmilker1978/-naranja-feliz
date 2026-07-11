@@ -62,7 +62,7 @@ export default async function CoursesPage() {
             {(myCourses ?? []).map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                 <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-accent break-words">{course.title}</h3>
                     <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
@@ -108,7 +108,7 @@ export default async function CoursesPage() {
                 return (
                   <Link key={course.id} href={`/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                     <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-accent break-words">{course.title}</h3>
                         <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
@@ -127,7 +127,7 @@ export default async function CoursesPage() {
               return (
                 <div key={course.id} className="card overflow-hidden hover:-translate-y-1 transition-all duration-300">
                   <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover" /></div>}
+                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover" /></div>}
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-accent break-words">{course.title}</h3>
                       <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>

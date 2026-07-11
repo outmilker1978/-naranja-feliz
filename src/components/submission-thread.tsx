@@ -69,7 +69,7 @@ export function SubmissionThread({ submissionId }: { submissionId: string }) {
         {comments.map((c) => (
           <div key={c.id} className="flex items-start gap-2">
             {c.profiles?.avatar_url ? (
-              <img src={c.profiles.avatar_url} alt="" className="w-6 h-6 rounded-full object-cover border border-primary-200 shrink-0 mt-0.5" />
+              <img src={c.profiles.avatar_url} alt="" loading="lazy" className="w-6 h-6 rounded-full object-cover border border-primary-200 shrink-0 mt-0.5" />
             ) : (
               <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center text-[10px] text-primary-500 font-bold shrink-0 mt-0.5">
                 {(c.profiles?.full_name || c.profiles?.email || "?")[0].toUpperCase()}

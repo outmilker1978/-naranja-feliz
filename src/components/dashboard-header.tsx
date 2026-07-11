@@ -215,7 +215,7 @@ export function DashboardHeader({
               )}
               <div className="relative">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-primary-200 shadow-sm" />
+                  <img src={avatarUrl} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border-2 border-primary-200 shadow-sm" />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-sm text-white font-bold shadow-sm">
                     {initial}

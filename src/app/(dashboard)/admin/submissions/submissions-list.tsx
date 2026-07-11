@@ -70,7 +70,7 @@ export function SubmissionsList({ submissions }: { submissions: any[] }) {
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-3 min-w-0">
                 {sub.profiles?.avatar_url ? (
-                  <img src={sub.profiles.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
+                  <img src={sub.profiles.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-sm text-primary-500 font-bold shrink-0">
                     {(sub.profiles?.full_name || sub.profiles?.email || "?")[0].toUpperCase()}

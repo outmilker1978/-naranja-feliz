@@ -84,7 +84,7 @@ export default async function CourseDetailPage({
     <div className="pt-14">
       {course.image_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100">
-          <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+          <img src={course.image_url} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
         </div>
       )}
 
@@ -131,7 +131,7 @@ export default async function CourseDetailPage({
                 >
                   <div className="flex items-center gap-3">
                     {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
+                      <img src={profile.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-sm text-primary-500 font-bold shrink-0">
                         {(profile?.full_name || profile?.email || "?")[0].toUpperCase()}

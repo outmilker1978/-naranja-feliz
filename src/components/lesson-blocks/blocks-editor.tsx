@@ -212,7 +212,7 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
               <div className="flex gap-2 flex-wrap">
                 {images.map((img, i) => (
                   <div key={i} className="text-xs text-zinc-400">
-                    {i + 1}) {img.src ? <img src={img.src} alt="" className="w-12 h-12 object-cover rounded border" /> : <span className="text-zinc-300">нет URL</span>}
+                    {i + 1}) {img.src ? <img src={img.src} alt="" loading="lazy" className="w-12 h-12 object-cover rounded border" /> : <span className="text-zinc-300">нет URL</span>}
                   </div>
                 ))}
               </div>

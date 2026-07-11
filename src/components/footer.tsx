@@ -7,7 +7,7 @@ export default function Footer() {
         <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-10">
           <div className="col-span-3 md:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <img src="/logo-128.png" alt="Naranja Feliz" className="w-8 h-8" />
+              <img src="/logo-128.png" alt="Naranja Feliz" loading="lazy" className="w-8 h-8" />
               <span className="font-bold text-primary-500 text-lg">Naranja Feliz</span>
             </Link>
             <p className="text-sm text-muted">Мотивация в каждой дольке</p>

@@ -93,7 +93,7 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative shrink-0">
                 {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  <img src={profile.avatar_url} alt="" loading="lazy" className="w-8 h-8 rounded-full object-cover" />
                 ) : (
                   <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center text-xs text-primary-500 font-bold">
                     {(profile.full_name ?? profile.email)[0].toUpperCase()}

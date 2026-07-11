@@ -70,7 +70,7 @@ export default function NotificationsPage() {
                 <div className="flex items-start gap-3">
                   {actor ? (
                     actor.avatar_url ? (
-                      <img src={actor.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
+                      <img src={actor.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-sm text-primary-500 font-bold shrink-0">
                         {initial}

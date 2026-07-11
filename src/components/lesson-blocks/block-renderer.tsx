@@ -108,7 +108,7 @@ function ImageBlock({ block }: { block: LessonBlock }) {
 
   return (
     <figure className="overflow-hidden rounded-lg group">
-      <img src={src} alt={c.caption || ""} className="w-full transition-transform duration-500 group-hover:scale-105" style={{ width: c.width || "100%" }} />
+      <img src={src} alt={c.caption || ""} loading="lazy" className="w-full transition-transform duration-500 group-hover:scale-105" style={{ width: c.width || "100%" }} />
       {c.caption && <figcaption className="text-sm text-zinc-500 mt-1 text-center">{c.caption}</figcaption>}
     </figure>
   );
@@ -750,7 +750,7 @@ function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: s
         <div className="grid grid-cols-2 gap-2">
           {c.images.map((img, i) => (
             <div key={i} className={`rounded-lg border-2 p-1 ${selected.includes(i) ? "border-primary-500" : "border-transparent"}`}>
-              <img src={img.src} alt={img.label} className="w-full h-24 object-cover rounded" />
+              <img src={img.src} alt={img.label} loading="lazy" className="w-full h-24 object-cover rounded" />
               <p className="text-xs text-center mt-1">{img.label}</p>
             </div>
           ))}
@@ -768,7 +768,7 @@ function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: s
           <button key={i} onClick={() => toggle(i)}
             className={`rounded-lg border-2 overflow-hidden transition-colors ${selected.includes(i) ? "border-primary-500 ring-2 ring-primary-300" : "border-zinc-200 hover:border-primary-300"}`}
           >
-            <img src={img.src} alt={img.label} className="w-full h-28 object-cover" />
+            <img src={img.src} alt={img.label} loading="lazy" className="w-full h-28 object-cover" />
             <p className="text-xs text-center py-1 bg-white">{img.label}</p>
           </button>
         ))}

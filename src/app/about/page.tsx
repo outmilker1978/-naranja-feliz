@@ -21,7 +21,7 @@ export default async function AboutPage() {
 
       {(about?.content?.image || about?.cover_image) && (
         <div className="rounded-2xl overflow-hidden shadow-md mb-8 max-w-lg mx-auto">
-          <img src={about.content.image || about.cover_image} alt="О школе" className="w-full object-cover" />
+          <img src={about.content.image || about.cover_image} alt="О школе" loading="lazy" className="w-full object-cover" />
         </div>
       )}
 

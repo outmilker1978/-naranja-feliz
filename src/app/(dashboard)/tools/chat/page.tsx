@@ -237,7 +237,7 @@ export default function ChatPage() {
                   <div className="flex items-center gap-2">
                     <div className="relative shrink-0">
                       {other?.avatar_url ? (
-                        <img src={other.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        <img src={other.avatar_url} alt="" loading="lazy" className="w-8 h-8 rounded-full object-cover" />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center text-xs text-primary-500 font-bold">
                           {(other?.full_name || "?")[0].toUpperCase()}

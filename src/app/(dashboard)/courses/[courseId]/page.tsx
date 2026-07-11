@@ -86,7 +86,7 @@ export default async function CourseDetailPage({
 
       {course.image_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100">
-          <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+          <img src={course.image_url} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
         </div>
       )}
 
@@ -128,7 +128,7 @@ export default async function CourseDetailPage({
               <div className="p-4 flex flex-col sm:flex-row items-start gap-3">
                 {lesson.cover_url && (
                   <div className="w-full sm:w-60 h-40 rounded-lg overflow-hidden bg-zinc-100 shrink-0">
-                    <img src={lesson.cover_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <img src={lesson.cover_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   </div>
                 )}
                 <div className="flex items-start gap-3 min-w-0 flex-1 w-full">

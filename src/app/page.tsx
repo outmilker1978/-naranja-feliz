@@ -224,7 +224,7 @@ export default async function Home() {
         {(user ? (myCourses.length > 0 ? myCourses : enrolledCourses.length > 0 ? enrolledCourses : []) : allCourses ?? []).slice(0, 8).map((course: any) => (
           <Link key={course.id} href={user ? `/courses/${course.id}` : "/register"} className="card overflow-hidden group flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
             <div className="h-44 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center overflow-hidden">
-              {course.image_url ? <img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              {course.image_url ? <img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 : <span className="text-5xl opacity-30">🍊</span>}
             </div>
             <div className="p-4">
@@ -287,7 +287,7 @@ export default async function Home() {
         <CarouselSection>
           {news.slice(0, 6).map((item: any) => (
             <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="badge badge-orange">Новость</span>
@@ -311,7 +311,7 @@ export default async function Home() {
         <CarouselSection>
         {articles.map((item: any) => (
           <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-            {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+            {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
             <div className="p-4">
               <span className="badge badge-orange">Статья</span>
               <h3 className="font-bold text-accent mt-1 group-hover:text-primary-500 transition-colors">{item.title}</h3>
@@ -332,7 +332,7 @@ export default async function Home() {
           <a key={ad.id} href={ad.content?.link || "#"} target="_blank" rel="noopener noreferrer" className="card overflow-hidden block group">
             {ad.cover_image || ad.content?.image ? (
               <div className="relative">
-                <img src={ad.cover_image || ad.content?.image} alt={ad.title}
+                <img src={ad.cover_image || ad.content?.image} alt={ad.title} loading="lazy"
                   className="w-full h-72 sm:h-80 object-cover transition-transform duration-500 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-4 left-4 right-4">
@@ -356,7 +356,7 @@ export default async function Home() {
     <section className="px-6 py-12 max-w-4xl mx-auto text-center">
       <h2 className="text-3xl sm:text-4xl font-bold text-accent mb-3 tracking-tight">{about.content?.title ?? "О школе"}</h2>
       <div className="text-muted leading-relaxed max-w-2xl mx-auto text-lg">{about.content?.text && <p>{about.content.text}</p>}</div>
-      {(about.content?.image || about.cover_image) && <div className="overflow-hidden rounded-2xl max-w-lg mx-auto shadow-md"><img src={about.content?.image || about.cover_image} alt="" className="w-full transition-transform duration-500 hover:scale-105" /></div>}
+      {(about.content?.image || about.cover_image) && <div className="overflow-hidden rounded-2xl max-w-lg mx-auto shadow-md"><img src={about.content?.image || about.cover_image} alt="" loading="lazy" className="w-full transition-transform duration-500 hover:scale-105" /></div>}
       <div className="mt-6">
         <Link href="/about" className="btn-gradient px-5 py-2.5 text-sm inline-flex items-center gap-1">
           Читать полностью <ArrowRight className="w-4 h-4" />
@@ -414,7 +414,7 @@ export default async function Home() {
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-56 h-56 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/3" />
       <div className="relative">
-        <img src="/logo-128.png" alt="Naranja Feliz" className="w-16 h-16 mx-auto mb-4" />
+        <img src="/logo-128.png" alt="Naranja Feliz" loading="lazy" className="w-16 h-16 mx-auto mb-4" />
         <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">{ctaSection?.content?.text ?? "Готов начать?"}</h2>
         <p className="text-lg text-white/80 mt-3 max-w-md mx-auto">{ctaSection?.content?.subtitle ?? "Первый урок — бесплатно. Без обязательств."}</p>
         <Link

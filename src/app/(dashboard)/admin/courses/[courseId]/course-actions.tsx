@@ -94,7 +94,7 @@ export function CourseActions({
           <option value="subscription">По подписке</option>
         </select>
         <div className="flex items-start gap-3">
-          {imageUrl && <img src={imageUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-zinc-200" />}
+          {imageUrl && <img src={imageUrl} alt="" loading="lazy" className="w-14 h-14 rounded-lg object-cover shrink-0 border border-zinc-200" />}
           <div className="flex-1 space-y-2">
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadImage} className="hidden" />
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="bg-zinc-100 text-zinc-600 px-4 py-2 rounded-lg text-sm hover:bg-zinc-200 disabled:opacity-50">{uploading ? "Загрузка..." : "Загрузить с ПК"}</button>

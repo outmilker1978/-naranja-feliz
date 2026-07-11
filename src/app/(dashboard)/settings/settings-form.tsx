@@ -125,7 +125,7 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
         <h2 className="text-lg font-semibold text-accent mb-4">Аватар</h2>
         <div className="flex items-center gap-4">
           {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-border" />
+            <img src={avatarUrl} alt="" loading="lazy" className="w-20 h-20 rounded-full object-cover border-2 border-border" />
           ) : (
             <div className="w-20 h-20 rounded-full bg-primary-50 flex items-center justify-center text-2xl text-primary-500 font-bold">
               {(fullName || email)[0].toUpperCase()}

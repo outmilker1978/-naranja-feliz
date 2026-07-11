@@ -57,7 +57,7 @@ export function LessonList({ lessons: initial }: { lessons: Lesson[] }) {
             <div className="p-4 flex items-start gap-3">
               {lesson.cover_url && (
                 <div className="w-60 h-40 rounded-lg overflow-hidden bg-zinc-100 shrink-0">
-                  <img src={lesson.cover_url} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <img src={lesson.cover_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                 </div>
               )}
               <div className="min-w-0 flex-1">

@@ -46,7 +46,7 @@ export default function ContentCarousel({ items, currentId }: { items: Item[]; c
             className="card overflow-hidden group shrink-0 w-64 snap-start">
             {item.cover_image ? (
               <div className="h-36 overflow-hidden">
-                <img src={item.cover_image} alt="" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
               </div>
             ) : (
               <div className="h-36 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">

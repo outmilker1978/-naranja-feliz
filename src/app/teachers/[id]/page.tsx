@@ -31,7 +31,7 @@ export default async function TeacherPage({ params }: { params: Promise<{ id: st
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           {photos.map((url, i) => (
             <div key={i} className={`rounded-2xl overflow-hidden shadow-md ${i === 0 && photos.length === 1 ? "sm:col-span-2 max-w-lg mx-auto" : ""}`}>
-              <img src={url} alt={`${t.title} — фото ${i + 1}`} className="w-full h-72 object-cover" />
+              <img src={url} alt={`${t.title} — фото ${i + 1}`} loading="lazy" className="w-full h-72 object-cover" />
             </div>
           ))}
         </div>

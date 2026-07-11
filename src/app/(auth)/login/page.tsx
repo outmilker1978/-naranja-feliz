@@ -24,7 +24,11 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(
+        error.message === "AuthRetryableFetchError" || error.message?.includes("fetch")
+          ? "Сервер недоступен. Проверьте интернет и попробуйте снова."
+          : error.message
+      );
       setLoading(false);
       return;
     }

@@ -292,7 +292,7 @@ export default function ContentEditor({ initial }: Props) {
               <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
             </label>
           </div>
-          {coverImage && <img src={coverImage} alt="" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
+          {coverImage && <img src={coverImage} alt="" loading="lazy" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
         </div>
       )}
 
@@ -502,7 +502,7 @@ export default function ContentEditor({ initial }: Props) {
                     <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadAbout(f); }} />
                   </label>
                 </div>
-                {aboutImage && <img src={aboutImage} alt="" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
+                {aboutImage && <img src={aboutImage} alt="" loading="lazy" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
               </div>
             </>
           )}
@@ -567,7 +567,7 @@ export default function ContentEditor({ initial }: Props) {
                     <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadCtaBg(f); }} />
                   </label>
                 </div>
-                {ctaBgImage && <img src={ctaBgImage} alt="" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
+                {ctaBgImage && <img src={ctaBgImage} alt="" loading="lazy" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
               </div>
             </>
           )}
@@ -615,7 +615,7 @@ export default function ContentEditor({ initial }: Props) {
               <div className="flex flex-wrap gap-2">
                 {teacherPhotos.map((url, i) => (
                   <div key={i} className="relative group">
-                    <img src={url} alt="" className="w-20 h-20 rounded-lg object-cover border border-zinc-200" />
+                    <img src={url} alt="" loading="lazy" className="w-20 h-20 rounded-lg object-cover border border-zinc-200" />
                     <button onClick={() => setTeacherPhotos(teacherPhotos.filter((_, idx) => idx !== i))}
                       className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
                   </div>
@@ -668,7 +668,7 @@ export default function ContentEditor({ initial }: Props) {
                 <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadAd(f); }} />
               </label>
             </div>
-            {adImage && <img src={adImage} alt="" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
+            {adImage && <img src={adImage} alt="" loading="lazy" className="mt-2 h-32 rounded-lg object-cover bg-zinc-100" />}
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Подпись</label>
@@ -765,7 +765,7 @@ function ArrayEditor({ label, fields, items, onChange }: {
                       </label>
                     )}
                   </div>
-                  {f.isImage && item[f.key] && <img src={item[f.key]} alt="" className="mt-1 h-20 rounded-lg object-cover bg-zinc-100" />}
+                  {f.isImage && item[f.key] && <img src={item[f.key]} alt="" loading="lazy" className="mt-1 h-20 rounded-lg object-cover bg-zinc-100" />}
                 </div>
               ))}
             </div>

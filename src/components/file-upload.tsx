@@ -74,7 +74,7 @@ export function FileUpload({
             <X className="w-4 h-4" />
           </button>
 
-          {isImage && <img src={preview} className="max-h-32 rounded" alt="preview" />}
+          {isImage && <img src={preview} loading="lazy" className="max-h-32 rounded" alt="preview" />}
           {isAudio && <audio src={preview} controls className="w-full h-10" />}
           {isVideo && <video src={preview} controls className="max-h-32 rounded" />}
           {!isImage && !isAudio && !isVideo && (

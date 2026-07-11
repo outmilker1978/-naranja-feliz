@@ -23,7 +23,7 @@ export default async function TeachersPage() {
             <Link key={t.id} href={`/teachers/${t.id}`} className="card overflow-hidden group hover:-translate-y-1 transition-all duration-300">
               {photo ? (
                 <div className="h-56 overflow-hidden">
-                  <img src={photo} alt={t.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <img src={photo} alt={t.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 </div>
               ) : (
                 <div className="h-56 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">
