@@ -71,9 +71,10 @@ const CATEGORY_HELP: Record<string, string> = {
 
 interface Props {
   initial?: any;
+  blockId?: string;
 }
 
-export default function ContentEditor({ initial }: Props) {
+export default function ContentEditor({ initial, blockId }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -101,8 +102,11 @@ export default function ContentEditor({ initial }: Props) {
   const [ctaText, setCtaText] = useState(initial?.content?.cta_text ?? "");
   const [ctaLink, setCtaLink] = useState(initial?.content?.link ?? "");
   const [buttonText, setButtonText] = useState(initial?.content?.button_text ?? "");
+  const [articleButtonIcon, setArticleButtonIcon] = useState(initial?.content?.button_icon ?? "");
   const [aboutText, setAboutText] = useState(initial?.content?.text ?? "");
   const [aboutImage, setAboutImage] = useState(initial?.content?.image ?? "");
+  const [aboutButtonText, setAboutButtonText] = useState(initial?.content?.button_text ?? "");
+  const [aboutButtonIcon, setAboutButtonIcon] = useState(initial?.content?.button_icon ?? "");
   const [ctaBgImage, setCtaBgImage] = useState(initial?.content?.bg_image ?? "");
   const [heroStats, setHeroStats] = useState<{ icon: string; text: string; link?: string }[]>(
     initial?.content?.stats && Array.isArray(initial.content.stats) && initial.content.stats.length > 0
@@ -131,6 +135,7 @@ export default function ContentEditor({ initial }: Props) {
   const [adImage, setAdImage] = useState(initial?.content?.image ?? "");
   const [adLink, setAdLink] = useState(initial?.content?.link ?? "");
   const [adCaption, setAdCaption] = useState(initial?.content?.caption ?? "");
+  const [adButtonText, setAdButtonText] = useState(initial?.content?.button_text ?? "");
 
   // teacher fields
   const [teacherPhotos, setTeacherPhotos] = useState<string[]>(initial?.content?.photos ?? []);
@@ -192,14 +197,14 @@ export default function ContentEditor({ initial }: Props) {
       switch (category) {
         case "hero": return { title: sectionTitle, subtitle: sectionSubtitle, cta_text: ctaText, link: ctaLink, stats: heroStats, cards: heroCards };
         case "features": return { title: sectionTitle, items: features };
-        case "about": return { title: sectionTitle, text: aboutText, image: aboutImage };
+        case "about": return { title: sectionTitle, text: aboutText, image: aboutImage, button_text: aboutButtonText || undefined, button_icon: aboutButtonIcon || undefined };
         case "testimonials": return { title: sectionTitle, items: testimonials };
         case "faq": return { title: sectionTitle, items: faqItems };
         case "cta": return { text: sectionTitle, subtitle: sectionSubtitle, button_text: buttonText, link: ctaLink, bg_image: ctaBgImage || undefined };
         default: return {};
       }
     }
-    if (type === "ad") return { image: adImage, link: adLink, caption: adCaption };
+    if (type === "ad") return { image: adImage, link: adLink, caption: adCaption, button_text: adButtonText || undefined };
     if (type === "teacher") {
       const social: Record<string, string> = {};
       if (teacherSocialVk) social.vk = teacherSocialVk;
@@ -207,9 +212,13 @@ export default function ContentEditor({ initial }: Props) {
       if (teacherSocialEmail) social.email = teacherSocialEmail;
       return { photos: teacherPhotos, quote: teacherQuote, text: teacherBio, social };
     }
-    return type === "news" || type === "article"
-      ? [{ type: "text", value: fullText || excerpt }]
-      : [];
+    if (type === "article") {
+      return { blocks: [{ type: "text", value: fullText || excerpt }], button_text: buttonText || undefined, button_icon: articleButtonIcon || undefined };
+    }
+    if (type === "news") {
+      return { blocks: [{ type: "text", value: fullText || excerpt }] };
+    }
+    return [];
   };
 
   const handleSave = async () => {
@@ -236,8 +245,9 @@ export default function ContentEditor({ initial }: Props) {
       body.cover_image = null;
     }
     body.content = buildContent();
-    const url = initial ? `/api/content/${initial.id}` : "/api/content";
-    const method = initial ? "PUT" : "POST";
+    if (blockId) body.block_id = blockId;
+    const url = initial?.id ? `/api/content/${initial.id}` : "/api/content";
+    const method = initial?.id ? "PUT" : "POST";
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!res.ok) { const e = await res.json(); setError(e.error ?? "Ошибка"); setSaving(false); return; }
     router.push("/admin/content");
@@ -268,7 +278,8 @@ export default function ContentEditor({ initial }: Props) {
       {type !== "page_section" && (
         <div>
           <label className="block text-xs text-zinc-500 mb-1">Заголовок</label>
-          <input value={title} onChange={e => setTitle(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
+          <input value={title} onChange={e => setTitle(e.target.value)} autoComplete="off" name="content-title"
+            className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
         </div>
       )}
 
@@ -277,6 +288,30 @@ export default function ContentEditor({ initial }: Props) {
         <div>
           <label className="block text-xs text-zinc-500 mb-1">Краткое описание (показывается в карточке)</label>
           <textarea value={excerpt} onChange={e => setExcerpt(e.target.value)} rows={2} className="glass-input w-full px-3 py-2 rounded-lg text-sm resize-none" />
+        </div>
+      )}
+
+      {/* Button text & icon — only for articles */}
+      {type === "article" && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Текст кнопки</label>
+            <input value={buttonText} onChange={e => setButtonText(e.target.value)} placeholder="Читать"
+              className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Иконка кнопки</label>
+            <div className="flex flex-wrap gap-1">
+              <button type="button" onClick={() => setArticleButtonIcon("")}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all text-xs text-zinc-400 ${!articleButtonIcon ? "border-primary-500 bg-primary-50 scale-110" : "border-zinc-200 hover:border-zinc-300"}`}>✕</button>
+              {ICONS.map(ic => (
+                <button key={ic.name} type="button" onClick={() => setArticleButtonIcon(ic.name)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${articleButtonIcon === ic.name ? "border-primary-500 bg-primary-50 scale-110" : "border-zinc-200 hover:border-zinc-300"}`}>
+                  <ic.comp className="w-4 h-4" />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -492,6 +527,26 @@ export default function ContentEditor({ initial }: Props) {
                 <label className="block text-xs text-zinc-500 mb-1">Текст о школе</label>
                 <textarea value={aboutText} onChange={e => setAboutText(e.target.value)} rows={4} className="glass-input w-full px-3 py-2 rounded-lg text-sm resize-none" />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Текст кнопки</label>
+                  <input value={aboutButtonText} onChange={e => setAboutButtonText(e.target.value)} placeholder="Подробнее"
+                    className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Иконка кнопки</label>
+                  <div className="flex flex-wrap gap-1">
+                    <button type="button" onClick={() => setAboutButtonIcon("")}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all text-xs text-zinc-400 ${!aboutButtonIcon ? "border-primary-500 bg-primary-50 scale-110" : "border-zinc-200 hover:border-zinc-300"}`}>✕</button>
+                    {ICONS.map(ic => (
+                      <button key={ic.name} type="button" onClick={() => setAboutButtonIcon(ic.name)}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all ${aboutButtonIcon === ic.name ? "border-primary-500 bg-primary-50 scale-110" : "border-zinc-200 hover:border-zinc-300"}`}>
+                        <ic.comp className="w-4 h-4" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
               <div>
                 <label className="block text-xs text-zinc-500 mb-1">Фото</label>
                 <div className="flex gap-2">
@@ -672,11 +727,18 @@ export default function ContentEditor({ initial }: Props) {
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Подпись</label>
-            <input value={adCaption} onChange={e => setAdCaption(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
+            <input value={adCaption} onChange={e => setAdCaption(e.target.value)} autoComplete="off" name="ad-caption"
+              className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-zinc-500 mb-1">Текст кнопки (стикер)</label>
+            <input value={adButtonText} onChange={e => setAdButtonText(e.target.value)} placeholder="Жми" autoComplete="off" name="ad-btn"
+              className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
           </div>
           <div>
             <label className="block text-xs text-zinc-500 mb-1">Ссылка</label>
-            <input value={adLink} onChange={e => setAdLink(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
+            <input value={adLink} onChange={e => setAdLink(e.target.value)} autoComplete="off" name="ad-link"
+              className="glass-input w-full px-3 py-2 rounded-lg text-sm" />
           </div>
         </div>
       )}
@@ -685,10 +747,16 @@ export default function ContentEditor({ initial }: Props) {
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs text-zinc-500 mb-1">Статус</label>
-          <select value={status} onChange={e => setStatus(e.target.value)} className="glass-input w-full px-3 py-2 rounded-lg text-sm">
-            <option value="draft">Черновик (не видно никому)</option>
-            <option value="published">Опубликован</option>
-          </select>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setStatus("draft")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${status === "draft" ? "bg-zinc-200 text-zinc-700" : "bg-zinc-100 text-zinc-400 hover:bg-zinc-150"}`}>
+              Черновик
+            </button>
+            <button type="button" onClick={() => setStatus("published")}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${status === "published" ? "bg-green-200 text-green-800" : "bg-zinc-100 text-zinc-400 hover:bg-zinc-150"}`}>
+              Опубликован
+            </button>
+          </div>
         </div>
         <div>
           <label className="block text-xs text-zinc-500 mb-1">

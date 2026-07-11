@@ -9,9 +9,11 @@ naranja.outmilk.online
     ↓
 Yandex API Gateway (прокси)
     ↓
-Yandex Serverless Container (Next.js SSR)
+Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
     ↓
 Supabase (PostgreSQL + Auth + Storage)
+    ↓
+Yandex Translate API (перевод слов на уроках)
 ```
 
 ## 2. Инфраструктура (Yandex Cloud)
@@ -20,104 +22,71 @@ Supabase (PostgreSQL + Auth + Storage)
 - **Cloud ID:** b1gnm48rbktakl54i8vb
 - **Folder ID:** b1gsrqv6ri6jr7ue41fc
 - **Default Zone:** ru-central1-a
-- **Вход:** через Yandex ID (outmilker@gmail.com) — AI Studio / Console
 
 ### Serverless Container
 - **Container ID:** bba12ti21lgmv9glfl7k
 - **Название:** naranja-backend
 - **Состояние:** ACTIVE
-- **Ресурсы:** 1GB RAM, 1 vCPU (100% fraction)
-- **Таймаут:** 300s, **Concurrency:** 8
+- **Ресурсы:** 1GB RAM, 1 vCPU (100%), таймаут 300s, concurrency 8
 - **Образ:** `cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:deploy-XXX`
-- **Сервисный аккаунт:** ajep2inmg605fd6ttbb2
+- **Сервисный аккаунт (naranja-container-sa):** ajep2inmg605fd6ttbb2
 
 ### Container Registry
 - **Registry ID:** crpusm23v7g9ch5c5t9h
-- **Репозитории:**
-  - `naranja-backend` — текущий активный (deploy-016, 11.07.2026)
-  - `naranja-feliz` — предыдущие сборки
+- **Репозиторий:** `naranja-backend` (только он, naranja-feliz удалён)
 
 ### API Gateway
-- **Спекуляция:** gateway-spec.yaml (в корне проекта)
+- **Спекуляция:** gateway-spec.yaml
 - **Домен:** naranja.outmilk.online
-- **Тип:** serverless_containers → container bba12ti21lgmv9glfl7k
 
 ### Сервисные аккаунты
-1. **ajep2inmg605fd6ttbb2** — для контейнера (доступ к реестру)
-2. **ajefscetirf01br3unuc** — для GitHub Actions (роли: container-registry.images.pusher, serverless-containers.editor, viewer)
+1. **ajep2inmg605fd6ttbb2** (naranja-container-sa) — для контейнера
+   - Роли: `container-registry.images.puller` (на registry), `serverless-containers.editor` (на контейнер)
+2. **ajefscetirf01br3unuc** (naranja-github-actions) — для GitHub Actions
+   - Роли: `container-registry.images.pusher` (на registry), `serverless-containers.editor` (на контейнер), `iam.serviceAccounts.user` (на container-sa)
 
-### Платежи
-- Бесплатные квоты Yandex Cloud: Serverless Containers (10GB/мес трафика), Container Registry (1GB)
+## 3. CI/CD (GitHub Actions)
 
-## 3. Supabase
+### Как работает
+1. Пуш в ветку `main` → GitHub Actions
+2. Установка зависимостей, сборка Next.js, сборка Docker-образа
+3. Пуш образа в Yandex Container Registry
+4. Создание новой ревизии Serverless Container
+5. Health check (HTTP 200)
 
+### Файл: `.github/workflows/deploy.yml`
+### Секреты GitHub: `YC_SA_KEY_JSON`, `SUPABASE_SERVICE_ROLE_KEY`, `YANDEX_API_KEY`
+
+Подробнее — в `docs/CI_CD_PIPELINE.md`.
+
+## 4. Supabase
 - **URL:** https://zphehhzgbudetyzezunk.supabase.co
-- **Аккаунт:** outmilker@gmail.com
 - **План:** Free Tier
-
-### Ключи (в .env.local)
-| Переменная | Описание |
-|-----------|----------|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL проекта |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Публичный anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role (обходит RLS) |
+- **Ключи:** в `.env.local` и GitHub Secrets
 
 ### Таблицы
-(см. supabase/migration.sql и docs/ADMIN_GUIDE.md)
+(см. `supabase/migration.sql` и `docs/ADMIN_GUIDE.md`)
 
-## 4. Yandex Translate
-- **API Key:** в .env.local `YANDEX_API_KEY`
-- **Folder ID:** b1gsrqv6ri6jr7ue41fc (тот же что и cloud folder)
+## 5. Yandex Translate
+- **API Key:** в `.env.local` как `YANDEX_API_KEY`
+- **Folder ID:** b1gsrqv6ri6jr7ue41fc
 - **Цепочка:** Yandex → DeepL (опционально) → Google → LibreTranslate → MyMemory
 
-## 5. YooKassa (ЮKassa)
+## 6. ЮKassa
 - **Статус:** НЕ НАСТРОЕНА
-- **Переменные:** `YOO_KASSA_SHOP_ID`, `YOO_KASSA_SECRET_KEY` — пустые
-- **Необходимо:** зарегистрироваться в ЮKassa, получить shop_id и секретный ключ
+- **shop_id / secret_key:** ожидаются от менеджера ЮKassa
 
-## 6. GitHub
+## 7. GitHub
 - **Репозиторий:** https://github.com/outmilker1978/-naranja-feliz.git
-- **Ветка:** main
-- **Аккаунт:** outmilker1978
-
-## 7. Деплой
-
-### Через GitHub Actions (рекомендуемый способ)
-1. Убедиться что секрет `YC_SA_KEY_JSON` есть в GitHub → Settings → Secrets and variables → Actions
-2. Пуш в ветку `main` → автоматический деплой
-3. Либо ручной запуск: GitHub → Actions → Deploy to Yandex Cloud → Run workflow
-
-### Вручную (Docker на локальной машине)
-```bash
-set TAG=deploy-$(date +%s)
-docker build -t cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:%TAG% .
-docker push cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:%TAG%
-yc serverless container revision deploy ^
-  --container-id bba12ti21lgmv9glfl7k ^
-  --image cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:%TAG% ^
-  --service-account-id ajep2inmg605fd6ttbb2 ^
-  --memory 1GB --cores 1 --execution-timeout 300s --concurrency 8
-```
-
-### Проверка деплоя
-```bash
-curl -sI https://naranja.outmilk.online
-yc serverless container revision list --container-id bba12ti21lgmv9glfl7k
-```
-
-### Обновления БД
-1. Открыть https://supabase.com → Project → SQL Editor
-2. Вставить код из supabase/migration.sql
-3. Run
+- **Ветка:** main (единственная, защищённая)
 
 ## 8. .env.local (локальная разработка)
-
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Uyz3DPUyEZFkfXzDTOUiJg_aupb397O
-SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxxxx
-NEXT_PUBLIC_SITE_URL=https://naranja.outmilk.online
-YANDEX_API_KEY=AQVNxxxxx
+SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_SITE_URL=http://localhost:3100
+YANDEX_API_KEY=...
 YANDEX_FOLDER_ID=b1gsrqv6ri6jr7ue41fc
 YOO_KASSA_SHOP_ID=
 YOO_KASSA_SECRET_KEY=
@@ -126,20 +95,41 @@ YOO_KASSA_SECRET_KEY=
 ## 9. Локальная разработка
 ```bash
 npm install
-npm run dev      # localhost:3100 (настроено в package.json)
-npm run build    # Production сборка (output: standalone)
+npm run dev      # localhost:3100
+npm run build    # production сборка (output: standalone)
 ```
 
 ## 10. Тестовые аккаунты
-- **Учитель:** создан в Supabase Auth, роль `teacher` в `profiles`
-- **Ученик:** создан в Supabase Auth, роль `student` в `profiles`
-- Переключение режима просмотра: профиль → переключатель Учитель/Ученик
+- Учитель и ученик — в Supabase Auth, roles в `profiles`
 
-## 11. Важные файлы
+## 11. Система блоков контента портала
+
+### Типы блоков
+- **page_section** — статичные секции главной: hero (locked), features, about, testimonials, faq, cta (locked). Каждая — одна запись в `content` с `type=page_section` и `category`.
+- **news** — коллекция новостей (одна запись = одна новость), группируются в блок "Новости".
+- **article** / **ad** — динамические блоки из `content_blocks` таблицы, содержат ссылки на записи в `content`.
+
+### Порядок блоков
+- **Админка:** `buildSectionBlocks` → STATIC_BLOCK_DEFS (features→about→testimonials→faq→news) + content_blocks, сортировка: hero first, cta last, остальное по `sort_order`.
+- **Портал (page.tsx):** Hero → Courses → Features → About → Testimonials → FAQ → News → Article/Ad блоки → CTA. Каждой секции присваивается `order` (sort_order из БД для page_sections/content_blocks, Infinity для CTA).
+
+### Реордер блоков (`moveBlock`)
+1. Копируется массив `sectionBlocks`, меняются местами два соседних блока.
+2. locked-блоки (hero, cta) исключаются из перенумерации.
+3. Все unlocked-блоки получают `sort_order = index × 1000`.
+4. Статики обновляются через `/api/content/reorder`, динамики — через `/api/content-blocks/reorder`.
+5. После сохранения — `fetchAll()` перегружает данные с сервера.
+
+### Реордер внутри блока (`moveItemInBlock`)
+- Все items блока получают последовательные sort_order (0, 1, 2...) через `/api/content/reorder`.
+
+## 12. Важные файлы
 | Файл | Назначение |
 |------|-----------|
-| `Dockerfile` | Сборка Docker образа для Yandex Serverless Containers |
-| `gateway-spec.yaml` | Конфиг API Gateway Yandex Cloud |
-| `.github/workflows/deploy.yml` | CI/CD деплой через GitHub Actions |
-| `supabase/migration.sql` | Схема БД |
-| `next.config.ts` | `output: "standalone"` — для Docker |
+| `Dockerfile` | Многостадийная сборка Next.js (standalone) |
+| `gateway-spec.yaml` | API Gateway routes |
+| `.github/workflows/deploy.yml` | CI/CD pipeline |
+| `supabase/migration.sql` | Схема и миграции БД |
+| `next.config.ts` | output: "standalone" |
+| `.dockerignore` | Исключения для Docker |
+| `src/proxy.ts` | Middleware (Next.js 16 proxy convention) |

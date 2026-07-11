@@ -36,19 +36,24 @@ export default async function Home() {
 
   let sections: any[] = [];
   let news: any[] = [];
-  let articles: any[] = [];
-  let ads: any[] = [];
+  let articleBlocks: any[] = [];
+  let adBlocks: any[] = [];
   try {
-    const [sRes, nRes, aRes, adRes] = await Promise.all([
+    const [sRes, nRes, blocksRes] = await Promise.all([
       svc.from("content").select("*").eq("type", "page_section").eq("status", "published").is("scheduled_at", null).order("sort_order", { ascending: true }),
-      svc.from("content").select("*, profiles!inner(id, full_name, avatar_url)").eq("type", "news").eq("status", "published").is("scheduled_at", null).order("created_at", { ascending: false }).limit(6),
-      svc.from("content").select("*, profiles!inner(id, full_name, avatar_url)").eq("type", "article").eq("status", "published").is("scheduled_at", null).order("created_at", { ascending: false }).limit(3),
-      svc.from("content").select("*").eq("type", "ad").eq("status", "published").is("scheduled_at", null).limit(5),
+      svc.from("content").select("*, profiles!inner(id, full_name, avatar_url)").eq("type", "news").eq("status", "published").is("scheduled_at", null).order("sort_order", { ascending: true }).limit(6),
+      svc.from("content_blocks").select("*, content(*)").eq("status", "published").order("sort_order", { ascending: true }),
     ]);
     sections = sRes.data ?? [];
     news = nRes.data ?? [];
-    articles = aRes.data ?? [];
-    ads = adRes.data ?? [];
+    const allBlocks = blocksRes.data ?? [];
+    articleBlocks = allBlocks.filter((b: any) => b.type === "article");
+    adBlocks = allBlocks.filter((b: any) => b.type === "ad");
+
+    // Sort content within each block
+    for (const block of [...articleBlocks, ...adBlocks]) {
+      block.content = (block.content ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    }
   } catch {}
 
   let courseCount = 0;
@@ -111,7 +116,7 @@ export default async function Home() {
 
   const sectionEntries: { key: string; order: number; render: () => React.ReactNode }[] = [];
 
-  // Hero
+  // Hero — всегда первый
   sectionEntries.push({ key: "hero", order: -99, render: () => (
     <section className="relative flex flex-col items-center text-center px-6 pt-0 pb-6 overflow-hidden min-h-[90vh]">
       <SlideshowBackground />
@@ -245,23 +250,13 @@ export default async function Home() {
   )});
 
   // Features
-  if (features) sectionEntries.push({ key: "features", order: features.sort_order ?? 1, render: () => (
+  if (features) sectionEntries.push({ key: "features", order: features.sort_order ?? 99, render: () => (
     <section className="px-6 py-12 max-w-6xl mx-auto w-full">
       <h2 className="text-3xl sm:text-4xl font-bold text-accent text-center mb-6 tracking-tight">
-        {features?.content?.title ?? "Почему Naranja Feliz?"}
+        {features.content?.title ?? "Почему Naranja Feliz?"}
       </h2>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {(features?.content?.items?.length > 0
-          ? (features.content.items as { icon?: string; title: string; description: string }[])
-          : [
-              { icon: "BookOpen", title: "Интерактивные уроки", description: "Тексты, аудио, видео, задания — всё для погружения в испанский" },
-              { icon: "PenLine", title: "Разнообразные задания", description: "Вставь слово, перетащи ответ, выбери картинку — учись играючи" },
-              { icon: "MessageCircle", title: "Проверка преподавателем", description: "Каждое задание проверяет учитель с подробным комментарием" },
-              { icon: "BarChart3", title: "Отслеживай прогресс", description: "Дольки показывают, сколько ты уже прошёл" },
-              { icon: "MessageCircle", title: "Чат с учителем", description: "Задай вопрос в любое время, не выходя из платформы" },
-              { icon: "Layers", title: "Уровни A1–C2", description: "От начального до продвинутого — выбирай свой темп" },
-            ]
-        ).map((item, i) => {
+        {((features.content?.items ?? []) as { icon?: string; title: string; description: string }[]).map((item, i) => {
           const col = FEATURE_COLORS[i % FEATURE_COLORS.length];
           const IconComp = item.icon ? ICON_MAP[item.icon] : undefined;
           return (
@@ -279,78 +274,6 @@ export default async function Home() {
     </section>
   )});
 
-  // News
-  if (news && news.length > 0) sectionEntries.push({ key: "news", order: Math.min(...news.map((n: any) => n.sort_order ?? 99)), render: () => (
-    <section className="px-6 py-12" style={{ backgroundColor: "#F5F5F7" }}>
-      <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-bold text-accent text-center mb-6 tracking-tight">Новости школы</h2>
-        <CarouselSection>
-          {news.slice(0, 6).map((item: any) => (
-            <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
-              <div className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="badge badge-orange">Новость</span>
-                  <span className="text-xs text-muted">{new Date(item.created_at).toLocaleDateString("ru")}</span>
-                </div>
-                <h3 className="font-bold text-accent group-hover:text-primary-500 transition-colors">{item.title}</h3>
-                {item.excerpt && <p className="text-sm text-muted mt-2 line-clamp-2">{item.excerpt}</p>}
-              </div>
-            </Link>
-          ))}
-        </CarouselSection>
-      </div>
-    </section>
-  )});
-
-  // Articles
-  if (articles && articles.length > 0) sectionEntries.push({ key: "articles", order: Math.min(...articles.map((a: any) => a.sort_order ?? 99)), render: () => (
-    <section className="px-6 py-12">
-      <div className="max-w-6xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-bold text-accent text-center mb-6 tracking-tight">Полезные статьи</h2>
-        <CarouselSection>
-        {articles.map((item: any) => (
-          <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-            {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
-            <div className="p-4">
-              <span className="badge badge-orange">Статья</span>
-              <h3 className="font-bold text-accent mt-1 group-hover:text-primary-500 transition-colors">{item.title}</h3>
-              {item.excerpt && <p className="text-sm text-muted mt-2 line-clamp-3">{item.excerpt}</p>}
-            </div>
-          </Link>
-        ))}
-      </CarouselSection>
-      </div>
-    </section>
-  )});
-
-  // Ads
-  if (ads && ads.length > 0) sectionEntries.push({ key: "ads", order: Math.min(...ads.map((a: any) => a.sort_order ?? 99)), render: () => (
-    <section className="px-6 py-12 max-w-6xl mx-auto w-full space-y-6">
-      <div className="grid grid-cols-1 gap-6">
-        {ads.map((ad: any) => (
-          <a key={ad.id} href={ad.content?.link || "#"} target="_blank" rel="noopener noreferrer" className="card overflow-hidden block group">
-            {ad.cover_image || ad.content?.image ? (
-              <div className="relative">
-                <img src={ad.cover_image || ad.content?.image} alt={ad.title} loading="lazy"
-                  className="w-full h-72 sm:h-80 object-cover transition-transform duration-500 group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4">
-                  <p className="text-white font-bold text-xl sm:text-2xl drop-shadow-lg">{ad.title}</p>
-                  {ad.content?.caption && <p className="text-white/80 text-sm mt-1">{ad.content.caption}</p>}
-                </div>
-              </div>
-            ) : (
-              <div className="h-72 sm:h-80 flex items-center justify-center bg-gradient-to-r from-primary-500 via-orange-500 to-gold-400">
-                <p className="text-white font-bold text-2xl">{ad.title || ad.content?.caption || "Реклама"}</p>
-              </div>
-            )}
-          </a>
-        ))}
-      </div>
-    </section>
-  )});
-
   // About
   if (about) sectionEntries.push({ key: "about", order: about.sort_order ?? 1, render: () => (
     <section className="px-6 py-12 max-w-4xl mx-auto text-center">
@@ -359,7 +282,7 @@ export default async function Home() {
       {(about.content?.image || about.cover_image) && <div className="overflow-hidden rounded-2xl max-w-lg mx-auto shadow-md"><img src={about.content?.image || about.cover_image} alt="" loading="lazy" className="w-full transition-transform duration-500 hover:scale-105" /></div>}
       <div className="mt-6">
         <Link href="/about" className="btn-gradient px-5 py-2.5 text-sm inline-flex items-center gap-1">
-          Читать полностью <ArrowRight className="w-4 h-4" />
+          {about.content?.button_text || "Читать полностью"} <span>{about.content?.button_icon || "→"}</span>
         </Link>
       </div>
     </section>
@@ -405,8 +328,104 @@ export default async function Home() {
     </section>
   )});
 
+  // News
+  if (news && news.length > 0) sectionEntries.push({ key: "news", order: Math.min(...news.map((n: any) => n.sort_order ?? 99)), render: () => (
+    <section className="px-6 py-12" style={{ backgroundColor: "#F5F5F7" }}>
+      <div className="max-w-6xl mx-auto">
+        <h2 className="text-3xl sm:text-4xl font-bold text-accent text-center mb-6 tracking-tight">Новости школы</h2>
+        <CarouselSection>
+          {news.slice(0, 6).map((item: any) => (
+            <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
+              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="badge badge-orange">Новость</span>
+                  <span className="text-xs text-muted">{new Date(item.created_at).toLocaleDateString("ru")}</span>
+                </div>
+                <h3 className="font-bold text-accent group-hover:text-primary-500 transition-colors">{item.title}</h3>
+                {item.excerpt && <p className="text-sm text-muted mt-2 line-clamp-2">{item.excerpt}</p>}
+              </div>
+            </Link>
+          ))}
+        </CarouselSection>
+      </div>
+    </section>
+  )});
+
+  // Article blocks
+  for (const ab of articleBlocks) {
+    const items = ab.content ?? [];
+    if (items.length === 0) continue;
+    sectionEntries.push({ key: `ab-${ab.id}`, order: ab.sort_order ?? 99, render: () => (
+      <section className="px-6 py-12">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl sm:text-4xl font-bold text-accent text-center mb-6 tracking-tight">{ab.label}</h2>
+          <CarouselSection>
+          {items.map((item: any) => (
+            <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
+              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              <div className="p-4">
+                <span className="badge badge-orange">Статья</span>
+                <h3 className="font-bold text-accent mt-1 group-hover:text-primary-500 transition-colors">{item.title}</h3>
+                {item.excerpt && <p className="text-sm text-muted mt-2 line-clamp-3">{item.excerpt}</p>}
+                {item.content?.button_text && (
+                  <span className="inline-flex items-center gap-1 text-sm text-primary-500 font-medium mt-3 group-hover:gap-2 transition-all">
+                    {item.content.button_text} {item.content.button_icon || "→"}
+                  </span>
+                )}
+              </div>
+            </Link>
+          ))}
+        </CarouselSection>
+        </div>
+      </section>
+    )});
+  }
+
+  // Ad blocks
+  for (const ab of adBlocks) {
+    const items = ab.content ?? [];
+    if (items.length === 0) continue;
+    sectionEntries.push({ key: `ad-${ab.id}`, order: ab.sort_order ?? 99, render: () => (
+      <section className="px-6 py-12 max-w-6xl mx-auto w-full space-y-6">
+        {ab.label !== "Все объявления" && (
+          <h2 className="text-2xl font-bold text-accent text-center">{ab.label}</h2>
+        )}
+        <div className="grid grid-cols-1 gap-6">
+          {items.map((ad: any) => (
+            <a key={ad.id} href={ad.content?.link || "#"} target="_blank" rel="noopener noreferrer" className="card overflow-hidden block group relative">
+              {ad.cover_image || ad.content?.image ? (
+                <div className="relative">
+                  <img src={ad.cover_image || ad.content?.image} alt={ad.title} loading="lazy"
+                    className="w-full h-72 sm:h-80 object-cover" />
+                  {/* Title top-left */}
+                  <div className="absolute top-4 left-4 right-4">
+                    <p className="text-white font-extrabold text-2xl sm:text-3xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">{ad.title}</p>
+                  </div>
+                  {/* Glass-blur bottom panel */}
+                  <div className="absolute bottom-0 left-0 right-0 backdrop-blur-md bg-white/20 border-t border-white/30 px-5 py-4 flex items-end justify-between gap-4">
+                    <div className="text-left">
+                      {ad.content?.caption && <p className="text-white font-semibold text-sm sm:text-base drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">{ad.content.caption}</p>}
+                    </div>
+                    <span className="shrink-0 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white text-sm font-extrabold px-5 py-2.5 rounded-full shadow-[0_4px_16px_rgba(255,50,0,0.4)] hover:scale-110 hover:shadow-[0_6px_24px_rgba(255,50,0,0.5)] transition-all">
+                      {ad.content?.button_text || "Жми"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-72 sm:h-80 flex items-center justify-center bg-gradient-to-r from-primary-500 via-orange-500 to-gold-400">
+                  <p className="text-white font-bold text-2xl">{ad.title || ad.content?.caption || "Реклама"}</p>
+                </div>
+              )}
+            </a>
+          ))}
+        </div>
+      </section>
+    )});
+  }
+
   // CTA always last
-  sectionEntries.push({ key: "cta", order: 999, render: () => (
+  sectionEntries.push({ key: "cta", order: Number.POSITIVE_INFINITY, render: () => (
     <section className="relative overflow-hidden px-6 py-16 sm:py-20 text-center">
       <div className="absolute inset-0 bg-cover bg-center"
         style={{backgroundImage: `url('${ctaSection?.content?.bg_image || "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/hero/quino-al-tFbN1bnBynU-unsplash.jpg"}')`}} />

@@ -252,20 +252,35 @@ ADD CONSTRAINT block_submissions_unique UNIQUE (lesson_block_id, student_id);
 
 ---
 
-## Хостинг (Vercel)
+## Хостинг (Yandex Cloud + CI/CD)
 
-### Переменные окружения (`.env.local`)
-```
-NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon_key>
-SUPABASE_SERVICE_ROLE_KEY=<service_role_key>
-```
+### Инфраструктура
+- **Сайт:** https://naranja.outmilk.online
+- **Движок:** Yandex Serverless Container (Next.js SSR)
+- **Прокси:** Yandex API Gateway
+- **Registry:** cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend
+- **Контейнер ID:** bba12ti21lgmv9glfl7k
 
-### Деплой
+### Деплой (CI/CD через GitHub Actions)
+**Рекомендуемый способ:** просто пушить в `main`
+
 ```bash
-npm run build    # Проверка сборки
-vercel deploy    # Деплой на Vercel
+git add .
+git commit -m "что сделано"
+git push origin main
 ```
+
+GitHub Actions автоматом соберёт образ, загрузит в Registry и создаст новую ревизию контейнера.
+
+### Ручной деплой (локально)
+```bash
+docker build -t cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:deploy-XXX .
+docker push cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:deploy-XXX
+yc serverless container revision deploy --container-id bba12ti21lgmv9glfl7k --image cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:deploy-XXX --service-account-id ajep2inmg605fd6ttbb2 --memory 1GB --cores 1 --execution-timeout 300s --concurrency 8
+```
+
+### Подробнее
+См. `docs/CI_CD_PIPELINE.md` — схема, стоимости, обслуживание.
 
 ---
 

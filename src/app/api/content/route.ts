@@ -53,21 +53,18 @@ export async function POST(req: Request) {
   if (!isElevated) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
+
   const isAdmin = p?.role === "admin" || mRole === "admin";
 
   const status = body.status;
   if (status === "published" && !isAdmin)
     return NextResponse.json({ error: "Only admins can publish" }, { status: 403 });
 
-  let sortOrder = 0;
-  if (body.type === "page_section") {
-    const { data: existing } = await svc.from("content").select("sort_order").eq("type", "page_section").order("sort_order", { ascending: false }).limit(1);
-    if (body.category === "cta") {
-      sortOrder = (existing?.[0]?.sort_order ?? -1) + 1;
-    }
-  }
+  const { data: maxSort } = await svc.from("content").select("sort_order")
+    .eq("type", body.type).order("sort_order", { ascending: false }).limit(1);
+  const sortOrder = (maxSort?.[0]?.sort_order ?? -1) + 1;
 
-  const { data, error } = await svc.from("content").insert({
+  const insertData = {
     type: body.type,
     category: body.category ?? "general",
     title: body.title,
@@ -79,8 +76,16 @@ export async function POST(req: Request) {
     author_id: user.id,
     scheduled_at: body.scheduled_at || null,
     sort_order: sortOrder,
-  }).select().single();
+    block_id: body.block_id && body.block_id !== "undefined" ? body.block_id : null,
+  };
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { data, error } = await svc.from("content").insert(insertData).select().single();
+
+  if (error) {
+    return NextResponse.json({
+      error: error.message,
+      detail: { block_id: insertData.block_id, author_id: insertData.author_id, type: insertData.type, title: insertData.title },
+    }, { status: 500 });
+  }
   return NextResponse.json(data);
 }

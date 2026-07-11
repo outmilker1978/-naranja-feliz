@@ -515,10 +515,51 @@ ALTER TABLE content DROP CONSTRAINT IF EXISTS content_type_check;
 ALTER TABLE content ADD CONSTRAINT content_type_check CHECK (type IN ('news', 'article', 'ad', 'page_section', 'teacher'));
 ALTER TABLE content ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
 
-CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
-CREATE INDEX IF NOT EXISTS idx_content_status ON content(status);
-CREATE INDEX IF NOT EXISTS idx_content_scheduled ON content(scheduled_at);
-CREATE INDEX IF NOT EXISTS idx_content_sort_order ON content(sort_order);
+-- NF-2: content_blocks — multiple blocks per type (ad, article)
+CREATE TABLE IF NOT EXISTS content_blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type TEXT NOT NULL CHECK (type IN ('ad', 'article')),
+  label TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'draft')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE content_blocks ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read published blocks"
+  ON content_blocks FOR SELECT
+  USING (status = 'published');
+
+CREATE POLICY "Teachers and admins can manage blocks"
+  ON content_blocks FOR ALL
+  USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('teacher', 'admin'))
+  );
+
+ALTER TABLE content ADD COLUMN IF NOT EXISTS block_id UUID REFERENCES content_blocks(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_content_block_id ON content(block_id);
+
+-- Migrate existing ads/articles into default blocks
+DO $$
+DECLARE
+  ad_block_id UUID;
+  article_block_id UUID;
+BEGIN
+  INSERT INTO content_blocks (type, label, sort_order)
+  VALUES ('ad', 'Все объявления', 0)
+  ON CONFLICT DO NOTHING
+  RETURNING id INTO ad_block_id;
+
+  INSERT INTO content_blocks (type, label, sort_order)
+  VALUES ('article', 'Все статьи', 0)
+  ON CONFLICT DO NOTHING
+  RETURNING id INTO article_block_id;
+
+  UPDATE content SET block_id = ad_block_id WHERE type = 'ad' AND block_id IS NULL;
+  UPDATE content SET block_id = article_block_id WHERE type = 'article' AND block_id IS NULL;
+END $$;
 
 -- Stats RPCs for admin dashboard
 CREATE OR REPLACE FUNCTION public.get_users_by_role()

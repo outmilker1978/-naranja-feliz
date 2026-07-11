@@ -17,7 +17,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   if (!item || !["news", "article"].includes(item.type)) notFound();
 
-  const contentBlocks = Array.isArray(item.content) ? item.content : [];
+  const contentBlocks = Array.isArray(item.content) ? item.content : (item.content?.blocks ?? []);
 
   // Fetch all published content for navigation and carousel
   const { data: allContent } = await svc
