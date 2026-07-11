@@ -1,0 +1,13 @@
+.next/
+node_modules/
+.git/
+*.md
+docs/
+test-cases/
+dev-err.txt
+dev-errors.txt
+dev-out.txt
+dev-output.txt
+tmp-*
+*.tsbuildinfo
+next-env.d.ts

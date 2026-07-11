@@ -42,6 +42,9 @@ dev-output.txt
 tmp-*
 test-cases/
 
+# generated binary artifacts
+*.docx
+
 # vercel
 .vercel
 
