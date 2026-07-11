@@ -29,8 +29,11 @@ jobs:
 
       - name: Login to Yandex Container Registry
         run: |
-          IAM_TOKEN=$(yc iam create-token --service-account-key /tmp/yc-sa-key.json 2>/dev/null)
-          printf '%s' "$IAM_TOKEN" | docker login cr.yandex --username iam --password-stdin
+          yc --version
+          yc iam create-token --service-account-key /tmp/yc-sa-key.json > /tmp/iam-token.txt 2>/tmp/yc-error.txt
+          echo "yc exit: $?"
+          echo "yc stderr: $(cat /tmp/yc-error.txt)"
+          cat /tmp/iam-token.txt | docker login cr.yandex --username iam --password-stdin
 
       - name: Generate deploy tag
         id: tag
