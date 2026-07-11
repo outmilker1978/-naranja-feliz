@@ -17,18 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Yandex Cloud CLI
-        run: |
-          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
-
-      - name: Login to Yandex Container Registry
+      - name: Write SA key file
         env:
           YC_SA_KEY: ${{ secrets.YC_SA_KEY_JSON }}
-        run: |
-          echo "$YC_SA_KEY" > /tmp/yc-sa-key.json
-          yc iam create-token --service-account-key /tmp/yc-sa-key.json \
-            | docker login cr.yandex --username iam --password-stdin
+        run: printf '%s\n' "$YC_SA_KEY" > /tmp/yc-sa-key.json
+
+      - name: Login to Yandex Container Registry
+        run: cat /tmp/yc-sa-key.json | docker login cr.yandex --username json_key --password-stdin
 
       - name: Generate deploy tag
         id: tag
@@ -40,6 +35,11 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
+
+      - name: Install Yandex Cloud CLI
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
 
       - name: Create container revision
         run: |
