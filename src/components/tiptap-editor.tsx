@@ -91,21 +91,15 @@ export function TiptapEditor({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const ext = (file.name.split(".").pop() || "file").replace(/[^a-zA-Z0-9]/g, "");
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-    const { data, error } = await supabase.storage
-      .from("lesson-files")
-      .upload(fileName, file);
-
-    if (error) {
-      alert("Ошибка загрузки: " + error.message);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload-file", { method: "POST", body: formData });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
+      alert("Ошибка загрузки: " + (err.error || res.statusText));
       return;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("lesson-files")
-      .getPublicUrl(data.path);
+    const { url: publicUrl } = await res.json();
 
     const isImage = /\.(png|jpe?g|gif|webp)$/i.test(publicUrl);
     const isAudio = /\.(mp3|ogg|wav)$/i.test(publicUrl);

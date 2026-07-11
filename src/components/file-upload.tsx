@@ -20,22 +20,37 @@ export function FileUpload({
 
     setUploading(true);
 
-    const ext = file.name.split(".").pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const isImage = file.type.startsWith("image/");
+    let publicUrl: string;
 
-    const { data, error } = await supabase.storage
-      .from("lesson-files")
-      .upload(fileName, file);
-
-    if (error) {
-      alert("Ошибка загрузки: " + error.message);
-      setUploading(false);
-      return;
+    if (isImage) {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload-file", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        alert("Ошибка загрузки: " + (err.error || res.statusText));
+        setUploading(false);
+        return;
+      }
+      const data = await res.json();
+      publicUrl = data.url;
+    } else {
+      const ext = file.name.split(".").pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data, error } = await supabase.storage
+        .from("lesson-files")
+        .upload(fileName, file);
+      if (error) {
+        alert("Ошибка загрузки: " + error.message);
+        setUploading(false);
+        return;
+      }
+      const { data: { publicUrl: url } } = supabase.storage
+        .from("lesson-files")
+        .getPublicUrl(data.path);
+      publicUrl = url;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("lesson-files")
-      .getPublicUrl(data.path);
 
     setPreview(publicUrl);
     setUploading(false);
