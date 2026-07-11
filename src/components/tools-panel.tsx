@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { X, Pin, PinOff, GraduationCap, Users, ClipboardCheck, BarChart3, History, FileText, MessageCircle, Bell, Settings, BookOpen, LayoutGrid } from "lucide-react";
+import { X, Pin, PinOff, GraduationCap, Users, ClipboardCheck, BarChart3, History, FileText, MessageCircle, Bell, Settings, BookOpen, LayoutGrid, LayoutDashboard } from "lucide-react";
 
 interface ToolItem {
   icon: React.ReactNode;
@@ -91,13 +91,11 @@ export default function ToolsPanel() {
   return (
     <>
       <button data-tools-trigger onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-4 sm:right-6 sm:bottom-6 z-30 w-11 h-11 bg-primary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-600 transition-all hover:scale-105 active:scale-95"
-        style={{ bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
+        className="fixed max-md:bottom-4 md:top-36 z-30 w-11 h-11 bg-primary-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-600 transition-all hover:scale-105 active:scale-95"
+        style={{ right: "calc(1rem + var(--tools-panel-width, 0px))", bottom: "calc(1.5rem + env(safe-area-inset-bottom, 0px))" }}
         title={ready ? "Инструменты" : "Загрузка..."}
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-        </svg>
+        <LayoutDashboard className="w-5 h-5" />
       </button>
 
       {open && !pinned && (
@@ -110,14 +108,12 @@ export default function ToolsPanel() {
       >
         <div className="flex items-center justify-between p-4 border-b border-zinc-100 shrink-0">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-primary-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
+            <LayoutDashboard className="w-4 h-4 text-primary-500" />
             <span className="font-semibold text-accent text-sm">Инструменты</span>
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setPinned(!pinned)}
-              className={`p-1.5 rounded-md transition-colors ${pinned ? "text-primary-500 bg-primary-50" : "text-zinc-400 hover:text-zinc-600"}`}
+              className={`max-md:hidden p-1.5 rounded-md transition-colors ${pinned ? "text-primary-500 bg-primary-50" : "text-zinc-400 hover:text-zinc-600"}`}
               title={pinned ? "Открепить" : "Закрепить"}>
               {pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
             </button>

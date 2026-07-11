@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Trash2 } from "lucide-react";
 
 interface Submission {
   id: string;
@@ -172,7 +173,7 @@ export default function HistoryPage() {
               </label>
               <button onClick={() => setConfirmOpen(true)} disabled={deleting}
                 className="ml-auto text-sm bg-red-500 text-white px-4 py-1.5 rounded-xl hover:bg-red-600 disabled:opacity-50">
-                {deleting ? "Удаление..." : "🗑 Удалить"}
+                {deleting ? "Удаление..." : <><Trash2 className="w-4 h-4 inline" /> Удалить</>}
               </button>
             </div>
           )}

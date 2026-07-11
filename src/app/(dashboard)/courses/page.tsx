@@ -61,18 +61,18 @@ export default async function CoursesPage() {
           <div className="space-y-4 mb-12">
             {(myCourses ?? []).map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
-                <div className="p-4 sm:p-5 flex items-start gap-4">
-                  {course.image_url && <div className="w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
+                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-accent">{course.title}</h3>
+                    <h3 className="font-bold text-accent break-words">{course.title}</h3>
                     <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
-                    <div className="flex items-center gap-2 mt-3">
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
                       <span className="badge badge-orange">{course.level}</span>
                       {course.published ? <span className="badge badge-green">Опубликован</span> : <span className="badge badge-gray">Черновик</span>}
                       {course.access_mode === "subscription" && <span className="badge" style={{ background: "#F3E8FF", color: "#7C3AED" }}>По подписке</span>}
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-primary-500 shrink-0 self-center">Управлять →</span>
+                  <span className="text-sm font-semibold text-primary-500 shrink-0 self-end sm:self-center mt-2 sm:mt-0">Управлять →</span>
                 </div>
               </Link>
             ))}
@@ -94,7 +94,7 @@ export default async function CoursesPage() {
         <div className="text-center py-16 text-muted"><p>Нет опубликованных курсов для студентов</p></div>
       )}
 
-      {availableCourses && availableCourses.length > 0 && (
+      {!isTeacherView && availableCourses && availableCourses.length > 0 && (
         <div>
           {enrolledIds.length > 0 && <p className="text-sm text-muted mb-4">Ты записан на {enrolledIds.length} курс{enrolledIds.length > 1 ? "а" : ""}</p>}
           <div className="space-y-4">
@@ -107,31 +107,31 @@ export default async function CoursesPage() {
                 const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                 return (
                   <Link key={course.id} href={`/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
-                    <div className="p-4 sm:p-5 flex items-start gap-4">
-                      {course.image_url && <div className="w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                    <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
+                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-accent">{course.title}</h3>
+                        <h3 className="font-bold text-accent break-words">{course.title}</h3>
                         <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
-                        <div className="flex items-center gap-2 mt-3">
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
                           <span className="badge badge-orange">{course.level}</span>
                           {course.access_mode === "subscription" && <span className="badge" style={{ background: "#F3E8FF", color: "#7C3AED" }}>По подписке</span>}
                           {total > 0 && <span className="text-xs text-muted">{completed}/{total}</span>}
                         </div>
                         {total > 0 && <div className="mt-2"><OrangeProgress completed={completed} total={total} size="sm" /></div>}
                       </div>
-                      <span className="text-sm font-bold text-primary-500 shrink-0 self-center">{pct === 100 ? "🍊 Пройден" : "Перейти к урокам →"}</span>
+                      <span className="text-sm font-bold text-primary-500 shrink-0 self-end sm:self-center mt-2 sm:mt-0">{pct === 100 ? "🍊 Пройден" : "Перейти к урокам →"}</span>
                     </div>
                   </Link>
                 );
               }
               return (
                 <div key={course.id} className="card overflow-hidden hover:-translate-y-1 transition-all duration-300">
-                  <div className="p-4 sm:p-5 flex items-start gap-4">
-                    {course.image_url && <div className="w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover" /></div>}
+                  <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
+                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" className="w-full h-full object-cover" /></div>}
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-accent">{course.title}</h3>
+                      <h3 className="font-bold text-accent break-words">{course.title}</h3>
                       <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
-                      <div className="flex items-center gap-2 mt-3">
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
                         <span className="badge badge-orange">{course.level}</span>
                         {course.access_mode === "subscription" && <span className="badge" style={{ background: "#F3E8FF", color: "#7C3AED" }}>По подписке</span>}
                       </div>

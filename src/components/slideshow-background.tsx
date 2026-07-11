@@ -1,33 +1,40 @@
 "use client";
 import { useEffect, useState } from "react";
 
+const SUPABASE_URL = "https://zphehhzgbudetyzezunk.supabase.co";
+const BUCKET = "hero";
+
 const ALL_IMAGES = [
-  "/images/bg/andres-garcia-_SWgYuWS9wY-unsplash.jpg",
-  "/images/bg/quino-al-tFbN1bnBynU-unsplash.jpg",
-  "/images/bg/mario-la-pergola-hxCQXj5mB7Y-unsplash.jpg",
-  "/images/bg/chris-boland-KZKtkNij_ko-unsplash.jpg",
-  "/images/bg/daniel-lloyd-blunk-fernandez-IuOOiHgPEpY-unsplash.jpg",
-  "/images/bg/alexander-jawfox-l8V8q01KVxA-unsplash.jpg",
-  "/images/bg/andreas-m-0kqLwki3IZQ-unsplash.jpg",
-  "/images/bg/andrey-zvyagintsev-EQj1ZMpq_VM-unsplash.jpg",
-  "/images/bg/angela-compagnone-7-rUmLJK5Qo-unsplash.jpg",
-  "/images/bg/anna-murzilon-Eu8v-aKZdFg-unsplash.jpg",
-  "/images/bg/belinda-fewings-EHPq7LxwFog-unsplash.jpg",
-  "/images/bg/florian-wehde-WBGjg0DsO_g-unsplash.jpg",
-  "/images/bg/hector-j-rivas-wV-icTT5x74-unsplash.jpg",
-  "/images/bg/jennie-clavel-X7O48jBHzVI-unsplash.jpg",
-  "/images/bg/jimmy-woo-XE727t0QtBs-unsplash.jpg",
-  "/images/bg/jonas-hoss-p0R8R5IS6aA-unsplash.jpg",
-  "/images/bg/jonny-james-TE0leJlNX8Y-unsplash.jpg",
-  "/images/bg/kaitlin-dowis-VjM2t7VH9Uo-unsplash.jpg",
-  "/images/bg/kazuo-ota-O_ox-HvdgFA-unsplash.jpg",
-  "/images/bg/kazuo-ota-QgISXGAFNJg-unsplash.jpg",
-  "/images/bg/matthew-waring-zp295I3rJJ8-unsplash.jpg",
-  "/images/bg/richard-hewat-sSyRnrhAqU8-unsplash.jpg",
-  "/images/bg/sam-williams-UuGAw6nF0Vw-unsplash.jpg",
-  "/images/bg/sydney-rae-XIgj8Mk94ts-unsplash.jpg",
-  "/images/bg/victor-rosario-kjoaKUBpudw-unsplash.jpg",
+  "andres-garcia-_SWgYuWS9wY-unsplash.jpg",
+  "quino-al-tFbN1bnBynU-unsplash.jpg",
+  "mario-la-pergola-hxCQXj5mB7Y-unsplash.jpg",
+  "chris-boland-KZKtkNij_ko-unsplash.jpg",
+  "daniel-lloyd-blunk-fernandez-IuOOiHgPEpY-unsplash.jpg",
+  "alexander-jawfox-l8V8q01KVxA-unsplash.jpg",
+  "andreas-m-0kqLwki3IZQ-unsplash.jpg",
+  "andrey-zvyagintsev-EQj1ZMpq_VM-unsplash.jpg",
+  "angela-compagnone-7-rUmLJK5Qo-unsplash.jpg",
+  "anna-murzilon-Eu8v-aKZdFg-unsplash.jpg",
+  "belinda-fewings-EHPq7LxwFog-unsplash.jpg",
+  "florian-wehde-WBGjg0DsO_g-unsplash.jpg",
+  "hector-j-rivas-wV-icTT5x74-unsplash.jpg",
+  "jennie-clavel-X7O48jBHzVI-unsplash.jpg",
+  "jimmy-woo-XE727t0QtBs-unsplash.jpg",
+  "jonas-hoss-p0R8R5IS6aA-unsplash.jpg",
+  "jonny-james-TE0leJlNX8Y-unsplash.jpg",
+  "kaitlin-dowis-VjM2t7VH9Uo-unsplash.jpg",
+  "kazuo-ota-O_ox-HvdgFA-unsplash.jpg",
+  "kazuo-ota-QgISXGAFNJg-unsplash.jpg",
+  "matthew-waring-zp295I3rJJ8-unsplash.jpg",
+  "richard-hewat-sSyRnrhAqU8-unsplash.jpg",
+  "sam-williams-UuGAw6nF0Vw-unsplash.jpg",
+  "sydney-rae-XIgj8Mk94ts-unsplash.jpg",
+  "victor-rosario-kjoaKUBpudw-unsplash.jpg",
 ];
+
+function imgUrl(name: string) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${name}`;
+}
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -71,7 +78,7 @@ export default function SlideshowBackground({ className }: { className?: string 
           <div key={`${src}${isCurrent ? `-a${remountKey}` : ""}`}
             className={`absolute inset-0 bg-cover bg-center ${className || ""}`}
             style={{
-              backgroundImage: `url('${src}')`,
+              backgroundImage: `url('${imgUrl(src)}')`,
               opacity: isCurrent ? 1 : 0,
               animation: isCurrent ? "kenburns 6s ease-in-out forwards" : undefined,
               transition: "opacity 1.5s ease-in-out",

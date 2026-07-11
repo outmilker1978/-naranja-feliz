@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Volume2 } from "lucide-react";
+import { Volume2, Mic, Video, Square, HardDrive, Folder, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, VideoAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent } from "./types";
 import { SubmissionThread } from "@/components/submission-thread";
@@ -95,10 +95,10 @@ function ImageBlock({ block }: { block: LessonBlock }) {
     return (
       <figure>
         <div className="border border-zinc-200 rounded-xl p-5 bg-zinc-50 flex flex-col items-center gap-3 text-center">
-          <span className="text-3xl">💾</span>
+          <HardDrive className="w-8 h-8 text-zinc-400" />
           <p className="text-sm text-zinc-500">Фото на Яндекс.Диске</p>
-          <a href={c.src} target="_blank" className="bg-primary-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors">
-            Открыть на Яндекс.Диске →
+          <a href={c.src} target="_blank" className="bg-primary-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors inline-flex items-center gap-1.5">
+            Открыть на Яндекс.Диске <ArrowUpRight className="w-4 h-4" />
           </a>
         </div>
         {c.caption && <figcaption className="text-sm text-zinc-500 mt-1 text-center">{c.caption}</figcaption>}
@@ -131,10 +131,10 @@ function VideoBlock({ block }: { block: LessonBlock }) {
       <div className="my-4">
         {c.caption && <p className="text-sm font-medium text-zinc-700 mb-2">{c.caption}</p>}
         <div className="border border-zinc-200 rounded-xl p-5 bg-zinc-50 flex flex-col items-center gap-3 text-center">
-          <span className="text-3xl">{gdriveMatch ? "📁" : "💾"}</span>
+          <span className="text-3xl text-zinc-400">{gdriveMatch ? <Folder className="w-8 h-8" /> : <HardDrive className="w-8 h-8" />}</span>
           <p className="text-sm text-zinc-500">Видео на {serviceName}</p>
-          <a href={src} target="_blank" className="bg-primary-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors">
-            Открыть на {serviceName} →
+          <a href={src} target="_blank" className="bg-primary-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors inline-flex items-center gap-1.5">
+            Открыть на {serviceName} <ArrowUpRight className="w-4 h-4" />
           </a>
         </div>
       </div>
@@ -535,10 +535,10 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
     <div className="border border-primary-200 rounded-lg p-4">
       <p className="font-medium text-zinc-800 mb-3">{c.prompt}</p>
       {!recording && !audioUrl && (
-        <button onClick={startRecording} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600">🎙 Записать</button>
+        <button onClick={startRecording} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 inline-flex items-center gap-1.5"><Mic className="w-4 h-4" /> Записать</button>
       )}
       {recording && (
-        <button onClick={stopRecording} className="bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm">⏹ Остановить</button>
+        <button onClick={stopRecording} className="bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><Square className="w-4 h-4" /> Остановить</button>
       )}
       {audioUrl && (
         <div className="mt-2">
@@ -901,13 +901,13 @@ function VideoAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
       {cameraError && <p className="text-sm text-red-500 mb-2">{cameraError}</p>}
 
       {!recording && !videoUrl && (
-        <button onClick={startRecording} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600">🎥 Записать видео</button>
+        <button onClick={startRecording} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 inline-flex items-center gap-1.5"><Video className="w-4 h-4" /> Записать видео</button>
       )}
 
       {recording && (
         <div>
           <video ref={videoRef} autoPlay muted className="w-full max-w-md rounded mb-2 bg-black" />
-          <button onClick={stopRecording} className="bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm">⏹ Остановить</button>
+        <button onClick={stopRecording} className="bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm inline-flex items-center gap-1.5"><Square className="w-4 h-4" /> Остановить</button>
         </div>
       )}
 

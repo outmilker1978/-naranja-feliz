@@ -1,0 +1,20 @@
+openapi: "3.0.0"
+info:
+  title: naranja-school
+  version: 1.0.0
+servers:
+- url: https://d5d6rhc37ek7qfbak3l2.kocrdvxt.apigw.yandexcloud.net
+- url: https://naranja.outmilk.online
+paths:
+  /{proxy+}:
+    x-yc-apigateway-any-method:
+      x-yc-apigateway-integration:
+        type: serverless_containers
+        container_id: bba12ti21lgmv9glfl7k
+        service_account_id: ajep2inmg605fd6ttbb2
+      parameters:
+        - name: proxy
+          in: path
+          required: false
+          schema:
+            type: string

@@ -217,16 +217,16 @@ export default function VocabularyPage() {
 
           <div className="perspective-1000 cursor-pointer" onClick={() => setCurrentFlipped(!currentFlipped)}>
             <div className={`relative w-full h-56 sm:h-64 transition-transform duration-500 preserve-3d ${currentFlipped ? "rotate-y-180" : ""}`}>
-              <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-8 backface-hidden">
-                <p className="text-2xl sm:text-3xl font-bold text-accent text-center">{cardWord?.word}</p>
+              <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-4 sm:p-8 backface-hidden overflow-hidden">
+                <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-accent text-center break-words leading-tight max-w-full [hyphens:auto]">{cardWord?.word}</p>
                 {cardWord?.transcription && <p className="text-sm text-muted mt-2">[{cardWord.transcription}]</p>}
-                {cardWord?.example_sentence && <p className="text-sm text-muted mt-4 italic text-center">{cardWord.example_sentence}</p>}
-                <p className="text-xs text-muted mt-6">Нажми, чтобы перевернуть</p>
+                {cardWord?.example_sentence && <p className="text-sm text-muted mt-4 italic text-center break-words max-w-full">{cardWord.example_sentence}</p>}
+                {!cardWord?.example_sentence && <p className="text-xs text-muted mt-6">Нажми, чтобы перевернуть</p>}
               </div>
-              <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-8 backface-hidden rotate-y-180">
-                <p className="text-2xl sm:text-3xl font-bold text-accent text-center">{cardWord?.translation}</p>
+              <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-4 sm:p-8 backface-hidden rotate-y-180 overflow-hidden">
+                <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-accent text-center break-words leading-tight max-w-full [hyphens:auto]">{cardWord?.translation}</p>
                 {cardWord?.tags && cardWord.tags.length > 0 && (
-                  <div className="flex gap-1.5 mt-4">{cardWord.tags.map(t => <span key={t} className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded">{t}</span>)}</div>
+                  <div className="flex flex-wrap gap-1.5 mt-4 justify-center">{cardWord.tags.map(t => <span key={t} className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded">{t}</span>)}</div>
                 )}
               </div>
             </div>

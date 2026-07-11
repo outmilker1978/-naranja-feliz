@@ -506,9 +506,19 @@ CREATE POLICY "Teachers and admins can manage content"
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('teacher', 'admin'))
   );
 
+-- Allow teacher type in content
+ALTER TABLE content DROP CONSTRAINT IF EXISTS content_type_check;
+ALTER TABLE content ADD CONSTRAINT content_type_check CHECK (type IN ('news', 'article', 'ad', 'page_section', 'teacher'));
+
+-- Allow teacher type in content
+ALTER TABLE content DROP CONSTRAINT IF EXISTS content_type_check;
+ALTER TABLE content ADD CONSTRAINT content_type_check CHECK (type IN ('news', 'article', 'ad', 'page_section', 'teacher'));
+ALTER TABLE content ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+
 CREATE INDEX IF NOT EXISTS idx_content_type ON content(type);
 CREATE INDEX IF NOT EXISTS idx_content_status ON content(status);
 CREATE INDEX IF NOT EXISTS idx_content_scheduled ON content(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_content_sort_order ON content(sort_order);
 
 -- Stats RPCs for admin dashboard
 CREATE OR REPLACE FUNCTION public.get_users_by_role()
@@ -601,3 +611,31 @@ CREATE POLICY "Users manage own vocabulary"
 
 CREATE INDEX IF NOT EXISTS idx_vocabulary_user ON vocabulary(user_id);
 CREATE INDEX IF NOT EXISTS idx_vocabulary_tags ON vocabulary USING GIN(tags);
+
+-- Payment transactions for YooKassa integration
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  amount NUMERIC(10,2) NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'RUB',
+  description TEXT,
+  yookassa_id TEXT UNIQUE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'succeeded', 'canceled', 'failed')),
+  plan_duration_days INTEGER NOT NULL DEFAULT 30,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE payment_transactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own payment transactions"
+  ON payment_transactions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Service can manage payment transactions"
+  ON payment_transactions FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_user ON payment_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_yookassa ON payment_transactions(yookassa_id);

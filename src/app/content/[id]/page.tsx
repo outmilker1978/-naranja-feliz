@@ -1,7 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Newspaper, BookOpen, Clock, User, Sparkles, Layers, MessageCircle, GraduationCap, Home } from "lucide-react";
+import { Newspaper, BookOpen, Clock, User, Sparkles, Layers, MessageCircle, GraduationCap, Home } from "lucide-react";
 import ContentCarousel from "@/components/content-carousel";
 
 export default async function ContentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,7 +29,6 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   const allItems = allContent ?? [];
   const currentIdx = allItems.findIndex(c => c.id === id);
-  const prevItem = currentIdx > 0 ? allItems[currentIdx - 1] : null;
   const nextItem = currentIdx < allItems.length - 1 ? allItems[currentIdx + 1] : null;
 
   // Related items for sidebar (same type first, then others)
@@ -42,32 +41,23 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      {/* Sticky navigation bar */}
-      <div className="sticky top-0 z-30 bg-white/70 backdrop-blur-md border-b border-border/50 shadow-sm">
-        <div className="max-w-6xl mx-auto flex items-center justify-between px-5 md:px-8 py-3">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent transition-colors">
-            <ArrowLeft className="w-4 h-4" /> Назад
+      {/* Navigation bar — fixed below site header */}
+      <div className="border-b border-border/30 bg-white" style={{ position: "fixed", top: "73px", left: 0, right: 0, zIndex: 40 }}>
+        <div className="max-w-6xl mx-auto flex items-center justify-between px-5 md:px-8 py-2.5">
+          <Link href="/"
+            className="text-sm font-semibold text-primary-500 hover:text-primary-600 transition-colors inline-flex items-center gap-1">
+            ← {item.type === "news" ? "Все новости" : "Все статьи"}
           </Link>
-          <div className="flex items-center gap-3">
-            {prevItem && (
-              <Link href={`/content/${prevItem.id}`}
-                className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent transition-colors group">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline max-w-[180px] truncate">{prevItem.title}</span>
-              </Link>
-            )}
-            {nextItem && (
-              <Link href={`/content/${nextItem.id}`}
-                className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent transition-colors group">
-                <span className="hidden sm:inline max-w-[180px] truncate">{nextItem.title}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            )}
-          </div>
+          {nextItem && (
+            <Link href={`/content/${nextItem.id}`}
+              className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1">
+              {item.type === "news" ? "Следующая новость" : "Следующая статья"} →
+            </Link>
+          )}
         </div>
       </div>
 
-      <article className="max-w-6xl mx-auto px-5 md:px-8 py-10">
+      <article className="max-w-6xl mx-auto px-5 md:px-8 pt-14 pb-10">
         <div className="grid lg:grid-cols-[1fr_320px] gap-10">
           {/* Main content */}
           <div>

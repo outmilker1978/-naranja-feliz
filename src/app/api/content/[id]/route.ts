@@ -27,9 +27,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (body.status === "published" && !isAdmin)
     return NextResponse.json({ error: "Only admins can publish" }, { status: 403 });
 
-  const { data, error } = await svc.from("content").update({
+  const updateFields: Record<string, any> = {
     type: body.type,
-    category: body.category,
     title: body.title,
     slug: body.slug,
     excerpt: body.excerpt,
@@ -38,7 +37,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     status: body.status,
     scheduled_at: body.scheduled_at,
     updated_at: new Date().toISOString(),
-  }).eq("id", id).select().single();
+  };
+  if (body.category !== undefined && body.category !== null) {
+    updateFields.category = body.category;
+  }
+  const { data, error } = await svc.from("content").update(updateFields).eq("id", id).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

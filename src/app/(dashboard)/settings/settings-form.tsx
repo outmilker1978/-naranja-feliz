@@ -13,6 +13,9 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
 
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
   const [uploading, setUploading] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const [avatarSaved, setAvatarSaved] = useState(false);
+  const [pendingAvatarUrl, setPendingAvatarUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [oldPassword, setOldPassword] = useState("");
@@ -49,15 +52,31 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const fileName = `avatar-${userId}-${Date.now()}-${safeName}`;
-    const { error } = await supabase.storage.from("lesson-files").upload(fileName, file);
-    if (error) { alert("Ошибка загрузки: " + error.message); setUploading(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from("lesson-files").getPublicUrl(fileName);
-    setAvatarUrl(publicUrl);
-    await supabase.from("profiles").upsert({ id: userId, avatar_url: publicUrl }, { onConflict: "id" });
-    await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/upload-file", { method: "POST", body: formData });
+    if (!res.ok) { alert("Ошибка загрузки"); setUploading(false); return; }
+    const data = await res.json();
+    setPendingAvatarUrl(data.url);
+    setAvatarUrl(data.url);
+    setAvatarSaved(false);
     setUploading(false);
+  };
+
+  const saveAvatar = async () => {
+    if (!pendingAvatarUrl) return;
+    setSavingAvatar(true);
+    const res = await fetch("/api/save-avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatarUrl: pendingAvatarUrl }),
+    });
+    if (!res.ok) { setSavingAvatar(false); alert("Ошибка сохранения"); return; }
+    const { error } = await supabase.auth.updateUser({ data: { avatar_url: pendingAvatarUrl } });
+    setSavingAvatar(false);
+    if (error) { alert("Ошибка обновления сессии"); return; }
+    setAvatarSaved(true);
+    setPendingAvatarUrl(null);
+    setTimeout(() => setAvatarSaved(false), 2000);
     router.refresh();
   };
 
@@ -117,8 +136,18 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn-gradient px-4 py-2 text-sm disabled:opacity-50">
               {uploading ? "Загрузка..." : "Загрузить фото"}
             </button>
-            {avatarUrl && (
-              <button onClick={async () => { await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId); await supabase.auth.updateUser({ data: { avatar_url: null } }); setAvatarUrl(""); router.refresh(); }} className="ml-2 text-sm text-red-500 hover:underline">
+            {pendingAvatarUrl && (
+              <button onClick={saveAvatar} disabled={savingAvatar} className="ml-2 bg-zinc-900 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-50">
+                {savingAvatar ? "..." : "Сохранить"}
+              </button>
+            )}
+            {avatarSaved && <span className="ml-2 text-sm text-green-600 font-medium">✓</span>}
+            {avatarUrl && !pendingAvatarUrl && (
+              <button onClick={async () => {
+                const r = await fetch("/api/save-avatar", { method: "POST", body: JSON.stringify({ avatarUrl: "" }) });
+                if (!r.ok) { alert("Ошибка удаления"); return; }
+                setAvatarUrl(""); setPendingAvatarUrl(null); router.refresh();
+              }} className="ml-2 text-sm text-red-500 hover:underline">
                 Удалить
               </button>
             )}
@@ -209,10 +238,15 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
                   <p className="text-accent font-medium">Подписка неактивна</p>
                   <p className="text-sm text-muted mt-1">Нет доступа к урокам</p>
                 </div>
-                <button onClick={requestExtend} disabled={requestingExtend}
-                  className="btn-gradient px-6 py-2.5 text-sm">
-                  {requestingExtend ? "..." : "Запросить продление"}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <a href="/pricing" className="btn-gradient px-6 py-2.5 text-sm inline-block">
+                    Купить подписку
+                  </a>
+                  <button onClick={requestExtend} disabled={requestingExtend}
+                    className="btn-ghost px-6 py-2.5 text-sm">
+                    {requestingExtend ? "..." : "Запросить продление"}
+                  </button>
+                </div>
               </div>
             );
           })()}

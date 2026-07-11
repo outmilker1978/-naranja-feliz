@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Bell } from "lucide-react";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -49,7 +50,7 @@ export default function NotificationsPage() {
 
       {notifications.length === 0 ? (
         <div className="text-center py-16 text-muted">
-          <p className="text-4xl mb-2">🔔</p>
+          <p className="mb-2"><Bell className="w-10 h-10 text-muted mx-auto" /></p>
           <p>Нет уведомлений</p>
         </div>
       ) : (

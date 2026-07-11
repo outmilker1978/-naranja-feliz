@@ -9,10 +9,9 @@
 | **База данных** | Supabase (PostgreSQL) | outmilker@gmail.com |
 | **Аутентификация** | Supabase Auth (email/password) | там же |
 | **Хранилище файлов** | Supabase Storage (bucket `lesson-files`) | там же |
-| **Хостинг/сервер** | Vercel (Hobby Free) | outmilker@gmail.com (GitHub OAuth) |
-| **CDN/DNS** | Cloudflare (Free) | outmilker@gmail.com |
+| **Хостинг/сервер** | Yandex Cloud Serverless Containers (Free Tier) | outmilker@gmail.com (Yandex ID) |
 | **Git** | GitHub | outmilker1978 |
-| **Домен** | outmilk.online (reg.ru) | outmilker@gmail.com |
+| **Домен** | naranja.outmilk.online | Yandex API Gateway |
 
 ### Связи между сервисами
 
@@ -21,20 +20,17 @@
     ↓
 naranja.outmilk.online
     ↓
-Cloudflare (CDN, прокси)  ← DNS: adel.ns.cloudflare.com / ben.ns.cloudflare.com
+Yandex API Gateway (gateway-spec.yaml)
     ↓
-Vercel (сервер, SSR)     ← GitHub push → авто-деплой
+Yandex Serverless Container (Next.js SSR, порт 8080)
     ↓
 Supabase (БД, Auth, Storage)
 ```
 
-- **GitHub** → **Vercel**: push в `main` → авто-деплой
-- **Vercel** → **Supabase**: подключение по URL + anon key + service role key (через переменные окружения)
-- **Cloudflare** → **Vercel**: DNS-запись CNAME `naranja` → `cname.vercel-dns.com`
-- **Cloudflare** → **GitHub Pages**: DNS-запись CNAME `tvhamsters` → `outmilker1978.github.io`
-- **reg.ru**: NS-серверы `outmilk.online` делегированы на Cloudflare
+- **GitHub** → **Yandex CR**: GitHub Actions (docker build → push)
+- **Yandex Cloud** → **Supabase**: подключение по URL + anon key + service role key (через переменные окружения)
 
-### Переменные окружения (Vercel)
+### Переменные окружения (локально .env.local, в GitHub Actions — secrets)
 
 | Переменная | Откуда | Назначение |
 |-----------|--------|-----------|
@@ -54,25 +50,31 @@ src/
 ├── app/
 │   ├── (dashboard)/          # Все страницы после логина (layout с шапкой)
 │   │   ├── admin/            # Админ-панель учителя
+│   │   │   ├── content/      # Управление контентом портала (page_section, news, article, ad)
 │   │   │   ├── courses/      # Управление курсами и уроками
 │   │   │   ├── lessons/      # Редактор урока (блоки)
 │   │   │   ├── stats/        # Статистика ресурсов
 │   │   │   ├── submissions/  # Проверка заданий
 │   │   │   └── teachers/     # Назначение учителей
-│   │   ├── courses/          # Студенческая часть
+│   │   ├── courses/          # Студенческая часть (курс + урок)
 │   │   ├── notifications/    # Уведомления
 │   │   └── settings/         # Настройки профиля
+│   ├── page.tsx              # Главная (портал) — секции Hero, Features, About, CTA...
+│   ├── content/[id]/         # Просмотр новости/статьи
+│   ├── reviews/              # Страница отзывов
+│   ├── about/                # О школе
+│   ├── catalog/              # Каталог курсов
+│   ├── teachers/             # Преподаватели
 │   ├── api/                  # Route Handlers
-│   ├── auth/                 # Auth callback
-│   ├── login/                # Страница входа
-│   └── register/             # Страница регистрации
+│   └── ...
 ├── components/
+│   ├── content-editor.tsx    # Редактор контента портала
+│   ├── content-carousel.tsx  # Карусель контента (новости, статьи)
 │   ├── lesson-blocks/        # Рендер и редактор блоков уроков
-│   │   ├── block-renderer.tsx    # Рендер всех типов блоков (студент)
-│   │   └── blocks-editor.tsx     # Редактор блоков (учитель)
-│   ├── dashboard-header.tsx      # Шапка с меню
-│   ├── submission-thread.tsx     # Чат под ответом
-│   └── orange-progress.tsx       # Дольки апельсина
+│   ├── dashboard-header.tsx  # Шапка с меню
+│   ├── site-header.tsx       # Шапка портала
+│   ├── submission-thread.tsx # Чат под ответом
+│   └── ...
 └── lib/
     └── supabase/             # Клиенты Supabase
         ├── server.ts         # createClient (SSR), createServiceClient, createAdminClient
@@ -108,15 +110,16 @@ src/
 | `/api/submit-answer` | POST | Сохранить ответ + уведомить учителя |
 | `/api/review-submission` | POST | Проверить ответ (учитель) |
 | `/api/comments` | GET/POST | Комментарии к ответу |
-| `/api/upload-file` | POST | Загрузить файл в Storage |
+| `/api/upload-file` | POST | Загрузить файл в Storage (со сжатием Sharp) |
 | `/api/upload-audio` | POST | Загрузить аудио (legacy) |
 | `/api/assign-teacher` | POST | Назначить учителя |
 | `/api/enroll` | POST | Записаться на курс |
 | `/api/notifications` | GET/PUT | Уведомления |
 | `/api/stats` | GET | Статистика (учитель) |
-| `/api/fix-name` | GET/POST | Фикс имени |
-| `/api/debug` | GET | Отладка |
-| `/api/migrate-lesson` | POST | Миграция урока (legacy) |
+| `/api/content` | GET/POST | CRUD контента портала |
+| `/api/content/[id]` | GET/PUT/DELETE | CRUD одного элемента контента |
+| `/api/content/reorder` | POST | Пересортировка блоков контента |
+| `/api/translate` | POST | Перевод текста (Yandex → DeepL → Google → ...) |
 
 ---
 
@@ -157,8 +160,15 @@ src/
 
 - Bucket: `lesson-files`
 - Загрузка через `/api/upload-file` (service client, без RLS)
-- Структура: `{type}/{userId}/{timestamp}.{ext}`
-- Поддерживаемые типы: image/*, audio/*, video/*
+- Структура: `uploads/{userId}/{timestamp}.{ext}`
+- Поддерживаемые типы: image/*, audio/*, video/*, .pdf
+- **Сжатие изображений**: все картинки проходят через Sharp:
+  - JPEG → mozjpeg quality 82
+  - PNG → compressionLevel 9 + palette; если >500KB → конверт в WebP
+  - Остальные (GIF, WebP, AVIF, TIFF) → WebP quality 82
+  - Ресайз >1920px по ширине (fit inside)
+  - При ошибке Sharp — fallback на оригинальный файл
+- **Доступ**: используется Signed URL (1 год) для гарантированной загрузки независимо от публичности bucket
 
 ---
 
@@ -176,9 +186,39 @@ src/
 
 ```bash
 npm install
-npm run dev      # Dev-сервер на localhost:3000
-npm run build    # Production сборка
+npm run dev      # Dev-сервер на localhost:3100 (см. package.json scripts)
+npm run build    # Production сборка (output: standalone → .next/)
 npm start        # Production сервер
+```
+
+## Деплой
+
+### Через GitHub Actions (автоматически)
+1. Пуш в ветку `main` → workflow `.github/workflows/deploy.yml`
+2. Workflow: Docker build → push в Yandex CR → новая ревизия контейнера
+3. Требуется секрет `YC_SA_KEY_JSON` в GitHub Actions secrets
+
+### Вручную (локально с Docker)
+```bash
+set TAG=deploy-$(date +%s)
+docker build -t cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:%TAG% .
+docker push cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:%TAG%
+yc serverless container revision deploy ^
+  --container-id bba12ti21lgmv9glfl7k ^
+  --image cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:%TAG% ^
+  --service-account-id ajep2inmg605fd6ttbb2 ^
+  --memory 1GB --cores 1 --execution-timeout 300s --concurrency 8
+```
+
+### Обновление БД
+1. Открыть https://supabase.com → Project `zphehhzgbudetyzezunk` → SQL Editor
+2. Вставить код из `supabase/migration.sql`
+3. Run
+
+### Проверка
+```bash
+curl -sI https://naranja.outmilk.online
+yc serverless container revision list --container-id bba12ti21lgmv9glfl7k
 ```
 
 ---

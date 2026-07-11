@@ -33,17 +33,24 @@ export default function EditContentPage() {
   if (loading) return <div className="text-center py-16 text-muted">Загрузка...</div>;
 
   return (
-    <div>
-      <div className="flex items-center gap-3 mb-6">
-        <Link href="/admin/content" className="text-muted hover:text-accent">← Назад</Link>
-        <h1 className="text-2xl font-bold text-accent">Редактировать</h1>
-        <button onClick={handleDelete} className="ml-auto text-sm text-red-500 hover:text-red-700">
-          Удалить
-        </button>
+    <>
+      <div className="border-b border-border/30 bg-white" style={{ position: "fixed", top: "73px", left: 0, right: 0, zIndex: 40 }}>
+        <div className="max-w-7xl mx-auto flex items-center gap-3 px-4 sm:px-8 py-2.5">
+          <Link href="/admin/content" className="text-sm font-semibold text-primary-500 hover:text-primary-600 transition-colors">
+            ← Назад
+          </Link>
+          <h1 className="text-sm font-medium text-accent truncate">Редактировать</h1>
+          <button onClick={handleDelete} className="ml-auto text-xs text-red-500 hover:text-red-700">
+            Удалить
+          </button>
+        </div>
       </div>
+
+    <div className="pt-14">
       <div className="glass-card p-6">
         <ContentEditor initial={item} />
       </div>
     </div>
+    </>
   );
 }

@@ -85,9 +85,37 @@ export default async function StudentLessonPage({
     .eq("student_id", user.id)
     .single();
 
+  // Fetch all lessons for next/prev navigation
+  const { data: allLessons } = await supabase
+    .from("lessons")
+    .select("id, title, order_index")
+    .eq("course_id", courseId)
+    .order("order_index", { ascending: true });
+
+  const currentIdx = (allLessons ?? []).findIndex(l => l.id === lessonId);
+  const nextLesson = currentIdx >= 0 && currentIdx < (allLessons ?? []).length - 1
+    ? (allLessons ?? [])[currentIdx + 1]
+    : null;
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <VocabPickerProvider disabled={!user || isOwner}>
+    <>
+      {/* Fixed nav */}
+      <div className="border-b border-border/30 bg-white" style={{ position: "fixed", top: "73px", left: 0, right: 0, zIndex: 40 }}>
+        <div className="max-w-3xl mx-auto flex items-center justify-between px-5 md:px-8 py-2.5">
+          <Link href={`/courses/${courseId}`} className="text-sm font-semibold text-primary-500 hover:text-primary-600 transition-colors inline-flex items-center gap-1">
+            ← {course?.title}
+          </Link>
+          {nextLesson && (
+            <Link href={`/courses/${courseId}/${nextLesson.id}`}
+              className="text-sm text-muted hover:text-accent transition-colors inline-flex items-center gap-1">
+              Следующий урок →
+            </Link>
+          )}
+        </div>
+      </div>
+
+    <div className="max-w-3xl mx-auto pt-14">
+      <VocabPickerProvider disabled={!user}>
         <VocabPickerFab lessonId={lessonId} />
         <LessonProgressTracker lessonId={lessonId} studentId={user.id} />
         <AutoCompleteLesson
@@ -96,10 +124,6 @@ export default async function StudentLessonPage({
         blocks={blocks?.map(b => ({ id: b.id, type: b.type })) ?? []}
         initialCompleted={progress?.completed ?? false}
       />
-
-      <Link href={`/courses/${courseId}`} className="text-sm font-semibold text-primary-500 mb-4 inline-block">
-        ← {course?.title}
-      </Link>
 
       {(lesson as any).cover_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-4 bg-zinc-100">
@@ -149,5 +173,6 @@ export default async function StudentLessonPage({
       </div>
       </VocabPickerProvider>
     </div>
+    </>
   );
 }

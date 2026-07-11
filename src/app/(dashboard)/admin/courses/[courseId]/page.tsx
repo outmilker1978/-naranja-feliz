@@ -26,7 +26,7 @@ export default async function CourseDetailPage({
     .eq("id", courseId)
     .single();
 
-  if (!course || course.created_by !== user.id) redirect("/admin/courses");
+  if (!course || course.created_by !== user.id) redirect("/courses");
 
   const { data: lessons } = await supabase
     .from("lessons")
@@ -72,13 +72,16 @@ export default async function CourseDetailPage({
   const totalLessons = (lessons ?? []).filter((l: any) => l.published).length;
 
   return (
-    <div>
-      <nav className="text-sm text-muted mb-4">
-        <Link href="/admin/courses" className="hover:text-secondary">Курсы</Link>
-        <span className="mx-2">→</span>
-        <span className="text-accent">{course.title}</span>
-      </nav>
+    <>
+      <div className="border-b border-border/30 bg-white" style={{ position: "fixed", top: "73px", left: 0, right: 0, zIndex: 40 }}>
+        <div className="max-w-7xl mx-auto flex items-center gap-1.5 px-4 sm:px-8 py-2.5 text-sm">
+          <Link href="/admin/courses" className="font-semibold text-primary-500 hover:text-primary-600 transition-colors">Курсы</Link>
+          <span className="text-muted/40">→</span>
+          <span className="text-accent/70 font-medium truncate">{course.title}</span>
+        </div>
+      </div>
 
+    <div className="pt-14">
       {course.image_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100">
           <img src={course.image_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
@@ -164,5 +167,6 @@ export default async function CourseDetailPage({
         </div>
       </div>
     </div>
+    </>
   );
 }

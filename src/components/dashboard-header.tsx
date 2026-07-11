@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { Menu, X, Bell, MessageCircle, Settings, LogOut, ChevronDown, Wrench } from "lucide-react";
+import { Menu, X, Bell, MessageCircle, Settings, LogOut, ChevronDown, LayoutDashboard } from "lucide-react";
 
 function getLevelLabel(count: number): string {
   if (count === 0) return "— Новичок";
@@ -135,7 +135,7 @@ export function DashboardHeader({
     }`;
 
   return (
-    <header className="sticky top-0 z-50 glass border-b border-white/20">
+    <header style={{ position: "sticky", top: 0, zIndex: 50 }} className="glass border-b border-white/20">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6 py-3">
           <Link href="/" className="flex items-center gap-3 shrink-0">
             <span className="text-2xl">🍊</span>
@@ -148,7 +148,7 @@ export function DashboardHeader({
           <Link href="/tools/vocabulary" className={linkClass("/tools/vocabulary")}>Словарь</Link>
           <button onClick={() => window.dispatchEvent(new CustomEvent("open-tools-panel"))}
             className="flex items-center gap-1.5 text-sm font-medium text-muted hover:text-primary-600 transition-colors px-3 py-1.5 rounded-xl hover:bg-primary-50">
-            <Wrench className="w-4 h-4" /> Инструменты
+            <LayoutDashboard className="w-4 h-4" /> Инструменты
           </button>
           {(realRole === "teacher" || realRole === "admin") && viewRole === "teacher" && (
             <Link href="/admin/submissions" className={linkClass("/admin/submissions")}>
@@ -298,14 +298,7 @@ export function DashboardHeader({
               )}
             </Link>
           {(realRole === "teacher" || realRole === "admin") && viewRole === "teacher" && (
-              <>
-                <button onClick={() => { setMobileOpen(false); window.dispatchEvent(new CustomEvent("open-tools-panel")); }}
-                  className="flex items-center gap-2 w-full px-4 py-3 text-sm text-zinc-700 hover:bg-primary-50 transition-colors rounded-lg">
-                  <Wrench className="w-4 h-4 text-primary-500" />
-                  Все инструменты
-                </button>
-                <Link href="/admin/submissions" className={mobileLinkClass("/admin/submissions")}>Проверка</Link>
-              </>
+              <Link href="/admin/submissions" className={mobileLinkClass("/admin/submissions")}>Проверка</Link>
             )}
             {(realRole === "teacher" || realRole === "admin") && (
               <div className="flex items-center gap-2 mt-2 px-4">

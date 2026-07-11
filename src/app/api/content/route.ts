@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   const svc = createServiceClient();
 
   let query = svc.from("content").select("*, profiles!inner(id, full_name, avatar_url)")
+    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
   if (type) query = query.eq("type", type);
@@ -58,6 +59,14 @@ export async function POST(req: Request) {
   if (status === "published" && !isAdmin)
     return NextResponse.json({ error: "Only admins can publish" }, { status: 403 });
 
+  let sortOrder = 0;
+  if (body.type === "page_section") {
+    const { data: existing } = await svc.from("content").select("sort_order").eq("type", "page_section").order("sort_order", { ascending: false }).limit(1);
+    if (body.category === "cta") {
+      sortOrder = (existing?.[0]?.sort_order ?? -1) + 1;
+    }
+  }
+
   const { data, error } = await svc.from("content").insert({
     type: body.type,
     category: body.category ?? "general",
@@ -69,6 +78,7 @@ export async function POST(req: Request) {
     status: status ?? "draft",
     author_id: user.id,
     scheduled_at: body.scheduled_at || null,
+    sort_order: sortOrder,
   }).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

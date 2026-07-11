@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Trash2 } from "lucide-react";
 
 export function ClearAnswersButton({
   lessonId,
@@ -35,7 +36,7 @@ export function ClearAnswersButton({
   if (!confirm) {
     return (
       <button onClick={() => setConfirm(true)} className="text-xs text-zinc-400 hover:text-red-600 transition-colors">
-        🗑 Очистить все ответы
+        <Trash2 className="w-3 h-3 inline" /> Очистить все ответы
       </button>
     );
   }

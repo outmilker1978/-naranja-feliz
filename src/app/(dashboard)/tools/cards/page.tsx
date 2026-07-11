@@ -96,19 +96,19 @@ export default function CardsGamePage() {
 
       <div className="perspective-1000 cursor-pointer" onClick={() => setFlipped(!flipped)} style={{ minHeight: "280px" }}>
         <div className={`relative w-full h-64 sm:h-72 transition-transform duration-500 preserve-3d ${flipped ? "rotate-y-180" : ""}`}>
-          <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-8 backface-hidden rounded-2xl">
-            <p className="text-3xl sm:text-4xl font-bold text-accent text-center">{w?.word}</p>
+          <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-4 sm:p-8 backface-hidden rounded-2xl overflow-hidden">
+            <p className="text-xl sm:text-3xl lg:text-4xl font-bold text-accent text-center break-words leading-tight max-w-full [hyphens:auto]">{w?.word}</p>
             {w?.transcription && <p className="text-sm text-muted mt-3">[{w.transcription}]</p>}
             <button onClick={e => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(w?.word); u.lang = "es-ES"; u.rate = 0.8; speechSynthesis.speak(u); }}
               className="mt-4 p-2 rounded-full bg-primary-50 text-primary-500 hover:bg-primary-100 transition-colors">
               <Volume2 className="w-5 h-5" />
             </button>
-            {known.has(idx) && <span className="absolute top-4 right-4 text-green-500 text-sm font-medium">✓ Знаю</span>}
-            <p className="text-xs text-muted absolute bottom-4">Нажми, чтобы перевернуть</p>
+            {known.has(idx) && <span className="absolute top-2 sm:top-4 right-2 sm:right-4 text-green-500 text-sm font-medium">✓ Знаю</span>}
+            <p className="text-xs text-muted absolute bottom-2 sm:bottom-4">Нажми, чтобы перевернуть</p>
           </div>
-          <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-8 backface-hidden rotate-y-180 rounded-2xl">
-            <p className="text-3xl sm:text-4xl font-bold text-accent text-center">{w?.translation}</p>
-            {w?.example_sentence && <p className="text-sm text-muted mt-4 italic text-center max-w-sm">{w.example_sentence}</p>}
+          <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-4 sm:p-8 backface-hidden rotate-y-180 rounded-2xl overflow-hidden">
+            <p className="text-xl sm:text-3xl lg:text-4xl font-bold text-accent text-center break-words leading-tight max-w-full [hyphens:auto]">{w?.translation}</p>
+            {w?.example_sentence && <p className="text-sm text-muted mt-4 italic text-center max-w-full break-words">{w.example_sentence}</p>}
             {w?.tags && w.tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
                 {w.tags.map((t: string) => <span key={t} className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded">{t}</span>)}

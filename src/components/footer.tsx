@@ -4,18 +4,18 @@ export default function Footer() {
   return (
     <footer className="border-t border-border mt-auto">
       <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-10">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-2xl">🍊</span>
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-10">
+          <div className="col-span-3 md:col-span-1">
+            <Link href="/" className="flex items-center gap-2 mb-4">
+              <img src="/logo-128.png" alt="Naranja Feliz" className="w-8 h-8" />
               <span className="font-bold text-primary-500 text-lg">Naranja Feliz</span>
-            </div>
+            </Link>
             <p className="text-sm text-muted">Мотивация в каждой дольке</p>
           </div>
           {[
             { title: "Обучение", links: [{ label: "Курсы", href: "/courses" }, { label: "Словарь", href: "/tools/vocabulary" }, { label: "Карточки", href: "/tools/cards" }, { label: "Чат", href: "/tools/chat" }] },
-            { title: "О нас", links: [{ label: "О школе", href: "/" }, { label: "Преподаватели", href: "/admin/teachers" }, { label: "Отзывы", href: "/" }, { label: "Контакты", href: "/" }] },
-            { title: "Правовое", links: [{ label: "Политика", href: "/" }, { label: "Договор оферты", href: "/" }, { label: "Реквизиты", href: "/" }] },
+            { title: "О нас", links: [{ label: "О школе", href: "/about" }, { label: "Преподаватели", href: "/teachers" }, { label: "Отзывы", href: "/reviews" }, { label: "Написать нам", href: "mailto:hamul@mail.ru" }] },
+            { title: "Правовое", links: [{ label: "Пользовательское соглашение", href: "/offer" }, { label: "Реквизиты", href: "/requisites" }] },
           ].map((col, i) => (
             <div key={i}>
               <h4 className="text-base font-bold text-accent mb-4">{col.title}</h4>
