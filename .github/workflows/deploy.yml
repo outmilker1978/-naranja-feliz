@@ -70,7 +70,7 @@ jobs:
       - name: Health check
         run: |
           for i in 1 2 3 4 5 6; do
-            status=$(curl -s -o /dev/null -w "%{http_code}" https://naranja.outmilk.online || echo "000")
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://bba12ti21lgmv9glfl7k.containers.yandexcloud.net/ || echo "000")
             echo "Attempt $i: HTTP $status"
             if [ "$status" = "200" ]; then
               exit 0
