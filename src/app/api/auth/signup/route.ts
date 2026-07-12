@@ -32,6 +32,7 @@ export async function POST(request: Request) {
   const { data: createData, error } = await adminSupabase.auth.admin.createUser({
     email,
     password,
+    email_confirm: true,
     user_metadata: { full_name: fullName, role },
   });
 
@@ -43,9 +44,6 @@ export async function POST(request: Request) {
 
   if (createData.user) {
     const userId = createData.user.id;
-    await svc.schema("auth").from("users").update({
-      email_confirmed_at: new Date().toISOString(),
-    }).eq("id", userId);
     await svc.from("profiles").upsert({
       id: userId,
       full_name: fullName,
