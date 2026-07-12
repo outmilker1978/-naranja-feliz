@@ -42,6 +42,10 @@ export function LoginForm() {
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
+        <div className="text-right">
+          <Link href="/forgot-password" className="text-xs text-muted hover:text-primary-500 transition-colors">Забыли пароль?</Link>
+        </div>
+
         <button
           type="submit"
           className="w-full bg-primary-500 text-white py-2 rounded-xl font-medium hover:bg-primary-600 transition-colors"
