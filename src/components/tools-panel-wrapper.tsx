@@ -1,9 +1,38 @@
-"use client";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import ToolsPanel from "./tools-panel";
 
-import dynamic from "next/dynamic";
+export default async function ToolsPanelWrapper() {
+  let role: string | null = null;
 
-const ToolsPanelInner = dynamic(() => import("@/components/tools-panel"), { ssr: false });
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll(); },
+          setAll() {},
+        },
+      },
+    );
 
-export default function ToolsPanelWrapper() {
-  return <ToolsPanelInner />;
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const mRole = user.user_metadata?.role;
+      role = p?.role || mRole || "student";
+    }
+  } catch {
+    // fallback: role stays null
+  }
+
+  return <ToolsPanel initialRole={role} />;
 }

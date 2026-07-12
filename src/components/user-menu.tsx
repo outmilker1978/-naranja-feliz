@@ -27,6 +27,7 @@ export function UserMenu({ userName, userEmail, realRole, avatarUrl }: Props) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const [imgError, setImgError] = useState(false);
   const initial = (userName || userEmail)[0].toUpperCase();
 
   return (
@@ -35,8 +36,8 @@ export function UserMenu({ userName, userEmail, realRole, avatarUrl }: Props) {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 focus:outline-none"
       >
-        {avatarUrl ? (
-          <img src={avatarUrl} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border-2 border-primary-200 shadow-sm" />
+        {avatarUrl && !imgError ? (
+          <img src={avatarUrl} alt="" loading="lazy" onError={() => setImgError(true)} className="w-9 h-9 rounded-full object-cover border-2 border-primary-200 shadow-sm" />
         ) : (
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-sm text-white font-bold shadow-sm">
             {initial}

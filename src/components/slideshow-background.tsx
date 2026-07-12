@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 
-const SUPABASE_URL = "https://zphehhzgbudetyzezunk.supabase.co";
 const BUCKET = "hero";
 
 const ALL_IMAGES = [
@@ -33,66 +32,56 @@ const ALL_IMAGES = [
 ];
 
 function imgUrl(name: string) {
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${name}`;
+  return `/api/storage/${BUCKET}/${name}`;
 }
 
-function shuffle<T>(arr: T[]): T[] {
+function seededShuffle(arr: string[], seed: number): string[] {
   const a = [...arr];
+  let s = seed;
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    s = (s * 16807 + 0) % 2147483647;
+    const j = s % (i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
 }
 
-let cachedImages: string[] | null = null;
-
-function getImages(): string[] {
-  if (!cachedImages) {
-    cachedImages = shuffle(ALL_IMAGES).slice(0, 10);
-  }
-  return cachedImages;
-}
-
 export default function SlideshowBackground({ className }: { className?: string }) {
+  const [images, setImages] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
-  const [remountKey, setRemountKey] = useState(0);
-  const images = getImages();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setIdx(prev => {
-        const next = (prev + 1) % images.length;
-        setRemountKey(k => k + 1);
-        return next;
-      });
-    }, 6000);
-    return () => clearInterval(id);
-  }, [images.length]);
+    setImages(seededShuffle(ALL_IMAGES, 42).slice(0, 10));
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const timer = setInterval(() => {
+      setIdx(i => (i + 1) % images.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, [ready, images.length]);
+
+  if (!ready || images.length === 0) return null;
 
   return (
     <>
       {images.map((src, i) => {
         const isCurrent = i === idx;
         return (
-          <div key={`${src}${isCurrent ? `-a${remountKey}` : ""}`}
+          <div key={src}
             className={`absolute inset-0 bg-cover bg-center ${className || ""}`}
             style={{
               backgroundImage: `url('${imgUrl(src)}')`,
               opacity: isCurrent ? 1 : 0,
-              animation: isCurrent ? "kenburns 6s ease-in-out forwards" : undefined,
-              transition: "opacity 1.5s ease-in-out",
               zIndex: isCurrent ? 1 : 0,
-              ...(isCurrent ? {} : { transform: "scale(1.08)" }),
+              transform: isCurrent ? "scale(1)" : "scale(1.08)",
+              transition: "opacity 1s ease-in-out, transform 7s ease-in-out",
             }} />
         );
       })}
-      <style>{`
-        @keyframes kenburns {
-          0% { transform: scale(1); }
-          100% { transform: scale(1.08); }
-        }
-      `}</style>
     </>
   );
 }

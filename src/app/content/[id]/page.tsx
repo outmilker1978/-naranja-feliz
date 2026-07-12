@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Newspaper, BookOpen, Clock, User, Sparkles, Layers, MessageCircle, GraduationCap, Home } from "lucide-react";
 import ContentCarousel from "@/components/content-carousel";
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 export default async function ContentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -92,7 +93,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-3 mt-10 pt-6 border-t border-border">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-white font-bold text-sm">
                   {item.profiles.avatar_url
-                    ? <img src={item.profiles.avatar_url} alt="" loading="lazy" className="w-full h-full object-cover rounded-full" />
+                    ? <img src={proxyImgUrl(item.profiles.avatar_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover rounded-full" />
                     : (item.profiles.full_name?.[0] ?? "?")}
                 </div>
                 <div>

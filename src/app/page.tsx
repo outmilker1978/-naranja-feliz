@@ -6,6 +6,7 @@ import { Check, Star, Sparkles, ArrowRight, BookOpen, MessageCircle, Bell, PenLi
 import type { LucideIcon } from "lucide-react";
 import SlideshowBackground from "@/components/slideshow-background";
 import CarouselSection from "@/components/carousel-section";
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   BookOpen, PenLine, MessageCircle, BarChart3, GraduationCap, Target, Sparkles, Flame, Library, Layers, Bell, Star, Heart, Globe, Music, Palette, Lightbulb, Users, Book, FileText, Image, Camera, Headphones, Clock, Calendar, Settings, User: UserIcon, Shield, Award, Briefcase, Crown, Feather, Gift, Key, Lock, Mail, Map, Phone, PieChart, Rocket, Search, ThumbsUp, Trophy, Wand, Zap, Smile, Type, Compass, Volume2, Eye, Share2, Coffee, Flag, RefreshCw, Trash2, Upload, Download, Plus, Minus, Edit3, ExternalLink, Grid, List, Sliders, Video,
@@ -279,7 +280,7 @@ export default async function Home() {
     <section className="px-6 py-12 max-w-4xl mx-auto text-center">
       <h2 className="text-3xl sm:text-4xl font-bold text-accent mb-3 tracking-tight">{about.content?.title ?? "О школе"}</h2>
       <div className="text-muted leading-relaxed max-w-2xl mx-auto text-lg">{about.content?.text && <p>{about.content.text}</p>}</div>
-      {(about.content?.image || about.cover_image) && <div className="overflow-hidden rounded-2xl max-w-lg mx-auto shadow-md"><img src={about.content?.image || about.cover_image} alt="" loading="lazy" className="w-full transition-transform duration-500 hover:scale-105" /></div>}
+      {(about.content?.image || about.cover_image) && <div className="overflow-hidden rounded-2xl max-w-lg mx-auto shadow-md"><img src={proxyImgUrl(about.content?.image || about.cover_image) ?? ""} alt="" loading="lazy" className="w-full transition-transform duration-500 hover:scale-105" /></div>}
       <div className="mt-6">
         <Link href="/about" className="btn-gradient px-5 py-2.5 text-sm inline-flex items-center gap-1">
           {about.content?.button_text || "Читать полностью"} <span>{about.content?.button_icon || "→"}</span>
@@ -296,7 +297,7 @@ export default async function Home() {
         <CarouselSection>
           {(testimonials.content.items as { author: string; text: string; avatar?: string }[]).map((item, i) => (
             <div key={i} className="relative overflow-hidden rounded-xl min-h-[28rem] sm:min-h-[32rem] group flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start"
-              style={item.avatar ? { backgroundImage: `url(${item.avatar})`, backgroundSize: "cover", backgroundPosition: "center" } : {}}>
+              style={item.avatar ? { backgroundImage: `url(${proxyImgUrl(item.avatar)})`, backgroundSize: "cover", backgroundPosition: "center" } : {}}>
               {!item.avatar && <div className="absolute inset-0 bg-gradient-to-br from-primary-400 to-primary-600" />}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-5">
@@ -396,7 +397,7 @@ export default async function Home() {
             <a key={ad.id} href={ad.content?.link || "#"} target="_blank" rel="noopener noreferrer" className="card overflow-hidden block group relative">
               {ad.cover_image || ad.content?.image ? (
                 <div className="relative">
-                  <img src={ad.cover_image || ad.content?.image} alt={ad.title} loading="lazy"
+                  <img src={proxyImgUrl(ad.cover_image || ad.content?.image) ?? ""} alt={ad.title} loading="lazy"
                     className="w-full h-72 sm:h-80 object-cover" />
                   {/* Title top-left */}
                   <div className="absolute top-4 left-4 right-4">
@@ -428,7 +429,7 @@ export default async function Home() {
   sectionEntries.push({ key: "cta", order: Number.POSITIVE_INFINITY, render: () => (
     <section className="relative overflow-hidden px-6 py-16 sm:py-20 text-center">
       <div className="absolute inset-0 bg-cover bg-center"
-        style={{backgroundImage: `url('${ctaSection?.content?.bg_image || "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/hero/quino-al-tFbN1bnBynU-unsplash.jpg"}')`}} />
+        style={{backgroundImage: `url('${ctaSection?.content?.bg_image || "/api/storage/hero/quino-al-tFbN1bnBynU-unsplash.jpg"}')`}} />
       <div className="absolute inset-0 bg-gradient-to-br from-primary-500/85 via-orange-500/85 to-gold-400/85" />
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-56 h-56 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/3" />

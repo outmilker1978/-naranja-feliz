@@ -12,35 +12,30 @@ interface ToolItem {
   adminOnly?: boolean;
 }
 
-export default function ToolsPanel() {
+export default function ToolsPanel({ initialRole }: { initialRole?: string | null }) {
   const [open, setOpen] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
-  const [ready, setReady] = useState(false);
+  const [role, setRole] = useState<string | null>(initialRole ?? null);
+  const [ready, setReady] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
-
-  const fetchRole = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
-      const mRole = user.user_metadata?.role;
-      setRole(p?.role || mRole || "student");
-    } else {
-      setRole(null);
-    }
-    setReady(true);
-  };
-
-  useEffect(() => { fetchRole(); }, []);
 
   useEffect(() => {
-    const onFocus = () => fetchRole();
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
+    if (initialRole !== undefined) return;
+    const supabase = createClient();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: p } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+        const mRole = user.user_metadata?.role;
+        setRole(p?.role || mRole || "student");
+      } else {
+        setRole(null);
+      }
+      setReady(true);
+    })();
+  }, [initialRole]);
 
   useEffect(() => {
     if (!pinned) setOpen(false);

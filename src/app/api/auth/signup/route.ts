@@ -1,36 +1,89 @@
+import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createAdminClient, createServiceClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
-  const { email, password, fullName, role } = await request.json();
+  const formData = await request.formData();
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "").trim();
+  const fullName = String(formData.get("fullName") ?? "").trim();
 
-  const svc = createServiceClient();
+  if (!email || !password || !fullName) {
+    return NextResponse.redirect(
+      new URL(`/register?error=${encodeURIComponent("Все поля обязательны")}`, process.env.NEXT_PUBLIC_SITE_URL!),
+    );
+  }
+
+  const svc = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
   const { count } = await svc.from("profiles").select("*", { count: "exact", head: true });
   const isFirstUser = (count ?? 0) === 0;
-  const assignedRole = isFirstUser ? "admin" : (role ?? "student");
+  const role = isFirstUser ? "admin" : "student";
 
-  const supabase = await createAdminClient();
+  const adminSupabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
-  const { data, error } = await supabase.auth.admin.createUser({
+  const { data: createData, error } = await adminSupabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
-    user_metadata: { full_name: fullName, role: assignedRole },
+    user_metadata: { full_name: fullName, role },
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.redirect(
+      new URL(`/register?error=${encodeURIComponent(error.message)}`, process.env.NEXT_PUBLIC_SITE_URL!),
+    );
   }
 
-  // Ensure profile is created with correct role
-  if (data.user) {
+  if (createData.user) {
+    const userId = createData.user.id;
+    await svc.schema("auth").from("users").update({
+      email_confirmed_at: new Date().toISOString(),
+    }).eq("id", userId);
     await svc.from("profiles").upsert({
-      id: data.user.id,
+      id: userId,
       full_name: fullName,
       email,
-      role: assignedRole,
+      role,
     }, { onConflict: "id" });
   }
 
-  return NextResponse.json({ user: data.user, isFirstUser });
+  const cookieStore = await cookies();
+  const pendingCookies: { name: string; value: string; options?: Record<string, unknown> }[] = [];
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return cookieStore.getAll(); },
+        setAll(cookiesToSet) {
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options);
+            pendingCookies.push({ name, value, options });
+          }
+        },
+      },
+    },
+  );
+
+  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+  if (signInError) {
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(signInError.message)}`, process.env.NEXT_PUBLIC_SITE_URL!),
+    );
+  }
+
+  const response = NextResponse.redirect(new URL("/courses", process.env.NEXT_PUBLIC_SITE_URL!));
+  for (const { name, value, options } of pendingCookies) {
+    response.cookies.set(name, value, options);
+  }
+
+  return response;
 }

@@ -5,6 +5,13 @@ import { MessageCircle } from "lucide-react";
 import { UserMenu } from "./user-menu";
 import { ToolsButton, BellIcon } from "./header-client";
 
+const STORAGE_ORIGIN = "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public";
+
+function proxyUrl(url: string | null): string | null {
+  if (!url || !url.startsWith(STORAGE_ORIGIN)) return url;
+  return url.replace(STORAGE_ORIGIN, "/api/storage");
+}
+
 export default async function SiteHeader() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -43,7 +50,7 @@ export default async function SiteHeader() {
 
   const userName = profile?.full_name || user.user_metadata?.full_name || null;
   const userEmail = user.email!;
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || null;
+  const avatarUrl = proxyUrl(profile?.avatar_url || user.user_metadata?.avatar_url || null);
 
   const linkClass = (href: string) =>
     `text-sm font-medium transition-colors duration-200 text-muted hover:text-accent`;
