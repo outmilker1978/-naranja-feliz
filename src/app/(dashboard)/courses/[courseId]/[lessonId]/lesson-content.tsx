@@ -154,14 +154,14 @@ function renderContentWithBlanks(html: string): string {
 
 export function LessonContent({
   lesson,
-  exercises,
-  submissionMap,
-  studentId,
+  allLessons: _allLessons,
+  prevLesson: _prevLesson,
+  nextLesson: _nextLesson,
 }: {
   lesson: Lesson;
-  exercises: Exercise[];
-  submissionMap: Record<string, Submission>;
-  studentId: string;
+  allLessons: { id: string; title: string; order_index: number; published: boolean }[];
+  prevLesson: { id: string; title: string; order_index: number } | null;
+  nextLesson: { id: string; title: string; order_index: number } | null;
 }) {
   const router = useRouter();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -223,20 +223,6 @@ export function LessonContent({
         </div>
       )}
 
-      {exercises.length > 0 && (
-        <div className="space-y-4 mt-8">
-          <h2 className="text-lg font-semibold text-zinc-800">Упражнения</h2>
-          {exercises.map((ex) => (
-            <ExerciseCard
-              key={ex.id}
-              exercise={ex}
-              submission={submissionMap[ex.id] ?? null}
-              studentId={studentId}
-              onSubmitted={() => router.refresh()}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

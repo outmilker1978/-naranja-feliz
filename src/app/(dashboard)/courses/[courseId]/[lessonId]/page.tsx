@@ -92,6 +92,21 @@ export default async function StudentLessonPage({
     .eq("course_id", courseId)
     .order("order_index", { ascending: true });
 
+  const { data: lessonBlocks } = await supabase
+    .from("lesson_blocks")
+    .select("id, type")
+    .eq("lesson_id", lessonId)
+    .order("order_index", { ascending: true });
+
+  const blockIds = lessonBlocks?.map(b => b.id) ?? [];
+
+  const { data: progress } = await supabase
+    .from("lesson_progress")
+    .select("completed")
+    .eq("lesson_id", lessonId)
+    .eq("student_id", user.id)
+    .maybeSingle();
+
   return (
     <VocabPickerProvider>
       <div className="min-h-screen bg-white">
@@ -101,8 +116,8 @@ export default async function StudentLessonPage({
               ← {course?.title}
             </Link>
             <div className="flex items-center gap-2">
-              <ClearAnswersButton lessonId={lessonId} />
-              <AutoCompleteLesson lessonId={lessonId} courseId={courseId} />
+              <ClearAnswersButton lessonId={lessonId} studentId={user.id} blockIds={blockIds} />
+              <AutoCompleteLesson lessonId={lessonId} studentId={user.id} blocks={lessonBlocks ?? []} initialCompleted={progress?.completed ?? false} />
             </div>
           </div>
         </div>
@@ -111,7 +126,7 @@ export default async function StudentLessonPage({
           <LessonContent lesson={lesson} allLessons={allLessons ?? []} prevLesson={prevLesson} nextLesson={nextLesson} />
         </div>
       </div>
-      <VocabPickerFab />
+      <VocabPickerFab lessonId={lessonId} />
     </VocabPickerProvider>
   );
 }
