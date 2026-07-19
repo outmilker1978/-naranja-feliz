@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { LessonContent } from "./lesson-content";
 import { BlockRenderer } from "@/components/lesson-blocks/block-renderer";
 import { LessonProgressTracker } from "./lesson-progress-tracker";
 import { CompleteLessonButton } from "./complete-lesson-button";
@@ -94,7 +93,7 @@ export default async function StudentLessonPage({
 
   const { data: lessonBlocks } = await supabase
     .from("lesson_blocks")
-    .select("id, type")
+    .select("*")
     .eq("lesson_id", lessonId)
     .order("order_index", { ascending: true });
 
@@ -123,7 +122,10 @@ export default async function StudentLessonPage({
         </div>
 
         <div className="max-w-3xl mx-auto px-5 md:px-8 py-8">
-          <LessonContent lesson={lesson} allLessons={allLessons ?? []} prevLesson={prevLesson} nextLesson={nextLesson} />
+          <h1 className="text-2xl font-bold text-accent mb-6">{lesson.title}</h1>
+          {lessonBlocks?.map((block) => (
+            <BlockRenderer key={block.id} block={block} studentId={user.id} />
+          ))}
         </div>
       </div>
       <VocabPickerFab lessonId={lessonId} />
