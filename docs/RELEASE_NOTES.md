@@ -16,10 +16,13 @@
 ### Исправлено
 - **canAccess** на странице курса — больше не пропускает per_course без доступа.
 - **Enroll API** — проверяет per_course доступ (раньше только subscription).
-- **EnrollButton** — lert() заменён на инлайн-сообщение.
+- **EnrollButton** — alert() заменён на инлайн-сообщение.
 - **Lesson guard** — проверяет course_access ДО enrollment.
 - **Модалка** — без дергания, с кнопкой ×, клик по фону, авто-закрытие.
 - **Уведомления запроса** — шлются и учителям, и админам.
+- **Разделитель в редакторе** — переписан на ReactNodeViewRenderer: в редакторе рендерится React-компонент (SVG не вырезается браузером), в сохранённом HTML — полный SVG.
+- **Выравнивание картинок** — `TextAlign.configure({ types: ["image"] })` + CSS `img[style*="text-align"] { display:block; margin:auto }` в TextBlockRenderer. В редакторе выравнивание через `ResizableImageComponent`, в уроке/предпросмотре — через margin.
+- **Учитель в режиме ученик** — владелец курса пропускает `check_course_access` (owner bypass в 3 местах).
 
 ## v0.4.4 (2026-07-12)
 

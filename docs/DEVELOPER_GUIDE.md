@@ -68,20 +68,23 @@ src/
 │   ├── api/                  # Route Handlers
 │   └── ...
 ├── components/
-│   ├── content-editor.tsx    # Редактор контента портала
-│   ├── content-carousel.tsx
-orange-divider.tsx    # Оранжевый разделитель (для уроков)  # Карусель контента (новости, статьи)
-│   ├── lesson-blocks/        # Рендер и редактор блоков уроков
-│   ├── dashboard-header.tsx  # Шапка с меню
-│   ├── site-header.tsx
-tiptap-divider.ts     # Расширение разделителя для TipTap       # Шапка портала
-│   ├── submission-thread.tsx # Чат под ответом
+│   ├── content-editor.tsx     # Редактор контента портала
+│   ├── content-carousel.tsx   # Карусель контента (новости, статьи)
+│   ├── resizable-image.tsx    # Редактор: изображение с ресайзом и выравниванием
+│   ├── translation-mark.ts    # Редактор: разметка перевода
+│   ├── orange-divider.tsx     # Декоративный оранжевый разделитель (SVG)
+│   ├── tiptap-divider.tsx     # TipTap расширение для разделителя
+│   ├── tiptap-editor.tsx      # TipTap редактор (текстовые блоки уроков)
+│   ├── lesson-blocks/         # Рендер и редактор блоков уроков
+│   ├── dashboard-header.tsx   # Шапка с меню
+│   ├── site-header.tsx        # Шапка портала
+│   ├── submission-thread.tsx  # Чат под ответом
 │   └── ...
 └── lib/
-    └── image-proxy.ts        # proxyImgUrl - замена URL Supabase Storage на прокси-роут
-supabase/             # Клиенты Supabase
-        ├── server.ts         # createClient (SSR), createServiceClient, createAdminClient
-        └── client.ts         # createClient (браузер)
+    ├── image-proxy.ts         # proxyImgUrl - замена URL Supabase Storage на прокси-роут
+    └── supabase/              # Клиенты Supabase
+        ├── server.ts          # createClient (SSR), createServiceClient, createAdminClient
+        └── client.ts          # createClient (браузер)
 ```
 
 ---
@@ -100,6 +103,40 @@ supabase/             # Клиенты Supabase
 | `video_answer` | `{ prompt: string }` | Видео-ответ (скоро) |
 | `drag_order` | `{ sentenceTemplate: string }` | Составь предложение |
 | `image_pick` | `{ question: string, images: { src, label }[], correct: number[], multiple: boolean }` | Выбери изображение |
+
+---
+
+## Редактор TipTap
+
+Текстовые блоки уроков (`type: "text"`) редактируются через TipTap (на базе ProseMirror). Редактор собран в `tiptap-editor.tsx`.
+
+### Расширения редактора
+
+| Расширение | Модуль | Роль |
+|-----------|--------|------|
+| `StarterKit` | `@tiptap/starter-kit` | База: параграфы, заголовки (h1-h3), списки, жирный/курсив, code, blockquote, история |
+| `Underline` | `@tiptap/extension-underline` | Подчёркнутый текст |
+| `LinkExtension` | `@tiptap/extension-link` | Вставка ссылок (`openOnClick: false`) |
+| `ResizableImage` | `@/components/resizable-image` | Изображение с ресайзом (угол захвата). Кастомный NodeView (React). Выравнивание через `TextAlign` |
+| `TranslationMark` | `@/components/translation-mark` | Разметка перевода `data-translate` для всплывающего перевода |
+| `OrangeDividerExtension` | `@/components/tiptap-divider` | Декоративный разделитель (SVG). Кастомный NodeView (React) |
+| `Placeholder` | `@tiptap/extension-placeholder` | Плейсхолдер в пустом редакторе |
+| `TextAlign` | `@tiptap/extension-text-align` | Выравнивание (`types: ["heading", "paragraph", "image"]`) |
+
+### Выравнивание изображений
+
+Выравнивание работает через `TextAlign.configure({ types: ["heading", "paragraph", "image"] })`:
+- В **редакторе** — `ResizableImageComponent` читает `node.attrs.textAlign` и применяет `text-align` к обёртке
+- В **предпросмотре урока/студенте** — CSS-правило `.text-content img[style*="text-align:"] { display:block; margin:auto }` в `TextBlockRenderer` конвертирует `text-align` на `<img>` в `display:block` + `margin`
+
+### Кастомные NodeView
+
+Два расширения используют `ReactNodeViewRenderer` — React-компоненты для рендера в редакторе:
+
+1. **`ResizableImage`** — рендерит `<img>` с ресайз-хендлом и тултипом размеров
+2. **`OrangeDividerExtension`** — рендерит `OrangeDivider` (декоративный SVG) внутри `<NodeViewWrapper>`
+
+Сериализация в HTML (`editor.getHTML()`) использует `renderHTML()` расширения, а не React NodeView.
 
 ---
 

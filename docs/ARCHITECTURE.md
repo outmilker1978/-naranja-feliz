@@ -177,7 +177,24 @@ npm run build    # production сборка (output: standalone)
 | `src/app/api/auth/update-password/route.ts` | Обновление пароля |
 | `src/app/auth/callback/route.ts` | Auth callback |
 | `scripts/compress-storage.mjs` | Пакетное сжатие фото в Storage |
-## 17. Per-course доступ
+## 17. TipTap Editor Extensions
+
+Текстовые блоки уроков используют TipTap редактор (`tiptap-editor.tsx`). Зарегистрированные расширения:
+
+| Расширение | Тип | Роль |
+|-----------|-----|------|
+| `StarterKit` | Бандл | Параграфы, заголовки, списки, форматирование |
+| `Underline` | Mark | Подчёркивание |
+| `LinkExtension` | Mark | Ссылки |
+| `ResizableImage` | Node (React NodeView) | `<img>` с ресайзом, выравнивание через TextAlign |
+| `TranslationMark` | Mark | Разметка `data-translate` для перевода |
+| `OrangeDividerExtension` | Node (React NodeView) | Декоративный разделитель (SVG) |
+| `Placeholder` | Extension | Плейсхолдер редактора |
+| `TextAlign` | Extension | Выравнивание текста и изображений (`types: ["heading", "paragraph", "image"]`) |
+
+Два кастомных NodeView используют `ReactNodeViewRenderer` — в редакторе рендерятся React-компонентами, в сохранённом HTML (`editor.getHTML()`) сериализуются через `renderHTML()`.
+
+## 18. Per-course доступ
 
 ### Схема работы
 1. Студент видит курс с бейджем «По запросу» → нажимает «Запросить доступ у учителя»
@@ -198,6 +215,12 @@ npm run build    # production сборка (output: standalone)
 ### Таблицы БД
 - **course_access** — student_id, course_id, granted_by, granted_at, expires_at, eason
 - **profiles** — добавлено поле subscription_requested_at (timestamp)
+
+### Owner bypass
+Создатель курса (`created_by`) всегда имеет доступ — `check_course_access` не вызывается если `user.id === course.created_by`. Реализовано в:
+- `courses/[courseId]/page.tsx` — `isOwner` пропускает проверку
+- `courses/page.tsx` — `ownedIds` добавляются к списку доступных курсов
+- `api/course-access/check/route.ts` — проверка `course.created_by === user.id` → `{ hasAccess: true }`
 
 ### RPC
 - check_course_access(uid uuid, cid uuid) — возвращает true если есть действующая запись в course_access (expires_at IS NULL OR expires_at > now())
