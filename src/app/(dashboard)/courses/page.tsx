@@ -33,6 +33,12 @@ export default async function CoursesPage() {
     accessGrantedIds = (ca ?? []).map((r: any) => r.course_id);
   } catch {}
 
+  // Teachers/admins in student mode see their own courses as accessible
+  const { data: ownedCourses } = isElevated
+    ? await svc.from("courses").select("id").eq("created_by", user.id)
+    : { data: [] };
+  const ownedIds = (ownedCourses ?? []).map((c: any) => c.id);
+
   const { data: lessonsByCourse } = enrolledIds.length > 0
     ? await supabase.from("lessons").select("id, course_id, published").in("course_id", enrolledIds)
     : { data: [] };
@@ -108,8 +114,8 @@ export default async function CoursesPage() {
           {enrolledIds.length > 0 && <p className="text-sm text-muted mb-4">Ты записан на {enrolledIds.length} курс{enrolledIds.length > 1 ? "а" : ""}</p>}
           <div className="space-y-4">
             {(availableCourses ?? []).map((course) => {
-              const isEnrolled = enrolledIds.includes(course.id);
-              const hasAccess = accessGrantedIds.includes(course.id);
+              const isEnrolled = enrolledIds.includes(course.id) || ownedIds.includes(course.id);
+              const hasAccess = accessGrantedIds.includes(course.id) || ownedIds.includes(course.id);
               if (isEnrolled || hasAccess) {
                 const lc = lessonCountMap.get(course.id);
                 const total = lc?.published ?? lc?.total ?? 0;

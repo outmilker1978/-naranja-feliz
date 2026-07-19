@@ -12,6 +12,12 @@ export async function GET(req: Request) {
 
   const svc = createServiceClient();
 
+  // Course owners always have access
+  const { data: course } = await svc.from("courses").select("created_by").eq("id", courseId).single();
+  if (course?.created_by === user.id) {
+    return NextResponse.json({ hasAccess: true });
+  }
+
   // Check via RPC
   const { data: hasAccess } = await svc.rpc("check_course_access", { uid: user.id, cid: courseId });
 
