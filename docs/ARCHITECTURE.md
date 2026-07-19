@@ -11,9 +11,20 @@ Yandex API Gateway (прокси)
     ↓
 Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
     ↓
-Supabase (PostgreSQL + Auth + Storage)
-    ↓
-Yandex Translate API (перевод слов на уроках)
+Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
+    │
+    ├──→ /api/storage/[...path] (прокси с Sharp: ресайз 1920px, JPEG q80)
+    │       ↓
+    │   Supabase Storage (server-to-server fetch — не блокируется провайдером)
+    │
+    ├──→ /api/auth/signup (admin.createUser с auto-confirm)
+    ├──→ /api/auth/login (signInWithPassword + cookie)
+    ├──→ /api/auth/forgot-password (resetPasswordForEmail)
+    ├──→ /api/auth/update-password (updateUser)
+    │
+    ├──→ Supabase (PostgreSQL + Auth)
+    ├──→ Supabase Storage (lesson-files bucket)
+    └──→ Yandex Translate API (перевод слов на уроках)
 ```
 
 ## 2. Инфраструктура (Yandex Cloud)
@@ -72,15 +83,35 @@ Yandex Translate API (перевод слов на уроках)
 - **Folder ID:** b1gsrqv6ri6jr7ue41fc
 - **Цепочка:** Yandex → DeepL (опционально) → Google → LibreTranslate → MyMemory
 
-## 6. ЮKassa
+## 6. Прокси-роут `/api/storage/[...path]`
+- **Назначение:** сервер-серверный fetch до Supabase Storage (обходит блокировки провайдера)
+- **Upstream:** `https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/{path}`
+- **Обработка изображений:** Sharp resize до 1920px (fit inside, без увеличений) + JPEG q80
+- **Content-Type:** принудительно `image/jpeg` для изображений (Supabase отдаёт `text/plain`)
+- **Кэш:** `Cache-Control: public, max-age=86400`
+- **Fallback:** не-image файлы (видео, аудио, PDF) — passthrough без изменений
+
+## 7. Прокси для изображений на фронтенде
+- Утилита `proxyImgUrl()` в `src/lib/image-proxy.ts`
+- Заменяет `https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/...` на `/api/storage/...`
+- Применена на: главная (about, отзывы, реклама), отзывы, о школе, контент, аватар в шапке, каталог курсов, курсы студента, админка курсов, карточки новостей/статей
+
+## 8. Auth (авторизация)
+- **Регистрация:** `POST /api/auth/signup` → `admin.createUser({ email_confirm: true })` → сразу вход
+- **Вход:** `POST /api/auth/login` → `signInWithPassword()` → установка cookie через `pendingCookies`
+- **Выход:** `POST /api/auth/logout` → очистка сессии
+- **Сброс пароля:** `/forgot-password` → `resetPasswordForEmail()` → письмо → `/auth/callback` → `/reset-password` → `updateUser()`
+- **Auth callback:** `/auth/callback` → `exchangeCodeForSession()` → редирект на NEXT_PUBLIC_SITE_URL (не на request.url)
+
+## 9. ЮKassa
 - **Статус:** НЕ НАСТРОЕНА
 - **shop_id / secret_key:** ожидаются от менеджера ЮKassa
 
-## 7. GitHub
+## 10. GitHub
 - **Репозиторий:** https://github.com/outmilker1978/-naranja-feliz.git
 - **Ветка:** main (единственная, защищённая)
 
-## 8. .env.local (локальная разработка)
+## 11. .env.local (локальная разработка)
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Uyz3DPUyEZFkfXzDTOUiJg_aupb397O
@@ -92,17 +123,22 @@ YOO_KASSA_SHOP_ID=
 YOO_KASSA_SECRET_KEY=
 ```
 
-## 9. Локальная разработка
+## 12. Локальная разработка
 ```bash
 npm install
 npm run dev      # localhost:3100
 npm run build    # production сборка (output: standalone)
 ```
 
-## 10. Тестовые аккаунты
+## 13. Сжатие изображений
+- **При загрузке:** Sharp (JPEG mozjpeg q82, PNG→WebP, ресайз >1920px), fallback при ошибке
+- **Пакетное:** `scripts/compress-storage.mjs` — прошёлся по всем bucket-файлам >300KB
+- **Через прокси:** `/api/storage/[...path]` — Sharp на лету (JPEG q80, 1920px)
+
+## 14. Тестовые аккаунты
 - Учитель и ученик — в Supabase Auth, roles в `profiles`
 
-## 11. Система блоков контента портала
+## 15. Система блоков контента портала
 
 ### Типы блоков
 - **page_section** — статичные секции главной: hero (locked), features, about, testimonials, faq, cta (locked). Каждая — одна запись в `content` с `type=page_section` и `category`.
@@ -123,7 +159,7 @@ npm run build    # production сборка (output: standalone)
 ### Реордер внутри блока (`moveItemInBlock`)
 - Все items блока получают последовательные sort_order (0, 1, 2...) через `/api/content/reorder`.
 
-## 12. Важные файлы
+## 16. Важные файлы
 | Файл | Назначение |
 |------|-----------|
 | `Dockerfile` | Многостадийная сборка Next.js (standalone) |
@@ -133,3 +169,53 @@ npm run build    # production сборка (output: standalone)
 | `next.config.ts` | output: "standalone" |
 | `.dockerignore` | Исключения для Docker |
 | `src/proxy.ts` | Middleware (Next.js 16 proxy convention) |
+| `src/lib/image-proxy.ts` | Утилита замены URL на прокси-роут |
+| `src/app/api/storage/[...path]/route.ts` | Proxy-роут с Sharp |
+| `src/app/api/auth/signup/route.ts` | Регистрация с auto-confirm |
+| `src/app/api/auth/login/route.ts` | Серверный вход |
+| `src/app/api/auth/forgot-password/route.ts` | Сброс пароля |
+| `src/app/api/auth/update-password/route.ts` | Обновление пароля |
+| `src/app/auth/callback/route.ts` | Auth callback |
+| `scripts/compress-storage.mjs` | Пакетное сжатие фото в Storage |
+## 17. Per-course доступ
+
+### Схема работы
+1. Студент видит курс с бейджем «По запросу» → нажимает «Запросить доступ у учителя»
+2. Учитель получает уведомление со ссылкой на учительскую с открытой модалкой студента
+3. Учитель выбирает курс(ы) и срок → «Выдать доступ»
+4. API создаёт запись в course_access + автоматически upsert в enrollments
+5. Студент получает уведомление → переходит в список курсов → курс уже с прогрессом и уроками
+
+### API Endpoints (новые)
+| Endpoint | Метод | Назначение |
+|----------|-------|-----------|
+| /api/course-access/request | POST | Студент запрашивает доступ (уведомление учителям/админам) |
+| /api/course-access/grant | POST | Учитель выдаёт доступ (course_access + enrollments) |
+| /api/course-access/check?courseId=X | GET | Проверка доступа (через RPC check_course_access) |
+| /api/course-access/student-courses?studentId=X | GET | Список выданных доступов ученика (для модалки) |
+| /api/course-access/revoke | POST | Отзыв доступа (удаление course_access + enrollment) |
+
+### Таблицы БД
+- **course_access** — student_id, course_id, granted_by, granted_at, expires_at, eason
+- **profiles** — добавлено поле subscription_requested_at (timestamp)
+
+### RPC
+- check_course_access(uid uuid, cid uuid) — возвращает true если есть действующая запись в course_access (expires_at IS NULL OR expires_at > now())
+
+### Фронтенд
+- CourseAccessControl — модалка выдачи/отзыва доступа в учительской
+- RequestAccessButton — кнопка запроса доступа на странице курса
+- EnrollButton — при 403 (доступ ограничен) меняет текст на «Запросить доступ у учителя»
+- Страницы: orce-dynamic для актуальности данных
+
+### Важные файлы (дополнительно)
+| Файл | Назначение |
+|------|-----------|
+| src/app/api/course-access/request/route.ts | Запрос доступа |
+| src/app/api/course-access/grant/route.ts | Выдача доступа + auto-enrollment |
+| src/app/api/course-access/check/route.ts | Проверка доступа |
+| src/app/api/course-access/student-courses/route.ts | Список доступов ученика |
+| src/app/api/course-access/revoke/route.ts | Отзыв доступа |
+| src/app/(dashboard)/admin/teachers/course-access-control.tsx | Модалка выдачи |
+| src/app/(dashboard)/courses/[courseId]/request-access-button.tsx | Кнопка запроса |
+| src/app/(dashboard)/courses/enroll-button.tsx | Умная кнопка (403→запрос) |

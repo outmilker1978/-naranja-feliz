@@ -230,7 +230,7 @@ export default async function Home() {
         {(user ? (myCourses.length > 0 ? myCourses : enrolledCourses.length > 0 ? enrolledCourses : []) : allCourses ?? []).slice(0, 8).map((course: any) => (
           <Link key={course.id} href={user ? `/courses/${course.id}` : "/register"} className="card overflow-hidden group flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
             <div className="h-44 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center overflow-hidden">
-              {course.image_url ? <img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              {course.image_url ? <img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 : <span className="text-5xl opacity-30">🍊</span>}
             </div>
             <div className="p-4">
@@ -337,7 +337,7 @@ export default async function Home() {
         <CarouselSection>
           {news.slice(0, 6).map((item: any) => (
             <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              {item.cover_image && <div className="h-40 overflow-hidden"><img src={proxyImgUrl(item.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="badge badge-orange">Новость</span>
@@ -362,9 +362,9 @@ export default async function Home() {
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl sm:text-4xl font-bold text-accent text-center mb-6 tracking-tight">{ab.label}</h2>
           <CarouselSection>
-          {items.map((item: any) => (
+            {items.map((item: any) => (
             <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-              {item.cover_image && <div className="h-40 overflow-hidden"><img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              {item.cover_image && <div className="h-40 overflow-hidden"><img src={proxyImgUrl(item.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
               <div className="p-4">
                 <span className="badge badge-orange">Статья</span>
                 <h3 className="font-bold text-accent mt-1 group-hover:text-primary-500 transition-colors">{item.title}</h3>

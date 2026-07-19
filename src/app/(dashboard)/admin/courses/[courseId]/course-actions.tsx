@@ -91,6 +91,7 @@ export function CourseActions({
         </select>
         <select value={accessMode} onChange={e => setAccessMode(e.target.value)} className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400/50 focus:border-primary-400 transition-all">
           <option value="public">Публичный (без подписки)</option>
+          <option value="per_course">По запросу (учитель выдаёт доступ)</option>
           <option value="subscription">По подписке</option>
         </select>
         <div className="flex items-start gap-3">

@@ -1,8 +1,11 @@
+export const dynamic = "force-dynamic";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { EnrollButton } from "./enroll-button";
 import { OrangeProgress } from "@/components/orange-progress";
+
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 export default async function CoursesPage() {
   const supabase = await createClient();
@@ -23,6 +26,12 @@ export default async function CoursesPage() {
 
   const { data: enrollments } = await supabase.from("enrollments").select("course_id, paid").eq("student_id", user.id);
   const enrolledIds = (enrollments ?? []).map((e) => e.course_id);
+
+  let accessGrantedIds: string[] = [];
+  try {
+    const { data: ca } = await svc.from("course_access").select("course_id").eq("student_id", user.id);
+    accessGrantedIds = (ca ?? []).map((r: any) => r.course_id);
+  } catch {}
 
   const { data: lessonsByCourse } = enrolledIds.length > 0
     ? await supabase.from("lessons").select("id, course_id, published").in("course_id", enrolledIds)
@@ -62,7 +71,7 @@ export default async function CoursesPage() {
             {(myCourses ?? []).map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                 <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-accent break-words">{course.title}</h3>
                     <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
@@ -100,7 +109,8 @@ export default async function CoursesPage() {
           <div className="space-y-4">
             {(availableCourses ?? []).map((course) => {
               const isEnrolled = enrolledIds.includes(course.id);
-              if (isEnrolled) {
+              const hasAccess = accessGrantedIds.includes(course.id);
+              if (isEnrolled || hasAccess) {
                 const lc = lessonCountMap.get(course.id);
                 const total = lc?.published ?? lc?.total ?? 0;
                 const completed = [...completedLessonIds].filter(id => (lessonsByCourse ?? []).some(l => l.id === id && l.course_id === course.id)).length;
@@ -108,7 +118,7 @@ export default async function CoursesPage() {
                 return (
                   <Link key={course.id} href={`/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                     <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-accent break-words">{course.title}</h3>
                         <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
@@ -124,21 +134,27 @@ export default async function CoursesPage() {
                   </Link>
                 );
               }
+              const isPerCourse = course.access_mode === "per_course";
               return (
-                <div key={course.id} className="card overflow-hidden hover:-translate-y-1 transition-all duration-300">
+                <Link key={course.id} href={isPerCourse ? `/courses/${course.id}` : "#"} className="group block card overflow-hidden hover:-translate-y-1 transition-all duration-300">
                   <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={course.image_url} alt="" loading="lazy" className="w-full h-full object-cover" /></div>}
+                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-accent break-words">{course.title}</h3>
                       <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
                       <div className="flex flex-wrap items-center gap-2 mt-3">
                         <span className="badge badge-orange">{course.level}</span>
                         {course.access_mode === "subscription" && <span className="badge" style={{ background: "#F3E8FF", color: "#7C3AED" }}>По подписке</span>}
+                        {isPerCourse && <span className="badge" style={{ background: "#FFF7ED", color: "#C2410C" }}>По запросу</span>}
                       </div>
                     </div>
-                    <EnrollButton courseId={course.id} />
+                    {isPerCourse ? (
+                      <span className="text-sm font-semibold text-primary-500 shrink-0 self-end sm:self-center mt-2 sm:mt-0">Запросить доступ →</span>
+                    ) : (
+                      <EnrollButton courseId={course.id} />
+                    )}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

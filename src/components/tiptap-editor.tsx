@@ -9,10 +9,11 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import { ResizableImage } from "@/components/resizable-image";
 import { TranslationMark } from "@/components/translation-mark";
+import { OrangeDividerExtension } from "@/components/tiptap-divider";
 import { createClient } from "@/lib/supabase/client";
 import {
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
-  Heading1, Heading2, Heading3, Quote, LinkIcon, ImageIcon, Languages, Undo, Redo, Eye, Edit3, Volume2,
+  Heading1, Heading2, Heading3, Quote, LinkIcon, ImageIcon, Languages, Undo, Redo, Eye, Edit3, Volume2, AlignLeft, AlignCenter, AlignRight,
 } from "lucide-react";
 
 function ToolBtn({
@@ -60,6 +61,7 @@ export function TiptapEditor({
       LinkExtension.configure({ openOnClick: false }),
       ResizableImage,
       TranslationMark,
+      OrangeDividerExtension,
       Placeholder.configure({ placeholder }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
@@ -193,6 +195,10 @@ export function TiptapEditor({
         <ToolBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Нумерованный список"><ListOrdered className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Цитата"><Quote className="w-4 h-4" /></ToolBtn>
         <span className="w-px h-5 bg-zinc-300 mx-1" />
+        <ToolBtn onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Выровнять влево"><AlignLeft className="w-4 h-4" /></ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Выровнять по центру"><AlignCenter className="w-4 h-4" /></ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({ textAlign: "right" })} title="Выровнять вправо"><AlignRight className="w-4 h-4" /></ToolBtn>
+        <span className="w-px h-5 bg-zinc-300 mx-1" />
         <ToolBtn onClick={setLink} active={editor.isActive("link")} title="Вставить ссылку"><LinkIcon className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={toggleTranslation} active={isTransActive} title="Перевод (повторное нажатие убирает)"><Languages className="w-4 h-4" /></ToolBtn>
         <label className="p-1.5 rounded text-zinc-600 hover:bg-primary-50 hover:text-primary-500 cursor-pointer transition-colors" title="Загрузить файл с компа">
@@ -202,6 +208,39 @@ export function TiptapEditor({
         <span className="w-px h-5 bg-zinc-300 mx-1" />
         <ToolBtn onClick={() => editor.chain().focus().undo().run()} title="Отменить"><Undo className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} title="Повторить"><Redo className="w-4 h-4" /></ToolBtn>
+        <ToolBtn onClick={() => {
+          const svg = `<div style="display:flex;justify-content:center;align-items:center;width:100%;height:2.5rem;margin:1.5rem 0" data-type="orange-divider">
+            <svg width="100%" height="100%" viewBox="0 0 400 60" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="color:#F97316;max-width:min(100%,480px)">
+              <path d="M 4 30 L 145 30" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              <path d="M 145 30 L 158 21" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 145 30 L 158 39" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 139 24 C 132 13, 127 28, 139 24" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+              <path d="M 141 35 C 134 44, 129 33, 141 35" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+              <path d="M 242 30 L 396 30" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              <path d="M 242 30 L 229 21" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 242 30 L 229 39" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M 248 24 C 255 13, 260 28, 248 24" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+              <path d="M 246 35 C 253 44, 258 33, 246 35" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/>
+              <circle cx="200" cy="30" r="20" stroke="currentColor" stroke-width="3.5" fill="none"/>
+              <circle cx="188" cy="22" r="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <circle cx="213" cy="26" r="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <circle cx="192" cy="39" r="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <circle cx="209" cy="37" r="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/>
+              <path d="M 200 10 Q 194 4, 200 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <path d="M 200 10 C 189 -1, 174 -1, 172 5 C 176 14, 189 16, 200 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+              <path d="M 200 10 C 211 -1, 226 -1, 228 5 C 224 14, 211 16, 200 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+            </svg>
+          </div>`;
+          editor.chain().focus().insertContent(svg).run();
+        }} title="Разделитель">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="5" />
+            <path d="M2 12h5" /><path d="M17 12h5" />
+            <path d="M7 12l2-2" /><path d="M7 12l2 2" />
+            <path d="M17 12l-2-2" /><path d="M17 12l-2 2" />
+            <path d="M12 7V2" /><path d="M12 2l-1.5 1.5M12 2l1.5 1.5" />
+          </svg>
+        </ToolBtn>
         <span className="w-px h-5 bg-zinc-300 mx-1" />
         <button
           onClick={() => setPreview(true)}

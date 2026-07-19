@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LevelControl } from "./confirm-level-button";
 import { SubscriptionControl } from "./subscription-control";
+import { CourseAccessControl } from "./course-access-control";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Админ",
@@ -22,6 +23,9 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
   const [message, setMessage] = useState("");
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusStudentId = searchParams.get("studentId");
+  const focusCourseId = searchParams.get("courseId");
 
   const currentUser = profiles.find(p => p.id === currentUserId);
   const role = currentUser?.role;
@@ -67,7 +71,6 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
 
   const canManage = (profile: any) => {
     if (!canManageRoles) return false;
-    // Cannot demote self, but can promote self to admin if no admin exists
     if (profile.id === currentUserId && role === "admin") return false;
     if (profile.id === currentUserId && hasAdmin) return false;
     return true;
@@ -89,7 +92,7 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
 
       <div className="space-y-2">
         {filtered.map((profile) => (
-          <div key={profile.id} className="flex items-center justify-between card px-4 py-3 transition-all duration-200">
+          <div key={profile.id} className="flex items-center justify-between card px-4 py-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative shrink-0">
                 {profile.avatar_url ? (
@@ -113,6 +116,7 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
                   <div className="mt-1 flex flex-wrap items-center gap-2">
                     <LevelControl userId={profile.id} currentLevel={profile.language_level} confirmed={!!profile.language_level_confirmed_by} />
                     <SubscriptionControl userId={profile.id} subscriptionUntil={profile.subscription_until} requestedAt={profile.subscription_requested_at} />
+                    <CourseAccessControl userId={profile.id} focusStudentId={profile.id === focusStudentId ? focusStudentId : null} focusCourseId={profile.id === focusStudentId ? focusCourseId : null} />
                   </div>
                 )}
               </div>
@@ -123,19 +127,19 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
               </span>
               {profile.role === "admin" && canManage(profile) && (
                 <button onClick={() => demoteUser(profile.id)} disabled={loadingId === profile.id}
-                  className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50 transition-colors">
+                  className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50">
                   {loadingId === profile.id ? "..." : "Сделать учеником"}
                 </button>
               )}
               {profile.role === "teacher" && canManage(profile) && (
                 <>
                   <button onClick={() => setRole(profile.email, "admin")} disabled={loadingId === `set-${profile.email}`}
-                    className="text-xs text-purple-500 hover:text-purple-700 hover:underline disabled:opacity-50 transition-colors">
+                    className="text-xs text-purple-500 hover:text-purple-700 hover:underline disabled:opacity-50">
                     {loadingId === `set-${profile.email}` ? "..." : "Сделать админом"}
                   </button>
                   {profile.id !== currentUserId && (
                     <button onClick={() => demoteUser(profile.id)} disabled={loadingId === profile.id}
-                      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50 transition-colors">
+                      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50">
                       {loadingId === profile.id ? "..." : "Сделать учеником"}
                     </button>
                   )}
@@ -143,7 +147,7 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
               )}
               {profile.role === "student" && canManage(profile) && (
                 <button onClick={() => setRole(profile.email, "teacher")} disabled={loadingId === `set-${profile.email}`}
-                  className="text-xs text-primary-500 hover:text-primary-700 hover:underline disabled:opacity-50 transition-colors">
+                  className="text-xs text-primary-500 hover:text-primary-700 hover:underline disabled:opacity-50">
                   {loadingId === `set-${profile.email}` ? "..." : "Назначить учителем"}
                 </button>
               )}

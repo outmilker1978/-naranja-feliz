@@ -69,14 +69,17 @@ src/
 │   └── ...
 ├── components/
 │   ├── content-editor.tsx    # Редактор контента портала
-│   ├── content-carousel.tsx  # Карусель контента (новости, статьи)
+│   ├── content-carousel.tsx
+orange-divider.tsx    # Оранжевый разделитель (для уроков)  # Карусель контента (новости, статьи)
 │   ├── lesson-blocks/        # Рендер и редактор блоков уроков
 │   ├── dashboard-header.tsx  # Шапка с меню
-│   ├── site-header.tsx       # Шапка портала
+│   ├── site-header.tsx
+tiptap-divider.ts     # Расширение разделителя для TipTap       # Шапка портала
 │   ├── submission-thread.tsx # Чат под ответом
 │   └── ...
 └── lib/
-    └── supabase/             # Клиенты Supabase
+    └── image-proxy.ts        # proxyImgUrl - замена URL Supabase Storage на прокси-роут
+supabase/             # Клиенты Supabase
         ├── server.ts         # createClient (SSR), createServiceClient, createAdminClient
         └── client.ts         # createClient (браузер)
 ```

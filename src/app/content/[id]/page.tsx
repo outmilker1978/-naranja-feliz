@@ -64,7 +64,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
           <div>
             {item.cover_image && (
               <div className="rounded-2xl overflow-hidden mb-8 shadow-md">
-                <img src={item.cover_image} alt="" loading="lazy" className="w-full h-72 sm:h-96 object-cover" />
+                <img src={proxyImgUrl(item.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-72 sm:h-96 object-cover" />
               </div>
             )}
 
@@ -113,7 +113,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
                   <Link key={r.id} href={`/content/${r.id}`} className="flex gap-3 group">
                     {r.cover_image ? (
                       <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                        <img src={r.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                        <img src={proxyImgUrl(r.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       </div>
                     ) : (
                       <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center shrink-0">

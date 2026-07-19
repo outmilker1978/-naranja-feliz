@@ -123,8 +123,8 @@ function link(text) {
 
 async function main() {
   const doc = new Document({
-    title: "Naranja Feliz — Руководство пользователя",
-    description: "Полная документация испанской онлайн-школы",
+    title: "Naranja Feliz — Полная документация проекта",
+    description: "Архитектура, инфраструктура, руководство пользователя и администратора",
     styles: {
       default: {
         document: {
@@ -184,7 +184,7 @@ async function main() {
           new Paragraph({
             children: [
               new TextRun({
-                text: "Руководство пользователя",
+                text: "Полная документация проекта",
                 size: 28,
                 font: "Geist Sans",
                 bold: true,
@@ -480,7 +480,7 @@ async function main() {
           spacer(100),
           para("Стек технологий и сервисы:", "bold"),
           spacer(60),
-          para("Платформа:", "bold"),
+          para("Фронтенд / Бэкенд:", "bold"),
           bullet("Next.js 16 (App Router) — серверный рендеринг, API routes"),
           bullet("React 19 — клиентские компоненты"),
           bullet("TypeScript — типизация"),
@@ -489,63 +489,104 @@ async function main() {
           bullet("Recharts — диаграммы статистики"),
           bullet("Lucide React — иконки"),
           bullet("Web Speech API — озвучка испанского текста"),
+          bullet("Sharp — сжатие изображений (серверный ресайз)"),
           spacer(60),
-          para("Инфраструктура:", "bold"),
-          bullet("GitHub (аккаунт outmilker1978) — хранение кода, Git"),
-          bullet("Vercel (аккаунт outmilker@gmail.com, GitHub OAuth) — хостинг, SSR, авто-деплой из GitHub"),
-          bullet("Supabase (аккаунт outmilker@gmail.com) — PostgreSQL БД, аутентификация, файловое хранилище"),
-          bullet("Cloudflare (аккаунт outmilker@gmail.com, Free план) — CDN, DNS, прокси для РФ"),
-          bullet("reg.ru — регистратор домена outmilk.online"),
+          para("Хостинг и инфраструктура:", "bold"),
+          bullet("Yandex Cloud Serverless Containers — хостинг приложения (1GB RAM, 1vCPU)"),
+          bullet("Yandex API Gateway — точка входа: naranja.outmilk.online → контейнер"),
+          bullet("Yandex Container Registry — хранение Docker-образов"),
+          bullet("Supabase (Free Tier) — PostgreSQL БД, Auth, Storage"),
+          bullet("Yandex Translate API — перевод текста"),
+          bullet("GitHub — репозиторий, CI/CD (GitHub Actions)"),
+          bullet("GitHub Actions — авто-деплой при пуше в main"),
           spacer(60),
-          para("Схема связей:", "bold"),
-          coloredBox("Браузер → naranja.outmilk.online → Cloudflare → Vercel → Supabase"),
+          para("Архитектура:", "bold"),
+          coloredBox("Браузер → naranja.outmilk.online → API Gateway → Serverless Container (Next.js)"),
+          spacer(40),
+          coloredBox("  ├──→ /api/storage/[...path] (прокси-роут) → Supabase Storage\n  ├──→ /api/auth/* (регистрация, вход, сброс пароля) → Supabase Auth\n  ├──→ /api/* (основные API) → Supabase DB\n  └──→ /api/translate → Yandex Translate API"),
           spacer(60),
-          bullet("DNS: Cloudflare (adel.ns.cloudflare.com / ben.ns.cloudflare.com) — NS-серверы домена outmilk.online"),
-          bullet("GitHub push в main → Vercel авто-деплой"),
-          bullet("Vercel → Supabase по URL + anon key + service role key (переменные окружения)"),
-          bullet("Cloudflare → Vercel: CNAME naranja → cname.vercel-dns.com"),
-          bullet("Cloudflare → GitHub Pages: CNAME tvhamsters → outmilker1978.github.io"),
+          para("Прокси-роут /api/storage/[...path]:", "bold"),
+          bullet("Назначение: обход блокировок провайдера при загрузке фото (ERR_CONNECTION_RESET)"),
+          bullet("Upstream: https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/{path}"),
+          bullet("Обработка: Sharp ресайз до 1920px + JPEG q80 (только для изображений)"),
+          bullet("Кэш: Cache-Control: public, max-age=86400"),
+          bullet("Не-изображения (PDF, видео, аудио): passthrough без изменений"),
+          bullet("На фронтенде: proxyImgUrl() заменяет SUPABASE_STORAGE_ORIGIN на /api/storage/..."),
           spacer(60),
-          para("Переменные окружения (Vercel):", "bold"),
-          bullet("NEXT_PUBLIC_SUPABASE_URL — URL проекта Supabase"),
-          bullet("NEXT_PUBLIC_SUPABASE_ANON_KEY — публичный ключ Supabase"),
-          bullet("SUPABASE_SERVICE_ROLE_KEY — сервисный ключ (обходит RLS)"),
-          bullet("NEXT_PUBLIC_SITE_URL — https://naranja.outmilk.online (редиректы)"),
-          bullet("YANDEX_API_KEY — ключ Yandex Translate API (AI Studio)"),
-          bullet("YANDEX_FOLDER_ID — ID каталога Yandex Cloud"),
-          spacer(100),
+          para("Авторизация (Auth):", "bold"),
+          bullet("Регистрация: POST /api/auth/signup → admin.createUser({ email_confirm: true })"),
+          bullet("  - email_confirm: true — пользователь сразу активен, без письма"),
+          bullet("  - После регистрации создаётся профиль в таблице profiles"),
+          bullet("Вход: POST /api/auth/login → signInWithPassword() + cookie"),
+          bullet("Сброс пароля: /forgot-password → resetPasswordForEmail() → письмо → /reset-password → updateUser()"),
+          bullet("Внимание: Supabase Free = 2 письма/час для сброса пароля"),
+          bullet("Auth callback: /auth/callback → exchangeCodeForSession() → редирект на NEXT_PUBLIC_SITE_URL"),
+          spacer(60),
+          para("Сжатие изображений:", "bold"),
+          bullet("При загрузке: Sharp (JPEG mozjpeg q82, PNG→WebP, ресайз >1920px)"),
+          bullet("Через прокси-роут: Sharp на лету (JPEG q80, 1920px)"),
+          bullet("Пакетное сжатие: scripts/compress-storage.mjs — прошёлся по всем файлам >300KB в Storage"),
+          spacer(60),
+          para("Переменные окружения:", "bold"),
+          coloredBox(
+            "# Обязательные:\n" +
+            "NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co\n" +
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY=...\n" +
+            "SUPABASE_SERVICE_ROLE_KEY=...\n" +
+            "NEXT_PUBLIC_SITE_URL=http://localhost:3100 (локально) / https://naranja.outmilk.online (продакшн)\n\n" +
+            "# Для перевода:\n" +
+            "YANDEX_API_KEY=...\n" +
+            "YANDEX_FOLDER_ID=b1gsrqv6ri6jr7ue41fc\n" +
+            "DEEPL_API_KEY=... (опционально)"
+          ),
+          spacer(60),
           para("Архитектура перевода:", "bold"),
-          bullet("Словарь служебных слов (/src/data/spanish-function-words.ts) — 240 записей (артикли, местоимения, предлоги, союзы и т.д.) — возвращают грамматическое объяснение"),
-          bullet("Yandex Translate API — основной переводчик (требует YANDEX_API_KEY + YANDEX_FOLDER_ID в .env.local)"),
+          bullet("Словарь служебных слов (src/data/spanish-function-words.ts) — 240 записей (артикли, местоимения, предлоги, союзы и т.д.) — возвращают грамматическое объяснение"),
+          bullet("Yandex Translate API — основной переводчик (требует YANDEX_API_KEY + YANDEX_FOLDER_ID)"),
           bullet("DeepL — первый fallback (требует DEEPL_API_KEY)"),
           bullet("Google Translate — бесплатный fallback"),
           bullet("LibreTranslate — fallback"),
           bullet("MyMemory — последний fallback"),
-          spacer(100),
-          para("Цепочка вызова: /api/translate", "bold"),
+          spacer(40),
           coloredBox("POST /api/translate { text, source?: \"es\", target?: \"ru\" } → { translation, functionWord? }"),
-          spacer(100),
+          spacer(60),
           para("Ключевые файлы:", "bold"),
-          bullet("src/app/page.tsx — портал (главная страница)"),
-          bullet("src/app/layout.tsx — корневой layout (SiteHeader, Footer, ToolsPanel)"),
-          bullet("src/components/site-header.tsx — единый хедер"),
-          bullet("src/components/tiptap-editor.tsx — редактор текста (WYSIWYG)"),
-          bullet("src/components/translation-mark.ts — ProseMirror-марк для перевода"),
-          bullet("src/components/lesson-blocks/ — система блоков (types, editor, renderer)"),
-          bullet("src/components/slideshow-background.tsx — слайд-шоу hero"),
-          bullet("src/app/(dashboard)/courses/[courseId]/[lessonId]/vocab-picker-fab.tsx — пикер слов"),
-          bullet("src/data/spanish-function-words.ts — словарь служебных слов"),
-          bullet("src/app/api/translate/route.ts — API перевода"),
-          bullet("src/app/globals.css — дизайн-система (цвета, компоненты, анимации)"),
-          spacer(100),
-          para("База данных (Supabase):", "bold"),
+          bullet("src/app/page.tsx — портал (главная)"),
+          bullet("src/app/layout.tsx — корневой layout"),
+          bullet("src/components/site-header.tsx — хедер"),
+          bullet("src/app/api/storage/[...path]/route.ts — прокси-роут изображений (Sharp)"),
+          bullet("src/lib/image-proxy.ts — утилита замены URL на /api/storage/..."),
+          bullet("src/app/api/auth/signup/route.ts — регистрация"),
+          bullet("src/app/api/auth/login/route.ts — вход"),
+          bullet("src/app/api/auth/forgot-password/route.ts — сброс пароля"),
+          bullet("src/app/api/auth/update-password/route.ts — обновление пароля"),
+          bullet("src/app/auth/callback/route.ts — auth callback"),
+          bullet("scripts/compress-storage.mjs — пакетное сжатие фото в Storage"),
+          bullet("src/app/globals.css — дизайн-система"),
+          spacer(60),
+          para("Ключевые файлы инфраструктуры:", "bold"),
+          bullet("Dockerfile — многостадийная сборка Next.js (standalone, порт 8080)"),
+          bullet("gateway-spec.yaml — API Gateway (naranja-gateway → контейнер)"),
+          bullet(".github/workflows/deploy.yml — CI/CD: сборка → пуш в YCR → ревизия"),
+          bullet("supabase/migration.sql — схема БД"),
+          spacer(60),
+          para("База данных (Supabase PostgreSQL):", "bold"),
           bullet("courses — курсы (access_mode: public/subscription)"),
-          bullet("lessons — уроки (содержат blocks JSONB)"),
-          bullet("vocabulary — словарь пользователей (RLS по user_id)"),
-          bullet("content — новости/статьи (status: draft/published)"),
+          bullet("lessons — уроки (blocks JSONB)"),
+          bullet("vocabulary — словарь пользователей"),
+          bullet("content — новости/статьи (page_sections — секции портала)"),
+          bullet("content_blocks — динамические блоки (article/ad)"),
           bullet("profiles — профили (role: student/teacher/admin)"),
           bullet("notifications — уведомления"),
           bullet("subscriptions — подписки"),
+          bullet("submissions — ответы учеников"),
+          bullet("submission_thread — чат под ответами"),
+          bullet("teacher_students — привязка учителя к ученикам"),
+          spacer(60),
+          para("CI/CD (GitHub Actions):", "bold"),
+          bullet("Пуш в main → сборка Next.js → Docker build → push в YCR → новая ревизия контейнера → health check"),
+          bullet("Секреты: YC_SA_KEY_JSON, SUPABASE_SERVICE_ROLE_KEY, YANDEX_API_KEY"),
+          bullet("Правило: деплой только с разрешения пользователя (не автоматический)"),
         ],
       },
 
@@ -555,25 +596,28 @@ async function main() {
           new Paragraph({ children: [new PageBreak()] }),
           heading("6. Тестовые аккаунты", 1),
           spacer(100),
-          para("Для тестирования используются два аккаунта:", "bold"),
+          para("Для тестирования используются аккаунты в Supabase Auth:", "bold"),
           spacer(60),
           coloredBox(
-            "Учитель / Администратор:\n" +
+            "Администратор:\n" +
             "Email: outmilk@yandex.ru\n" +
             "Пароль: запросить у разработчика\n" +
-            "Роль: teacher (повышена до admin)\n" +
-            "Возможности: создание курсов, уроков, управление контентом, проверка ответов, просмотр статистики"
+            "Роль: admin\n" +
+            "Возможности: всё — курсы, уроки, контент, проверка, статистика, управление порталом"
           ),
           spacer(100),
           coloredBox(
-            "Ученик:\n" +
+            "Ученик (тестовый):\n" +
             "Email: outmilker@gmail.com\n" +
             "Пароль: запросить у разработчика\n" +
             "Роль: student\n" +
             "Возможности: прохождение уроков, словарь, флеш-карты, чат, подписка"
           ),
           spacer(100),
-          para("Переключение ролей: в меню профиля есть переключатель «Учитель/Ученик» для просмотра платформы от лица другой роли."),
+          para("Примечание:", "bold"),
+          bullet("Регистрация: email_confirm=true — после регистрации можно сразу войти (без письма)"),
+          bullet("Режим просмотра: в профиле есть переключатель «Учитель/Ученик»"),
+          bullet("Управление пользователями: Supabase Studio → Authentication → Users"),
         ],
       },
 

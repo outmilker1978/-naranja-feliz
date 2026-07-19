@@ -21,11 +21,15 @@ export function LevelControl({ userId, currentLevel, confirmed }: { userId: stri
     router.refresh();
   };
 
-  if (confirmed) {
+  if (confirmed && selected === currentLevel) {
     return (
       <div className="flex items-center gap-1.5 mt-1">
         <span className="text-xs bg-primary-50 text-primary-500 px-1.5 py-0.5 rounded font-medium">{currentLevel}</span>
         <span className="text-[10px] text-green-600">✓ Подтверждён</span>
+        <button onClick={() => setSelected("")}
+          className="text-[10px] text-primary-500 hover:underline ml-1">
+          Изменить
+        </button>
       </div>
     );
   }

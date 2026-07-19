@@ -5,6 +5,7 @@ import { CourseActions } from "./course-actions";
 import { NewLessonForm } from "./new-lesson-form";
 import { LessonList } from "./lesson-list";
 import { OrangeProgress } from "@/components/orange-progress";
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 export default async function CourseDetailPage({
   params,
@@ -82,9 +83,9 @@ export default async function CourseDetailPage({
       </div>
 
     <div className="pt-14">
-      {course.image_url && (
+       {course.image_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100">
-          <img src={course.image_url} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+          <img src={proxyImgUrl(course.image_url) ?? ""} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
         </div>
       )}
 

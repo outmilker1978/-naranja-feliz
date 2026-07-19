@@ -1,8 +1,11 @@
+export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { OrangeProgress } from "@/components/orange-progress";
+import { RequestAccessButton } from "./request-access-button";
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 export default async function CourseDetailPage({
   params,
@@ -29,14 +32,11 @@ export default async function CourseDetailPage({
     redirect(`/admin/courses/${courseId}`);
   }
 
-  const { data: enrollment } = await supabase
-    .from("enrollments")
-    .select("paid")
-    .eq("student_id", user.id)
-    .eq("course_id", courseId)
-    .single();
-
-  if (!enrollment || !enrollment.paid) redirect("/courses");
+  let canAccess = true;
+  if (course.access_mode === "subscription" || course.access_mode === "per_course") {
+    const { data: hasAccess } = await supabase.rpc("check_course_access", { uid: user.id, cid: courseId });
+    canAccess = !!hasAccess;
+  }
 
   const { data: lessons } = await supabase
     .from("lessons")
@@ -67,7 +67,6 @@ export default async function CourseDetailPage({
 
   return (
     <>
-      {/* Fixed nav */}
       <div className="border-b border-border/30 bg-white" style={{ position: "fixed", top: "73px", left: 0, right: 0, zIndex: 40 }}>
         <div className="max-w-3xl mx-auto flex items-center justify-between px-5 md:px-8 py-2.5">
           <Link href="/courses" className="text-sm font-semibold text-primary-500 hover:text-primary-600 transition-colors inline-flex items-center gap-1">
@@ -86,7 +85,7 @@ export default async function CourseDetailPage({
 
       {course.image_url && (
         <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100">
-          <img src={course.image_url} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+          <img src={proxyImgUrl(course.image_url) ?? ""} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
         </div>
       )}
 
@@ -95,9 +94,19 @@ export default async function CourseDetailPage({
 
       <div className="flex items-center gap-2 mb-6">
         <span className="badge badge-orange">{course.level}</span>
+        {course.access_mode === "subscription" && <span className="badge" style={{ background: "#F3E8FF", color: "#7C3AED" }}>По подписке</span>}
+        {course.access_mode === "per_course" && <span className="badge" style={{ background: "#FFF7ED", color: "#C2410C" }}>По запросу</span>}
       </div>
 
-      {/* Progress bar */}
+      {!canAccess && (
+        <div className="card p-8 text-center mb-8">
+          <p className="text-lg text-muted mb-4">Доступ к этому курсу ограничен</p>
+          <RequestAccessButton courseId={courseId} />
+        </div>
+      )}
+
+      {canAccess && (<>
+
       {totalLessons > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between text-sm text-muted mb-2">
@@ -154,6 +163,7 @@ export default async function CourseDetailPage({
           );
         })}
       </div>
+      </>)}
     </div>
     </>
   );
