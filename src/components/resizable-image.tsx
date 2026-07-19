@@ -47,10 +47,11 @@ const ResizableImageComponent = ({ node, updateAttributes, selected }: NodeViewP
   }, [updateAttributes]);
 
   const style = node.attrs.style || "";
+  const textAlign = node.attrs.textAlign as string | undefined;
 
   return (
-    <NodeViewWrapper className="relative inline-block" style={{ maxWidth: "100%" }}>
-      <div className={`relative ${selected || isResizing ? "ring-2 ring-primary-400 rounded" : ""}`}>
+    <NodeViewWrapper className="relative" style={{ maxWidth: "100%", textAlign: textAlign || undefined }}>
+      <div className={`inline-block ${selected || isResizing ? "ring-2 ring-primary-400 rounded" : ""}`} style={{ textAlign: "initial" }}>
         <img
           ref={imgRef}
           src={node.attrs.src}
@@ -93,6 +94,12 @@ export const ResizableImage = TiptapImage.extend({
       ...this.parent?.(),
       style: { default: "" },
     };
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["img", HTMLAttributes];
+  },
+  parseHTML() {
+    return [{ tag: "img" }];
   },
   addNodeView() {
     return ReactNodeViewRenderer(ResizableImageComponent);

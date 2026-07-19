@@ -209,7 +209,7 @@ export function TiptapEditor({
         <ToolBtn onClick={() => editor.chain().focus().undo().run()} title="Отменить"><Undo className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} title="Повторить"><Redo className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => {
-          editor.chain().focus().insertContent('<div data-type="orange-divider" style="display:flex;justify-content:center;align-items:center;width:100%;height:2.5rem;margin:1.5rem 0;border-top:3px solid #F97316;border-radius:2px;"></div>').run();
+          editor.chain().focus().insertContent('<div data-type="orange-divider"></div>').run();
         }} title="Разделитель">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="5" />

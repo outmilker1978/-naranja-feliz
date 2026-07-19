@@ -1,4 +1,11 @@
-import { Node } from "@tiptap/core";
+import { Node, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
+import { OrangeDivider } from "./orange-divider";
+
+const OrangeDividerNodeView = () => (
+  <NodeViewWrapper>
+    <OrangeDivider />
+  </NodeViewWrapper>
+);
 
 export const OrangeDividerExtension = Node.create({
   name: "orangeDivider",
@@ -10,7 +17,7 @@ export const OrangeDividerExtension = Node.create({
   renderHTML() {
     return [
       "div",
-      { "data-type": "orange-divider", style: "display:flex;justify-content:center;align-items:center;width:100%;height:2.5rem;margin:1.5rem 0" },
+      { "data-type": "orange-divider", style: "display:flex;align-items:center;justify-content:center;width:100%;height:2.5rem;margin:1.5rem 0" },
       [
         "svg",
         {
@@ -20,7 +27,7 @@ export const OrangeDividerExtension = Node.create({
           fill: "none",
           xmlns: "http://www.w3.org/2000/svg",
           preserveAspectRatio: "xMidYMid meet",
-          style: "color:#F97316;max-width:min(100%,480px)",
+          style: "max-width:min(100%,480px);color:#F97316",
         },
         ["path", { d: "M 4 30 L 145 30", stroke: "currentColor", "stroke-width": "3", "stroke-linecap": "round" }],
         ["path", { d: "M 145 30 L 158 21", stroke: "currentColor", "stroke-width": "3", "stroke-linecap": "round", "stroke-linejoin": "round" }],
@@ -42,5 +49,8 @@ export const OrangeDividerExtension = Node.create({
         ["path", { d: "M 200 10 C 211 -1, 226 -1, 228 5 C 224 14, 211 16, 200 10", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", fill: "none" }],
       ],
     ];
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(OrangeDividerNodeView);
   },
 });

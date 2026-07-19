@@ -58,6 +58,21 @@ function TextBlockRenderer({ html }: { html: string }) {
 
   return (
     <>
+      <style>{`
+        .text-content img[style*="text-align:"] {
+          display: block !important;
+        }
+        .text-content img[style*="text-align: center"],
+        .text-content img[style*="text-align:center"] {
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+        .text-content img[style*="text-align: right"],
+        .text-content img[style*="text-align:right"] {
+          margin-left: auto !important;
+          margin-right: 0 !important;
+        }
+      `}</style>
       <div
         className="text-content [&_[data-translate]]:cursor-help [&_[data-translate]]:border-b-2 [&_[data-translate]]:border-secondary-400 [&_[data-translate]]:bg-secondary-50/30 [&_[data-translate]]:transition-colors [&_[data-translate]:hover]:bg-secondary-100/50"
         dangerouslySetInnerHTML={{ __html: html }}
