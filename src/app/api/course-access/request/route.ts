@@ -14,6 +14,24 @@ export async function POST(req: Request) {
   const { data: course } = await svc.from("courses").select("title").eq("id", courseId).single();
   if (!course) return NextResponse.json({ error: "Course not found" }, { status: 404 });
 
+  const { data: profile } = await svc.from("profiles").select("role").eq("id", user.id).single();
+  if (profile?.role === "admin") {
+    await svc.from("course_access").upsert({
+      student_id: user.id,
+      course_id: courseId,
+      granted_by: user.id,
+      granted_at: new Date().toISOString(),
+      expires_at: null,
+      reason: "admin_auto",
+    }, { onConflict: "student_id, course_id" });
+    await svc.from("enrollments").upsert({
+      student_id: user.id,
+      course_id: courseId,
+      paid: true,
+    }, { onConflict: "student_id, course_id" });
+    return NextResponse.json({ ok: true, autoGranted: true });
+  }
+
   const { data: teachers } = await svc.from("profiles").select("id").in("role", ["teacher", "admin"]);
   const studentName = user.user_metadata?.full_name || user.email || "Студент";
 

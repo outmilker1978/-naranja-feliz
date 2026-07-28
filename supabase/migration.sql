@@ -353,7 +353,7 @@ CREATE POLICY "Students read lessons from enrolled courses"
 -- Allow new block types in lesson_blocks CHECK constraint
 ALTER TABLE lesson_blocks DROP CONSTRAINT IF EXISTS lesson_blocks_type_check;
 ALTER TABLE lesson_blocks ADD CONSTRAINT lesson_blocks_type_check
-  CHECK (type IN ('text','image','video','fill_blank','choice','open_question','audio_answer','video_answer','drag_order','image_pick'));
+  CHECK (type IN ('text','image','video','fill_blank','choice','open_question','audio_answer','video_answer','drag_order','image_pick','group_drag'));
 
 -- Notifications table
 CREATE TABLE IF NOT EXISTS notifications (
@@ -723,5 +723,8 @@ AS $$
   ) OR EXISTS (
     SELECT 1 FROM profiles
     WHERE id = uid AND subscription_until > NOW()
+  ) OR EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = uid AND role = 'admin'
   );
 $$;

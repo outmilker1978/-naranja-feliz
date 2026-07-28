@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { LessonBlock, BlockType, BLOCK_LABELS, BLOCK_DESCRIPTIONS, TextContent, ImageContent, VideoContent, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, DragOrderContent, ImagePickContent } from "./types";
+import { LessonBlock, BlockType, BLOCK_LABELS, BLOCK_DESCRIPTIONS, TextContent, ImageContent, VideoContent, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, DragOrderContent, ImagePickContent, GroupDragContent } from "./types";
 
 function convertOldContent(html: string): string {
   return html
@@ -36,21 +36,36 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
   const [pickCorrect, setPickCorrect] = useState(((content as ImagePickContent).correct || []).join(","));
   const [pickMultiple, setPickMultiple] = useState((content as ImagePickContent).multiple || false);
 
+  const [groupInst, setGroupInst] = useState((content as GroupDragContent).instruction || "");
+  const [groupGroups, setGroupGroups] = useState(JSON.stringify((content as GroupDragContent).groups || []));
+  const [groupLayout, setGroupLayout] = useState<"columns" | "table">((content as GroupDragContent).layout || "columns");
+
+  const [fbAttempts, setFbAttempts] = useState((content as FillBlankContent).maxAttempts || 1);
+  const [choiceAttempts, setChoiceAttempts] = useState((content as ChoiceContent).maxAttempts || 1);
+  const [dragAttempts, setDragAttempts] = useState((content as DragOrderContent).maxAttempts || 1);
+  const [pickAttempts, setPickAttempts] = useState((content as ImagePickContent).maxAttempts || 1);
+  const [groupAttempts, setGroupAttempts] = useState((content as GroupDragContent).maxAttempts || 1);
+
   const buildContent = (): any => {
     switch (type) {
       case "text": return { html };
       case "image": return { src: imgSrc, caption: imgCaption, width: imgWidth };
       case "video": return { src: videoSrc, type: videoType, caption: videoCaption || undefined };
-      case "fill_blank": return { text: fillText };
-      case "choice":         return { question: choiceQuestion, options: choiceOptions.split("\n").map(s => s.trim()).filter(Boolean), correct: choiceCorrect.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n)), multiple: choiceMultiple };
+      case "fill_blank": return { text: fillText, maxAttempts: fbAttempts !== 1 ? fbAttempts : undefined };
+      case "choice":         return { question: choiceQuestion, options: choiceOptions.split("\n").map(s => s.trim()).filter(Boolean), correct: choiceCorrect.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n)), multiple: choiceMultiple, maxAttempts: choiceAttempts !== 1 ? choiceAttempts : undefined };
       case "open_question": return { question: openQ };
       case "audio_answer": return { prompt: audioPrompt };
       case "video_answer": return { prompt: audioPrompt };
-      case "drag_order": return { sentenceTemplate: dragSentence };
+      case "drag_order": return { sentenceTemplate: dragSentence, maxAttempts: dragAttempts !== 1 ? dragAttempts : undefined };
       case "image_pick": {
         let images: { src: string; label: string }[] = [];
         try { images = JSON.parse(pickImages); } catch {}
-        return { question: pickQuestion, images, correct: pickCorrect.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n)), multiple: pickMultiple };
+        return { question: pickQuestion, images, correct: pickCorrect.split(",").map(s => parseInt(s.trim())).filter(n => !isNaN(n)), multiple: pickMultiple, maxAttempts: pickAttempts !== 1 ? pickAttempts : undefined };
+      }
+      case "group_drag": {
+        let groups: { label: string; words: string[] }[] = [];
+        try { groups = JSON.parse(groupGroups); } catch {}
+        return { instruction: groupInst, groups: groups.map(g => ({ ...g, words: g.words.filter(w => w.trim()) })), layout: groupLayout, maxAttempts: groupAttempts !== 1 ? groupAttempts : undefined };
       }
       default: return {};
     }
@@ -124,37 +139,64 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
       )}
 
       {type === "fill_blank" && (
-        <textarea value={fillText} onChange={e => setFillText(e.target.value)} placeholder="Текст с [[пропусками]] для заполнения" className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm min-h-[80px]" />
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Используй <strong>[[двойные скобки]]</strong> для пропущенных слов. Всё что внутри <strong>[[...]]</strong> станет полем для ввода.
+          </div>
+          <TiptapEditor content={fillText} onChange={setFillText} placeholder="Текст с [[пропусками]] для заполнения" />
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={fbAttempts === 3} onChange={e => setFbAttempts(e.target.checked ? 3 : 1)} /> Три попытки ответа</label>
+        </>
       )}
 
       {type === "choice" && (
         <>
-          <input value={choiceQuestion} onChange={e => setChoiceQuestion(e.target.value)} placeholder="Вопрос" className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm" />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Напиши вопрос в редакторе (можно добавить таблицу, изображение, форматирование). Варианты ответов — в поле ниже, каждый с новой строки.
+          </div>
+          <TiptapEditor content={choiceQuestion} onChange={setChoiceQuestion} placeholder="Вопрос" />
           <textarea value={choiceOptions} onChange={e => setChoiceOptions(e.target.value)} placeholder="Варианты ответов (каждый с новой строки)" className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm min-h-[80px]" />
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={choiceMultiple} onChange={e => setChoiceMultiple(e.target.checked)} /> Несколько ответов</label>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={choiceAttempts === 3} onChange={e => setChoiceAttempts(e.target.checked ? 3 : 1)} /> Три попытки ответа</label>
               <div className="text-sm text-zinc-500">Верные: <input value={choiceCorrect} onChange={e => setChoiceCorrect(e.target.value)} placeholder="номера (1, 2, 3)" className="w-24 px-2 py-1 border border-zinc-300 rounded text-xs" /></div>
             </div>
         </>
       )}
 
       {type === "open_question" && (
-        <textarea value={openQ} onChange={e => setOpenQ(e.target.value)} placeholder="Вопрос для ученика" className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm min-h-[80px]" />
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Ученик увидит этот вопрос и напишет ответ текстом. Можно добавить таблицу, изображение, форматирование.
+          </div>
+          <TiptapEditor content={openQ} onChange={setOpenQ} placeholder="Вопрос для ученика" />
+        </>
       )}
 
       {(type === "audio_answer" || type === "video_answer") && (
-        <textarea value={audioPrompt} onChange={e => setAudioPrompt(e.target.value)} placeholder="Задание (что записать / сказать)" className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm min-h-[60px]" />
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Ученик увидит это задание и запишет {type === "audio_answer" ? "голосовой" : "видео"} ответ. Можно добавить таблицу, изображение, форматирование.
+          </div>
+          <TiptapEditor content={audioPrompt} onChange={setAudioPrompt} placeholder="Задание (что записать / сказать)" />
+        </>
       )}
 
       {type === "drag_order" && (
-        <textarea value={dragSentence} onChange={e => setDragSentence(e.target.value)}
-          placeholder='Напиши предложение. Слова в [скобках] станут пустыми слотами. Пример: [Дорога] [ложка] к [обеду]'
-          className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm min-h-[60px]" />
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Используй <strong>[одинарные скобки]</strong> для слов, которые ученик будет собирать по порядку. Пример: <strong>[Сегодня] [хорошая] [погода]</strong>. Можно добавить таблицу с <strong>[слотами]</strong> внутри ячеек.
+          </div>
+          <TiptapEditor content={dragSentence} onChange={setDragSentence} placeholder='Напиши предложение. Слова в [скобках] станут пустыми слотами. Пример: [Дорога] [ложка] к [обеду]' />
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={dragAttempts === 3} onChange={e => setDragAttempts(e.target.checked ? 3 : 1)} /> Три попытки ответа</label>
+        </>
       )}
 
       {type === "image_pick" && (
         <>
-          <input value={pickQuestion} onChange={e => setPickQuestion(e.target.value)} placeholder="Вопрос" className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm" />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Напиши вопрос. Добавь изображения ниже, укажи правильный(е) номер(а).
+          </div>
+          <TiptapEditor content={pickQuestion} onChange={setPickQuestion} placeholder="Вопрос" />
           <div className="space-y-2">
             {(() => {
               let images: { src: string; label: string }[] = [];
@@ -203,6 +245,7 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
           </div>
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={pickMultiple} onChange={e => setPickMultiple(e.target.checked)} /> Несколько ответов</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={pickAttempts === 3} onChange={e => setPickAttempts(e.target.checked ? 3 : 1)} /> Три попытки ответа</label>
             <div className="text-sm text-zinc-500">Верные: <input value={pickCorrect} onChange={e => setPickCorrect(e.target.value)} placeholder="номера (1, 2, 3)" className="w-24 px-2 py-1 border border-zinc-300 rounded text-xs" /></div>
           </div>
           {pickImages && (() => {
@@ -221,6 +264,54 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
         </>
       )}
 
+      {type === "group_drag" && (
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Создай группы слов. Ученик будет перетаскивать слова в ячейки своей группы (колонки или таблица).
+          </div>
+          <TiptapEditor content={groupInst} onChange={setGroupInst} placeholder="Инструкция / задание (необязательно)" />
+          <div className="space-y-2">
+            {(() => {
+              let groups: { label: string; words: string[] }[] = [];
+              try { groups = JSON.parse(groupGroups); } catch {}
+              return groups.map((g, i) => (
+                <div key={i} className="border border-primary-200 rounded-lg p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-zinc-500">Группа #{i + 1}</span>
+                    <button onClick={() => {
+                      const arr = groups.filter((_, j) => j !== i);
+                      setGroupGroups(JSON.stringify(arr));
+                    }} className="text-red-400 hover:text-red-600 text-xs">✕</button>
+                  </div>
+                  <input value={g.label} onChange={e => {
+                    const arr = [...groups]; arr[i] = { ...arr[i], label: e.target.value };
+                    setGroupGroups(JSON.stringify(arr));
+                  }} placeholder="Название группы (напр. Женский род)" className="w-full px-3 py-1.5 border border-zinc-300 rounded text-sm" />
+                  <textarea value={g.words.join("\n")} onChange={e => {
+                     const arr = [...groups]; arr[i] = { ...arr[i], words: e.target.value.split("\n") };
+                     setGroupGroups(JSON.stringify(arr));
+                   }} placeholder="Слова группы (каждое с новой строки)" className="w-full px-3 py-1.5 border border-zinc-300 rounded text-sm min-h-[60px]" />
+                </div>
+              ));
+            })()}
+            <button onClick={() => {
+              let groups: { label: string; words: string[] }[] = [];
+              try { groups = JSON.parse(groupGroups); } catch {}
+              setGroupGroups(JSON.stringify([...groups, { label: "", words: [] }]));
+            }} className="text-sm text-primary-500 hover:underline">+ Добавить группу</button>
+          </div>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" name="groupLayout" checked={groupLayout === "columns"} onChange={() => setGroupLayout("columns")} /> Колонки
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" name="groupLayout" checked={groupLayout === "table"} onChange={() => setGroupLayout("table")} /> Таблица
+            </label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={groupAttempts === 3} onChange={e => setGroupAttempts(e.target.checked ? 3 : 1)} /> Три попытки ответа</label>
+          </div>
+        </>
+      )}
+
       <div className="flex gap-2 pt-2">
         <button onClick={() => onSave({ ...block, content: buildContent() })} className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600">Сохранить</button>
         <button onClick={onCancel} className="text-zinc-500 px-4 py-1.5 rounded-lg text-sm hover:bg-zinc-100">Отмена</button>
@@ -231,7 +322,7 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
 
 export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; initialBlocks: LessonBlock[] }) {
   const [blocks, setBlocks] = useState<LessonBlock[]>(initialBlocks);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newType, setNewType] = useState<BlockType>("text");
   const [saving, setSaving] = useState(false);
@@ -251,7 +342,7 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
       });
     }
     setBlocks(blocks.map((b, i) => i === index ? { ...b, ...block } as LessonBlock : b));
-    setEditingIndex(null);
+    setEditingBlockId(null);
     setSaving(false);
     router.refresh();
   };
@@ -269,21 +360,24 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
       video_answer: { prompt: "" },
       drag_order: { sentenceTemplate: "" },
       image_pick: { question: "", images: [], correct: [], multiple: false },
+      group_drag: { instruction: "", groups: [], layout: "columns" },
     };
-    const { data } = await supabase.from("lesson_blocks").insert({
+    const { data, error } = await supabase.from("lesson_blocks").insert({
       lesson_id: lessonId,
       type: newType,
       content: defaultContent[newType] || {},
       order_index: blocks.length,
     }).select().single();
 
-    if (data) {
-      setBlocks([...blocks, data as LessonBlock]);
-      setEditingIndex(blocks.length);
+    if (error) {
+      alert("Ошибка при добавлении блока: " + error.message);
+    } else if (data) {
+      const newBlocks = [...blocks, data as LessonBlock];
+      setBlocks(newBlocks);
+      setEditingBlockId(data.id);
     }
     setShowAdd(false);
     setSaving(false);
-    router.refresh();
   };
 
   const deleteBlock = async (blockId: string) => {
@@ -319,37 +413,39 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
             <div className="flex items-center gap-1">
               <button onClick={() => moveBlock(i, -1)} disabled={i === 0} className="text-zinc-400 hover:text-secondary disabled:opacity-30 text-sm px-1">↑</button>
               <button onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1} className="text-zinc-400 hover:text-secondary disabled:opacity-30 text-sm px-1">↓</button>
-              {editingIndex !== i && <button onClick={() => setEditingIndex(i)} className="text-zinc-400 hover:text-blue-600 text-sm px-1">✎</button>}
+              {editingBlockId !== block.id && <button onClick={() => setEditingBlockId(block.id)} className="text-zinc-400 hover:text-blue-600 text-sm px-1">✎</button>}
               <button onClick={() => deleteBlock(block.id)} className="text-zinc-400 hover:text-red-600 text-sm px-1">✕</button>
             </div>
           </div>
 
-          {editingIndex === i ? (
+          {editingBlockId === block.id ? (
             <BlockEditForm
               block={block}
               onSave={(b) => saveBlock(b, i)}
-              onCancel={() => setEditingIndex(null)}
+              onCancel={() => setEditingBlockId(null)}
             />
           ) : (
             <div className="text-sm text-zinc-600">
               {block.type === "text" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: convertOldContent((block.content as TextContent).html || "") }} />}
               {block.type === "image" && <span className="text-zinc-400">{(block.content as ImageContent).caption || (block.content as ImageContent).src} {(block.content as ImageContent).width && <span className="text-zinc-300">({(block.content as ImageContent).width})</span>}</span>}
               {block.type === "video" && <span>{(block.content as VideoContent).caption || (block.content as VideoContent).src}</span>}
-              {block.type === "fill_blank" && <span>{(block.content as FillBlankContent).text}</span>}
-              {block.type === "choice" && <span>{(block.content as ChoiceContent).question}</span>}
-              {block.type === "open_question" && <span>{(block.content as OpenQuestionContent).question}</span>}
-              {block.type === "audio_answer" && <span>{(block.content as AudioAnswerContent).prompt}</span>}
-              {block.type === "video_answer" && <span>{(block.content as AudioAnswerContent).prompt}</span>}
+              {block.type === "fill_blank" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as FillBlankContent).text }} />}
+              {block.type === "choice" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as ChoiceContent).question }} />}
+              {block.type === "open_question" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as OpenQuestionContent).question }} />}
+              {block.type === "audio_answer" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as AudioAnswerContent).prompt }} />}
+              {block.type === "video_answer" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as AudioAnswerContent).prompt }} />}
               {block.type === "drag_order" && (
-                <div>
-                  <p className="text-sm text-zinc-500">Шаблон:</p>
-                  <p className="text-sm mt-1">{(block.content as DragOrderContent).sentenceTemplate}</p>
-                </div>
+                <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as DragOrderContent).sentenceTemplate }} />
               )}
               {block.type === "image_pick" && (
                 <div>
-                  <p className="text-sm font-medium">{(block.content as ImagePickContent).question}</p>
+                  <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as ImagePickContent).question }} />
                   <p className="text-xs text-zinc-400">{(block.content as ImagePickContent).images?.length || 0} изображений</p>
+                </div>
+              )}
+              {block.type === "group_drag" && (
+                <div>
+                  <p className="text-xs text-zinc-400">{(block.content as GroupDragContent).groups?.length || 0} групп, {(block.content as GroupDragContent).groups?.reduce((s, g) => s + g.words.length, 0) || 0} слов</p>
                 </div>
               )}
             </div>

@@ -171,12 +171,11 @@ export default async function Home() {
           )}
         </div>
         <div className="flex items-center justify-center gap-3 mt-6 text-sm text-white flex-wrap">
-          {(hero?.content?.stats?.length > 0 ? hero.content.stats as { icon?: string; text?: string; link?: string }[] : [
+          {[
             { icon: "BookOpen", text: `${courseCount} ${courseCount === 1 ? "курс" : courseCount < 5 ? "курса" : "курсов"}` },
             { icon: "BarChart3", text: `${lessonCount} ${lessonCount === 1 ? "урок" : lessonCount < 5 ? "урока" : "уроков"}` },
-            { icon: "Flame", text: "Живые уроки" },
-            { icon: "Star", text: "Тарифы", link: "/pricing" },
-          ]).map((stat, i) => {
+            ...(hero?.content?.stats?.slice(2) ?? [{ icon: "Flame", text: "Живые уроки" }, { icon: "Star", text: "Тарифы", link: "/pricing" }]),
+          ].map((stat, i) => {
             const IconComp = ICON_MAP[stat.icon || "BookOpen"];
             const content = (
               <>
@@ -283,7 +282,7 @@ export default async function Home() {
       {(about.content?.image || about.cover_image) && <div className="overflow-hidden rounded-2xl max-w-lg mx-auto shadow-md"><img src={proxyImgUrl(about.content?.image || about.cover_image) ?? ""} alt="" loading="lazy" className="w-full transition-transform duration-500 hover:scale-105" /></div>}
       <div className="mt-6">
         <Link href="/about" className="btn-gradient px-5 py-2.5 text-sm inline-flex items-center gap-1">
-          {about.content?.button_text || "Читать полностью"} <span>{about.content?.button_icon || "→"}</span>
+          {about.content?.button_text || "Читать полностью"} {(() => { const Ic = ICON_MAP[about.content?.button_icon || ""]; return Ic ? <Ic className="w-4 h-4" /> : <span>→</span>; })()}
         </Link>
       </div>
     </section>
@@ -371,7 +370,7 @@ export default async function Home() {
                 {item.excerpt && <p className="text-sm text-muted mt-2 line-clamp-3">{item.excerpt}</p>}
                 {item.content?.button_text && (
                   <span className="inline-flex items-center gap-1 text-sm text-primary-500 font-medium mt-3 group-hover:gap-2 transition-all">
-                    {item.content.button_text} {item.content.button_icon || "→"}
+                    {item.content.button_text} {(() => { const Ic = ICON_MAP[item.content?.button_icon || ""]; return Ic ? <Ic className="w-4 h-4" /> : <span>→</span>; })()}
                   </span>
                 )}
               </div>

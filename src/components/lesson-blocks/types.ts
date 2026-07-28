@@ -8,7 +8,8 @@ export type BlockType =
   | "audio_answer"
   | "video_answer"
   | "drag_order"
-  | "image_pick";
+  | "image_pick"
+  | "group_drag";
 
 export interface TextContent {
   html: string;
@@ -28,6 +29,7 @@ export interface VideoContent {
 
 export interface FillBlankContent {
   text: string;
+  maxAttempts?: 1 | 3;
 }
 
 export interface ChoiceContent {
@@ -35,6 +37,7 @@ export interface ChoiceContent {
   options: string[];
   correct: number[];
   multiple: boolean;
+  maxAttempts?: 1 | 3;
 }
 
 export interface OpenQuestionContent {
@@ -51,6 +54,7 @@ export interface VideoAnswerContent {
 
 export interface DragOrderContent {
   sentenceTemplate: string;
+  maxAttempts?: 1 | 3;
 }
 
 export interface ImagePickContent {
@@ -58,6 +62,14 @@ export interface ImagePickContent {
   images: { src: string; label: string }[];
   correct: number[];
   multiple: boolean;
+  maxAttempts?: 1 | 3;
+}
+
+export interface GroupDragContent {
+  instruction: string;
+  groups: { label: string; words: string[] }[];
+  layout: "columns" | "table";
+  maxAttempts?: 1 | 3;
 }
 
 export type BlockContent =
@@ -70,7 +82,8 @@ export type BlockContent =
   | AudioAnswerContent
   | VideoAnswerContent
   | DragOrderContent
-  | ImagePickContent;
+  | ImagePickContent
+  | GroupDragContent;
 
 export interface LessonBlock {
   id: string;
@@ -91,6 +104,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   video_answer: "Запись видео",
   drag_order: "Порядок",
   image_pick: "Выбор изображения",
+  group_drag: "Групповой порядок",
 };
 
 export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
@@ -104,4 +118,5 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   video_answer: "Задание записать видеоответ",
   drag_order: "Слова перемешиваются — ученик собирает правильный порядок",
   image_pick: "Выбор правильного изображения из нескольких",
+  group_drag: "Группы слов — ученик перетаскивает слова в ячейки своей группы (таблица или колонки)",
 };

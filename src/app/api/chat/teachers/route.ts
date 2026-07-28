@@ -11,19 +11,25 @@ export async function GET() {
   const isElevated = profile?.role === "teacher" || profile?.role === "admin";
 
   let contacts;
-  if (isElevated) {
-    // Teacher/admin sees students
+  if (profile?.role === "admin") {
+    // Admin sees all profiles
+    const { data } = await svc
+      .from("profiles")
+      .select("id, full_name, avatar_url, role, last_seen, email");
+    contacts = data ?? [];
+  } else if (profile?.role === "teacher") {
+    // Teacher sees students
     const { data } = await svc
       .from("profiles")
       .select("id, full_name, avatar_url, role, last_seen, email")
       .eq("role", "student");
     contacts = data ?? [];
   } else {
-    // Student sees teachers + admins
+    // Student sees only teachers
     const { data } = await svc
       .from("profiles")
       .select("id, full_name, avatar_url, role, last_seen, email")
-      .in("role", ["teacher", "admin"]);
+      .eq("role", "teacher");
     contacts = data ?? [];
   }
 

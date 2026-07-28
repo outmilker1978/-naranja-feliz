@@ -111,7 +111,7 @@ export default function ContentEditor({ initial, blockId }: Props) {
   const [heroStats, setHeroStats] = useState<{ icon: string; text: string; link?: string }[]>(
     initial?.content?.stats && Array.isArray(initial.content.stats) && initial.content.stats.length > 0
       ? initial.content.stats
-      : [{ icon: "BookOpen", text: "1 курс", link: "" }, { icon: "BarChart3", text: "10 уроков", link: "" }, { icon: "Flame", text: "Живые уроки", link: "" }, { icon: "Star", text: "Тарифы", link: "/pricing" }]
+      : [{ icon: "BookOpen", text: "— курсов", link: "" }, { icon: "BarChart3", text: "— уроков", link: "" }, { icon: "Flame", text: "Живые уроки", link: "" }, { icon: "Star", text: "Тарифы", link: "/pricing" }]
   );
   const [heroCards, setHeroCards] = useState<{ icon: string; title: string; description: string; link: string; visibility: string }[]>(
     initial?.content?.cards && Array.isArray(initial.content.cards) && initial.content.cards.length > 0

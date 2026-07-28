@@ -50,8 +50,8 @@ const ResizableImageComponent = ({ node, updateAttributes, selected }: NodeViewP
   const textAlign = node.attrs.textAlign as string | undefined;
 
   return (
-    <NodeViewWrapper className="relative" style={{ maxWidth: "100%", textAlign: textAlign || undefined }}>
-      <div className={`inline-block ${selected || isResizing ? "ring-2 ring-primary-400 rounded" : ""}`} style={{ textAlign: "initial" }}>
+    <NodeViewWrapper className="" style={{ maxWidth: "100%", textAlign: textAlign || undefined }}>
+      <div className={`inline-block relative ${selected || isResizing ? "ring-2 ring-primary-400 rounded" : ""}`} style={{ textAlign: "initial" }}>
         <img
           ref={imgRef}
           src={node.attrs.src}

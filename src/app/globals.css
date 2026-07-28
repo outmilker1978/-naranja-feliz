@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
+@import "prosemirror-tables/style/tables.css";
 
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -441,6 +442,19 @@
     outline: 3px solid #FF4D2D;
     outline-offset: 2px;
   }
+  hr.ProseMirror-selectednode {
+    outline: 2px solid #FF4D2D !important;
+    outline-offset: 2px !important;
+    border-radius: 4px;
+  }
+}
+.tiptap-editor ::selection,
+.tiptap-editor .ProseMirror ::selection {
+  background: #FF4D2D !important;
+  color: #fff !important;
+}
+.tiptap-editor .ProseMirror {
+  caret-color: #FF4D2D;
 }
 
 .translated-text {
@@ -454,4 +468,57 @@
   outline: 2px solid var(--color-secondary-500);
   outline-offset: 1px;
   border-radius: 3px;
+}
+
+/* TipTap table styles */
+.text-content table,
+.tiptap-editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+}
+.text-content th,
+.tiptap-editor th {
+  background-color: var(--color-primary-100);
+  color: var(--color-primary-800);
+  font-weight: 600;
+  text-align: left;
+  border: 1px solid var(--color-zinc-300);
+  padding: 0.5em 0.75em;
+}
+.text-content td,
+.tiptap-editor td {
+  border: 1px solid var(--color-zinc-300);
+  padding: 0.5em 0.75em;
+  vertical-align: top;
+}
+.text-content tr:nth-child(even) td,
+.tiptap-editor tr:nth-child(even) td {
+  background-color: var(--color-zinc-50);
+}
+.text-content td p,
+.tiptap-editor td p {
+  margin: 0;
+}
+.text-content td p + p,
+.tiptap-editor td p + p {
+  margin-top: 0.5em;
+}
+.tiptap-editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+}
+.tiptap-editor .ProseMirror table .selectedCell {
+  background-color: rgba(255, 77, 45, 0.15);
+  outline: 2px solid #FF4D2D;
+}
+.tiptap-editor .ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--color-primary-500);
+  pointer-events: none;
 }

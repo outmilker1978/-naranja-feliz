@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LevelControl } from "./confirm-level-button";
 import { SubscriptionControl } from "./subscription-control";
@@ -26,6 +26,13 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
   const searchParams = useSearchParams();
   const focusStudentId = searchParams.get("studentId");
   const focusCourseId = searchParams.get("courseId");
+  const focusRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (focusStudentId && focusRef.current) {
+      focusRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focusStudentId]);
 
   const currentUser = profiles.find(p => p.id === currentUserId);
   const role = currentUser?.role;
@@ -92,7 +99,7 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
 
       <div className="space-y-2">
         {filtered.map((profile) => (
-          <div key={profile.id} className="flex items-center justify-between card px-4 py-3">
+          <div key={profile.id} ref={profile.id === focusStudentId ? focusRef : undefined} className={`flex items-center justify-between card px-4 py-3 ${profile.id === focusStudentId ? "ring-2 ring-primary-400 bg-primary-50/50" : ""}`}>
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative shrink-0">
                 {profile.avatar_url ? (

@@ -11,9 +11,13 @@ import { ResizableImage } from "@/components/resizable-image";
 import { TranslationMark } from "@/components/translation-mark";
 import { OrangeDividerExtension } from "@/components/tiptap-divider";
 import { createClient } from "@/lib/supabase/client";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import {
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
-  Heading1, Heading2, Heading3, Quote, LinkIcon, ImageIcon, Languages, Undo, Redo, Eye, Edit3, Volume2, AlignLeft, AlignCenter, AlignRight,
+  Heading1, Heading2, Heading3, Quote, LinkIcon, ImageIcon, Languages, Undo, Redo, Eye, Edit3, Volume2, AlignLeft, AlignCenter, AlignRight, Table as TableIcon,
 } from "lucide-react";
 
 function ToolBtn({
@@ -54,6 +58,11 @@ export function TiptapEditor({
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [showTableDialog, setShowTableDialog] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
+  const [tableHeader, setTableHeader] = useState(true);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -63,7 +72,11 @@ export function TiptapEditor({
       TranslationMark,
       OrangeDividerExtension,
       Placeholder.configure({ placeholder }),
-      TextAlign.configure({ types: ["heading", "paragraph", "image"] }),
+      TextAlign.configure({ types: ["heading", "paragraph", "image", "tableCell", "orangeDivider"] }),
+      Table.configure({ allowTableNodeSelection: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -103,9 +116,9 @@ export function TiptapEditor({
     }
     const { url: publicUrl } = await res.json();
 
-    const isImage = /\.(png|jpe?g|gif|webp)$/i.test(publicUrl);
-    const isAudio = /\.(mp3|ogg|wav)$/i.test(publicUrl);
-    const isVideo = /\.(mp4|webm)$/i.test(publicUrl);
+    const isImage = /\.(png|jpe?g|gif|webp)(\?|$)/i.test(publicUrl);
+    const isAudio = /\.(mp3|ogg|wav)(\?|$)/i.test(publicUrl);
+    const isVideo = /\.(mp4|webm)(\?|$)/i.test(publicUrl);
 
     if (isImage) {
       editor.chain().focus().setImage({ src: publicUrl }).run();
@@ -147,6 +160,15 @@ export function TiptapEditor({
     check();
     return () => { editor.off("selectionUpdate", check); };
   }, [editor, hasTranslationAtSelection]);
+
+  // Reset default bold mark if content has no actual bold text
+  useEffect(() => {
+    if (!editor) return;
+    const hasBoldContent = editor.getHTML().includes("<strong>") || editor.getHTML().includes("<b>");
+    if (!hasBoldContent && editor.isActive("bold")) {
+      editor.commands.unsetBold();
+    }
+  }, [editor]);
 
   const toggleTranslation = useCallback(async () => {
     if (!editor) return;
@@ -201,6 +223,22 @@ export function TiptapEditor({
         <span className="w-px h-5 bg-zinc-300 mx-1" />
         <ToolBtn onClick={setLink} active={editor.isActive("link")} title="Вставить ссылку"><LinkIcon className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={toggleTranslation} active={isTransActive} title="Перевод (повторное нажатие убирает)"><Languages className="w-4 h-4" /></ToolBtn>
+        <span className="w-px h-5 bg-zinc-300 mx-1" />
+        <ToolBtn onClick={() => setShowTableDialog(true)} active={editor.isActive("table")} title="Таблица"><TableIcon className="w-4 h-4" /></ToolBtn>
+        {editor.isActive("table") && (
+          <>
+            <span className="w-px h-5 bg-zinc-300 mx-1" />
+            <ToolBtn onClick={() => editor.chain().focus().addColumnBefore().run()} title="Столбец слева"><span className="text-xs font-bold">┃◀</span></ToolBtn>
+            <ToolBtn onClick={() => editor.chain().focus().addColumnAfter().run()} title="Столбец справа"><span className="text-xs font-bold">▶┃</span></ToolBtn>
+            <ToolBtn onClick={() => editor.chain().focus().addRowBefore().run()} title="Строка сверху"><span className="text-xs font-bold">─▲</span></ToolBtn>
+            <ToolBtn onClick={() => editor.chain().focus().addRowAfter().run()} title="Строка снизу"><span className="text-xs font-bold">▼─</span></ToolBtn>
+            <span className="w-px h-5 bg-zinc-300 mx-1" />
+            <ToolBtn onClick={() => editor.chain().focus().deleteColumn().run()} title="Удалить столбец"><span className="text-xs font-bold">┃✕</span></ToolBtn>
+            <ToolBtn onClick={() => editor.chain().focus().deleteRow().run()} title="Удалить строку"><span className="text-xs font-bold">─✕</span></ToolBtn>
+            <ToolBtn onClick={() => editor.chain().focus().deleteTable().run()} title="Удалить таблицу"><span className="text-xs font-bold">⊞✕</span></ToolBtn>
+            <ToolBtn onClick={() => editor.chain().focus().toggleHeaderRow().run()} active={editor.isActive("tableHeader")} title="Заголовок"><span className="text-xs font-bold">H</span></ToolBtn>
+          </>
+        )}
         <label className="p-1.5 rounded text-zinc-600 hover:bg-primary-50 hover:text-primary-500 cursor-pointer transition-colors" title="Загрузить файл с компа">
           <ImageIcon className="w-4 h-4" />
           <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf" onChange={uploadFile} className="hidden" />
@@ -227,6 +265,51 @@ export function TiptapEditor({
           <Eye className="w-4 h-4" /> Предпросмотр
         </button>
       </div>
+
+      {showTableDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowTableDialog(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-accent mb-4">Вставка таблицы</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Столбцы</label>
+                <input type="number" min={1} max={10} value={tableCols} onChange={e => setTableCols(parseInt(e.target.value) || 3)}
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Строки</label>
+                <input type="number" min={1} max={20} value={tableRows} onChange={e => setTableRows(parseInt(e.target.value) || 3)}
+                  className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm" />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={tableHeader} onChange={e => setTableHeader(e.target.checked)} />
+                Заголовок таблицы (первая строка)
+              </label>
+              <div className="border border-zinc-200 rounded-lg p-3 bg-zinc-50">
+                <p className="text-xs text-zinc-400 mb-2">Предпросмотр:</p>
+                <div className="grid gap-px bg-zinc-300" style={{ gridTemplateColumns: `repeat(${tableCols}, 1fr)` }}>
+                  {Array.from({ length: tableRows * tableCols }).map((_, i) => (
+                    <div key={i} className={`p-2 text-center text-xs ${i < tableCols && tableHeader ? "bg-primary-100 text-primary-700 font-medium" : "bg-white text-zinc-500"}`}>
+                      {i < tableCols && tableHeader ? `Заголовок ${i + 1}` : `${Math.floor(i / tableCols) + 1}:${(i % tableCols) + 1}`}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button onClick={() => setShowTableDialog(false)}
+                className="flex-1 px-4 py-2 text-sm rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-50">Отмена</button>
+              <button onClick={() => {
+                editor.chain().focus().insertTable({ rows: tableRows, cols: tableCols, withHeaderRow: tableHeader }).run();
+                setShowTableDialog(false);
+              }} className="flex-1 px-4 py-2 text-sm rounded-lg bg-primary-500 text-white hover:bg-primary-600">
+                Вставить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <EditorContent editor={editor} />
     </div>
   );

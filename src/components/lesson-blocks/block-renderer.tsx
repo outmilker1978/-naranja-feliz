@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Volume2, Mic, Video, Square, HardDrive, Folder, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, VideoAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent } from "./types";
+import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, VideoAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent, GroupDragContent } from "./types";
 import { SubmissionThread } from "@/components/submission-thread";
 import { useVocabPicker } from "@/components/vocab-picker-context";
 
@@ -187,36 +187,111 @@ function FillBlankBlock({ block, studentId }: { block: LessonBlock; studentId: s
   const c = block.content as FillBlankContent;
   const { pickMode } = useVocabPicker();
   const supabase = createClient();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const htmlSet = useRef(false);
   const [values, setValues] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [checked, setChecked] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [dbValues, setDbValues] = useState<string[]>([]);
+  const maxAttempts = c.maxAttempts || 1;
+  const [usedAttempts, setUsedAttempts] = useState(0);
+  const [attemptsExhausted, setAttemptsExhausted] = useState(false);
+  const [attemptMessage, setAttemptMessage] = useState("");
+
+  const blanks = [...c.text.matchAll(/\[\[([^\]]+)\]\]/g)];
 
   useEffect(() => {
-    supabase
-      .from("block_submissions")
-      .select("answer")
-      .eq("lesson_block_id", block.id)
-      .eq("student_id", studentId)
-      .maybeSingle()
+    setValues(new Array(blanks.length).fill(""));
+  }, [c.text]);
+
+  useEffect(() => {
+    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
+      .eq("student_id", studentId).maybeSingle()
       .then(({ data }) => {
         if (data?.answer) {
           try {
-            const v = JSON.parse(data.answer);
-            setValues(v);
-            setDbValues(v);
+            setValues(JSON.parse(data.answer));
             setSaved(true);
           } catch {}
         }
       });
   }, [block.id, studentId]);
 
-  const blanks = [...c.text.matchAll(/\[\[([^\]]+)\]\]/g)];
-  const parts = c.text.split(/\[\[[^\]]+\]\]/);
+  useEffect(() => {
+    if (!contentRef.current || htmlSet.current) return;
+    let idx = 0;
+    contentRef.current.innerHTML = c.text.replace(/\[\[([^\]]+)\]\]/g, (_, answer) => {
+      const i = idx++;
+      return `<span class="inline-flex items-center gap-1 mx-0.5">
+        <input type="text" data-idx="${i}" data-answer="${answer}" value=""
+          placeholder="..." autocomplete="off"
+          class="inline-blank-input border-2 rounded px-2 py-0.5 text-sm w-28 border-primary-300 bg-white" />
+        <span class="fillblank-feedback text-xs" data-idx="${i}"></span>
+      </span>`;
+    });
+    htmlSet.current = true;
+  }, [c.text]);
+
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    const inputs = root.querySelectorAll<HTMLInputElement>('input[data-idx]');
+    inputs.forEach(input => {
+      const idx = parseInt(input.dataset.idx!);
+      const answer = input.dataset.answer!;
+      const val = values[idx] || "";
+      if (input.value !== val) input.value = val;
+      input.className = `inline-blank-input border-2 rounded px-2 py-0.5 text-sm w-28 ${
+        checked
+          ? val === answer ? "bg-green-100 border-green-400" : "bg-red-100 border-red-400"
+          : "border-primary-300 bg-white"
+      }`;
+    });
+    const feedbacks = root.querySelectorAll<HTMLElement>('.fillblank-feedback');
+    feedbacks.forEach(el => {
+      const idx = parseInt(el.dataset.idx!);
+      const answer = blanks[idx]?.[1] || "";
+      const val = values[idx] || "";
+      if (checked) {
+        el.textContent = val === answer ? "✓" : "✗";
+        el.className = `fillblank-feedback text-xs ${val === answer ? "text-green-600" : "text-red-500"}`;
+      } else {
+        el.textContent = "";
+        el.className = "fillblank-feedback text-xs";
+      }
+    });
+  });
+
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    const handler = (e: Event) => {
+      const input = e.target as HTMLInputElement;
+      if (input.tagName !== "INPUT" || !input.dataset.idx) return;
+      const idx = parseInt(input.dataset.idx);
+      setValues(prev => { const v = [...prev]; v[idx] = input.value; return v; });
+      if (checked) setChecked(false);
+    };
+    root.addEventListener("input", handler);
+    return () => root.removeEventListener("input", handler);
+  }, [checked]);
 
   const handleCheck = () => {
     setChecked(true);
+    const allCorrect = blanks.every(([, a], i) => (values[i] || "").trim().toLowerCase() === a.trim().toLowerCase());
+    if (!allCorrect) {
+      const next = usedAttempts + 1;
+      setUsedAttempts(next);
+      if (next >= maxAttempts) {
+        setAttemptsExhausted(true);
+        setAttemptMessage("Попытки исчерпаны");
+      } else {
+        const rem = maxAttempts - next;
+        setAttemptMessage(`Неверно, осталось ${rem} ${rem === 1 ? "попытка" : "попытки"}`);
+      }
+    } else {
+      setAttemptMessage("Верно!");
+    }
   };
 
   const handleSave = async () => {
@@ -227,52 +302,27 @@ function FillBlankBlock({ block, studentId }: { block: LessonBlock; studentId: s
     });
     if (!res.ok) { setSaveError(await res.text()); return; }
     setSaved(true);
-    setDbValues([...values]);
   };
+
+  const allCorrect = checked && blanks.every(([, a], i) => (values[i] || "").trim().toLowerCase() === a.trim().toLowerCase());
+  const isDisabled = attemptsExhausted || allCorrect;
 
   return (
     <div>
-      <div className="text-content">
-        {parts.map((part, i) => (
-          <span key={i}>
-            {part}
-            {i < blanks.length && (
-              <span className="inline-flex items-center gap-1 mx-0.5">
-                {checked && values[i] === blanks[i][1] ? (
-                  <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border-2 border-green-400 rounded px-2 py-0.5 text-sm font-medium">
-                    {values[i]} ✓
-                  </span>
-                ) : saved && values[i] ? (
-                  <span className="inline-flex items-center gap-1 bg-primary-50 text-primary-800 border border-primary-300 rounded px-2 py-0.5 text-sm">
-                    {values[i]}
-                  </span>
-                ) : (
-                  <>
-                    <input
-                      type="text"
-                      value={values[i] || ""}
-                      onChange={e => {
-                        const v = [...values];
-                        v[i] = e.target.value;
-                        setValues(v);
-                        if (checked) setChecked(false);
-                      }}
-                      className={`inline-blank-input border-2 rounded px-2 py-0.5 text-sm w-28 ${checked ? (values[i] === blanks[i][1] ? "bg-green-100 border-green-400" : "bg-red-100 border-red-400") : "border-primary-300 bg-white"}`}
-                      placeholder="..."
-                      autoComplete="off"
-                    />
-                    {checked && <span className={`text-xs ${values[i] === blanks[i][1] ? "text-green-600" : "text-red-500"}`}>{values[i] === blanks[i][1] ? "✓" : "✗"}</span>}
-                  </>
-                )}
-              </span>
-            )}
-          </span>
-        ))}
-      </div>
+      <div ref={contentRef} className="text-content" />
+      {attemptsExhausted && !allCorrect && (
+        <div className="mt-2 p-2 bg-zinc-50 rounded text-sm text-zinc-600">
+          {blanks.map(([, a], i) => (
+            <span key={i} className="mr-2">{a}{i < blanks.length - 1 ? "," : ""}</span>
+          ))}
+        </div>
+      )}
+      {allCorrect && <p className="text-sm text-green-600 mt-2">✓ Правильно!</p>}
       <div className="flex gap-2 mt-3 items-center">
-        <button onClick={handleSave} className="bg-zinc-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-zinc-600">Сохранить</button>
+        <button onClick={handleSave} disabled={isDisabled} className="bg-zinc-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-zinc-600 disabled:opacity-50">Сохранить</button>
         {saved && <span className="text-xs text-green-600">✓ сохранено</span>}
-        {!checked && <button onClick={handleCheck} className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600">Проверить</button>}
+        {!checked && !attemptsExhausted && <button onClick={handleCheck} className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600">Проверить</button>}
+        {maxAttempts > 1 && <AttemptsDots used={usedAttempts} max={maxAttempts} message={attemptMessage} />}
         {saveError && <span className="text-xs text-red-500">Ошибка: {saveError}</span>}
       </div>
     </div>
@@ -287,6 +337,10 @@ function ChoiceBlock({ block, studentId }: { block: LessonBlock; studentId: stri
     : correct;
   const [selected, setSelected] = useState<number[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const maxAttempts = c.maxAttempts || 1;
+  const [usedAttempts, setUsedAttempts] = useState(0);
+  const [attemptsExhausted, setAttemptsExhausted] = useState(false);
+  const [attemptMessage, setAttemptMessage] = useState("");
   const supabase = createClient();
 
   useEffect(() => {
@@ -312,22 +366,35 @@ function ChoiceBlock({ block, studentId }: { block: LessonBlock; studentId: stri
     }
   };
 
+  const sortedSelected = [...selected].sort();
+  const sortedCorrect = [...correctIndices].sort();
+  const isCorrect = JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
+
   const handleSubmit = async () => {
-    const answer = selected.join(",");
-    await fetch("/api/submit-answer", {
-      method: "POST",
-      body: JSON.stringify({ lessonBlockId: block.id, answer }),
-    });
-    setSubmitted(true);
+    if (isCorrect) {
+      setAttemptMessage("Верно!");
+      await fetch("/api/submit-answer", {
+        method: "POST",
+        body: JSON.stringify({ lessonBlockId: block.id, answer: selected.join(",") }),
+      });
+      setSubmitted(true);
+    } else {
+      const next = usedAttempts + 1;
+      setUsedAttempts(next);
+      if (next >= maxAttempts) {
+        setAttemptsExhausted(true);
+        setAttemptMessage("Попытки исчерпаны");
+      } else {
+        const rem = maxAttempts - next;
+        setAttemptMessage(`Неверно, осталось ${rem} ${rem === 1 ? "попытка" : "попытки"}`);
+      }
+    }
   };
 
   if (submitted) {
-    const sortedSelected = [...selected].sort();
-    const sortedCorrect = [...correctIndices].sort();
-    const isCorrect = JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
     return (
       <div className={`rounded-lg p-4 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-        <p className="font-medium mb-1">{c.question}</p>
+        <div className="font-medium mb-1 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
         {selected.map(i => <span key={i} className="inline-block bg-white px-2 py-0.5 rounded text-sm mr-1 mb-1">{c.options[i]}</span>)}
         <p className="text-sm mt-1">{isCorrect ? "✓ Правильно" : `✗ Неправильно (верный: ${correctIndices.map(i => c.options[i]).join(", ")})`}</p>
       </div>
@@ -336,24 +403,30 @@ function ChoiceBlock({ block, studentId }: { block: LessonBlock; studentId: stri
 
   return (
     <div className="border border-primary-200 rounded-lg p-4">
-      <p className="font-medium text-zinc-800 mb-3">{c.question}</p>
+      <div className="flex-1 font-medium text-zinc-800 mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
       <div className="space-y-2">
         {c.options.map((opt, i) => (
           <button key={i} onClick={() => toggle(i)}
             className={`block w-full text-left px-4 py-2 rounded-lg text-sm border transition-colors ${
               selected.includes(i) ? "border-primary-500 bg-primary-50 text-primary-500" : "border-zinc-200 text-zinc-600 hover:border-primary-300"
-            }`}
+            } ${attemptsExhausted ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             {c.multiple && <span className={`inline-block w-4 h-4 mr-2 rounded border ${selected.includes(i) ? "bg-primary-500 border-primary-500" : "border-zinc-300"}`} />}
             <span className="text-zinc-300 mr-1">{i + 1})</span>{opt}
           </button>
         ))}
       </div>
-      <button onClick={handleSubmit} disabled={selected.length === 0}
-        className="mt-3 bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
-      >
-        Ответить
-      </button>
+      {attemptsExhausted && (
+        <p className="text-sm text-red-500 mt-2">Попытки исчерпаны. Верный: {correctIndices.map(i => c.options[i]).join(", ")}</p>
+      )}
+      <div className="flex items-center gap-2 mt-3">
+        <button onClick={handleSubmit} disabled={selected.length === 0 || attemptsExhausted}
+          className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors disabled:opacity-50"
+        >
+          {attemptsExhausted ? "Попытки исчерпаны" : "Ответить"}
+        </button>
+        {maxAttempts > 1 && <AttemptsDots used={usedAttempts} max={maxAttempts} message={attemptMessage} />}
+      </div>
     </div>
   );
 }
@@ -415,7 +488,7 @@ function OpenQuestionBlock({ block, studentId }: { block: LessonBlock; studentId
   if (submitted) {
     return (
       <div className={`rounded-lg p-4 ${reviewed ? "bg-green-50 border border-green-200" : "bg-primary-50 border border-primary-200"}`}>
-        <p className="font-medium mb-1">{c.question}</p>
+        <div className="font-medium mb-1 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
         <p className="text-sm text-zinc-700">Твой ответ: {answer}</p>
         {reviewed ? (
           <>
@@ -433,7 +506,7 @@ function OpenQuestionBlock({ block, studentId }: { block: LessonBlock; studentId
 
   return (
     <div className="border border-primary-200 rounded-lg p-4">
-      <p className="font-medium text-zinc-800 mb-3">{c.question}</p>
+      <div className="font-medium text-zinc-800 mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
       <textarea value={answer} onChange={e => { setAnswer(e.target.value); setSaved(false); }} onBlur={saveAnswer} placeholder="Напиши ответ..."
         className="w-full px-4 py-2 border border-zinc-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 min-h-[80px]" />
       <div className="flex items-center gap-2 mt-2">
@@ -530,7 +603,7 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
   if (submitted) {
     return (
       <div className={`rounded-lg p-4 ${reviewed ? "bg-green-50 border border-green-200" : "bg-primary-50 border border-primary-200"}`}>
-        <p className="font-medium mb-1">{c.prompt}</p>
+        <div className="font-medium mb-1 text-content" dangerouslySetInnerHTML={{ __html: c.prompt }} />
         <audio src={audioUrl!} controls className="w-full" />
         {reviewed ? (
           <>
@@ -548,7 +621,7 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
 
   return (
     <div className="border border-primary-200 rounded-lg p-4">
-      <p className="font-medium text-zinc-800 mb-3">{c.prompt}</p>
+      <div className="font-medium text-zinc-800 mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.prompt }} />
       {!recording && !audioUrl && (
         <button onClick={startRecording} className="bg-red-500 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-600 inline-flex items-center gap-1.5"><Mic className="w-4 h-4" /> Записать</button>
       )}
@@ -567,60 +640,70 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
 
 function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
   const c = block.content as DragOrderContent;
+  const correctWords: string[] = [];
+  c.sentenceTemplate.replace(/\[([^\]]+)\]/g, (_, w) => { correctWords.push(w); return ""; });
+
   const [slots, setSlots] = useState<(string | null)[]>([]);
   const [pool, setPool] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [dragWord, setDragWord] = useState<string | null>(null);
   const [dragSource, setDragSource] = useState<"pool" | number | null>(null);
+  const maxAttempts = c.maxAttempts || 1;
+  const [usedAttempts, setUsedAttempts] = useState(0);
+  const [attemptsExhausted, setAttemptsExhausted] = useState(false);
+  const [attemptMessage, setAttemptMessage] = useState("");
+  const contentRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
-
-  const correctWords: string[] = [];
-  const parts: { type: "text" | "blank"; text?: string; word?: string; blankIdx: number }[] = [];
-  let bi = 0;
-  c.sentenceTemplate.split(/(\[[^\]]+\])/).forEach(part => {
-    if (part.startsWith("[") && part.endsWith("]")) {
-      const word = part.slice(1, -1);
-      correctWords.push(word);
-      parts.push({ type: "blank", word, blankIdx: bi++ });
-    } else {
-      parts.push({ type: "text", text: part, blankIdx: -1 });
-    }
-  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setSlots(new Array(correctWords.length).fill(null));
-    setPool([...correctWords].sort(() => Math.random() - 0.5));
+    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
+      .eq("student_id", studentId).maybeSingle()
+      .then(({ data }) => {
+        if (data?.answer) {
+          try {
+            const parsed = JSON.parse(data.answer);
+            if (Array.isArray(parsed)) {
+              setSlots(parsed);
+              const placed = parsed.filter((w): w is string => w !== null);
+              setPool(correctWords.filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
+              if (placed.length === correctWords.length) setSubmitted(true);
+            } else {
+              const savedWords: (string | null)[] = parsed.words || [];
+              const savedAttempts = parsed.attemptsUsed || 0;
+              setSlots(savedWords);
+              const placed = savedWords.filter((w): w is string => w !== null);
+              setPool(correctWords.filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
+              setUsedAttempts(savedAttempts);
+              if (parsed.correct) setSubmitted(true);
+              else if (savedAttempts >= maxAttempts) setAttemptsExhausted(true);
+            }
+            setLoading(false);
+            return;
+          } catch {}
+        }
+        setSlots(new Array(correctWords.length).fill(null));
+        setPool([...correctWords].sort(() => Math.random() - 0.5));
+        setLoading(false);
+      });
   }, [c.sentenceTemplate]);
 
   const clickPoolWord = (word: string) => {
     const idx = slots.indexOf(null);
     if (idx === -1) return;
-    const newSlots = [...slots];
-    newSlots[idx] = word;
-    setSlots(newSlots);
+    setSlots(prev => { const s = [...prev]; s[idx] = word; return s; });
     setPool(prev => { const p = [...prev]; p.splice(p.indexOf(word), 1); return p; });
   };
 
   const clickSlot = (idx: number) => {
-    const word = slots[idx];
-    if (!word) return;
-    const newSlots = [...slots];
-    newSlots[idx] = null;
-    setSlots(newSlots);
-    setPool(prev => [...prev, word]);
-  };
-
-  const dragStart = (word: string, source: "pool" | number) => {
-    setDragWord(word);
-    setDragSource(source);
+    if (!slots[idx]) return;
+    setPool(prev => [...prev, slots[idx]!]);
+    setSlots(prev => { const s = [...prev]; s[idx] = null; return s; });
   };
 
   const slotDrop = (idx: number) => {
-    if (!dragWord) return;
-    if (slots[idx]) return;
-    const newSlots = [...slots];
-    newSlots[idx] = dragWord;
-    setSlots(newSlots);
+    if (!dragWord || slots[idx]) return;
+    setSlots(prev => { const s = [...prev]; s[idx] = dragWord; return s; });
     if (dragSource === "pool") {
       setPool(prev => { const p = [...prev]; p.splice(p.indexOf(dragWord), 1); return p; });
     } else if (typeof dragSource === "number") {
@@ -630,94 +713,88 @@ function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: s
     setDragSource(null);
   };
 
-  const poolDrop = () => {
-    if (!dragWord || typeof dragSource !== "number") return;
-    setSlots(prev => { const s = [...prev]; s[dragSource as number] = null; return s; });
-    setPool(prev => [...prev, dragWord]);
-    setDragWord(null);
-    setDragSource(null);
-  };
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || submitted) return;
+    const onClick = (e: MouseEvent) => {
+      const t = (e.target as HTMLElement).closest("[data-idx]") as HTMLElement | null;
+      if (t) clickSlot(parseInt(t.dataset.idx!));
+    };
+    const onDragOver = (e: DragEvent) => e.preventDefault();
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const t = (e.target as HTMLElement).closest("[data-idx]") as HTMLElement | null;
+      if (t) slotDrop(parseInt(t.dataset.idx!));
+    };
+    el.addEventListener("click", onClick);
+    el.addEventListener("dragover", onDragOver);
+    el.addEventListener("drop", onDrop);
+    return () => { el.removeEventListener("click", onClick); el.removeEventListener("dragover", onDragOver); el.removeEventListener("drop", onDrop); };
+  }, [slots, pool, dragWord, submitted]);
+
+  const isCorrect = JSON.stringify(slots) === JSON.stringify(correctWords);
 
   const handleSubmit = async () => {
-    await fetch("/api/submit-answer", {
-      method: "POST",
-      body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify(slots) }),
-    });
-    setSubmitted(true);
+    if (isCorrect) {
+      setAttemptMessage("Верно!");
+      await fetch("/api/submit-answer", {
+        method: "POST",
+        body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ words: slots, attemptsUsed: usedAttempts, correct: true }) }),
+      });
+      setSubmitted(true);
+    } else {
+      const next = usedAttempts + 1;
+      setUsedAttempts(next);
+      await fetch("/api/submit-answer", {
+        method: "POST",
+        body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ words: slots, attemptsUsed: next, correct: false }) }),
+      });
+      if (next >= maxAttempts) {
+        setAttemptsExhausted(true);
+        setAttemptMessage("Попытки исчерпаны");
+      } else {
+        const rem = maxAttempts - next;
+        setAttemptMessage(`Неверно, осталось ${rem} ${rem === 1 ? "попытка" : "попытки"}`);
+      }
+    }
   };
 
-  if (submitted) {
-    const isCorrect = JSON.stringify(slots) === JSON.stringify(correctWords);
-    return (
-      <div className={`rounded-lg p-4 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-        <p className="font-medium mb-2">Составь предложение</p>
-        <div className="flex flex-wrap items-center gap-1 text-lg leading-relaxed">
-          {parts.map((part, i) =>
-            part.type === "text" ? (
-              <span key={i}>{part.text}</span>
-            ) : (
-              <span key={i} className={`px-1 rounded ${slots[part.blankIdx] === part.word ? "bg-green-100" : "bg-red-100 line-through"}`}>
-                {slots[part.blankIdx] || "___"}
-              </span>
-            )
-          )}
-        </div>
-        {!isCorrect && <p className="text-sm mt-2">Правильно: {correctWords.join(" ")}</p>}
-      </div>
-    );
-  }
+  const buildHtml = (filledSlots: (string | null)[], isSubmitted: boolean) => {
+    let idx = 0;
+    return c.sentenceTemplate.replace(/\[([^\]]+)\]/g, () => {
+      const i = idx++;
+      const filled = filledSlots[i];
+      if (isSubmitted) {
+        const ok = filled === correctWords[i];
+        return `<span class="${ok ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800 line-through"} px-1 rounded">${filled || "___"}</span>`;
+      }
+      return filled
+        ? `<span data-idx="${i}" draggable="true" class="inline-block min-w-[60px] px-2 py-0.5 rounded border-2 border-primary-400 bg-primary-50 text-sm cursor-grab active:cursor-grabbing">${filled}</span>`
+        : `<span data-idx="${i}" class="inline-block min-w-[60px] px-2 py-0.5 rounded border-2 border-dashed border-zinc-300 text-sm">___</span>`;
+    });
+  };
 
   const allFilled = slots.every(s => s !== null);
 
-  return (
-    <div className="border border-primary-200 rounded-lg p-4">
-      <p className="font-medium text-zinc-800 mb-3">Составь предложение</p>
+  if (loading) return <div className="border border-primary-200 rounded-lg p-4 text-sm text-zinc-400">Загрузка...</div>;
 
-      <div
-        className="flex flex-wrap items-center gap-1 text-lg leading-relaxed mb-4 p-3 bg-zinc-50 rounded-lg min-h-[48px]"
-        onDragOver={e => e.preventDefault()}
-        onDrop={poolDrop}
+  const outerCls = submitted
+    ? `rounded-lg p-4 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`
+    : "border border-primary-200 rounded-lg p-4";
+
+  return (
+    <div className={outerCls}>
+      <div ref={contentRef}
+        className="text-lg leading-relaxed mb-4 p-3 bg-zinc-50 rounded-lg min-h-[48px] text-content"
       >
-        {parts.map((part, i) =>
-          part.type === "text" ? (
-            <span key={i}>{part.text}</span>
-          ) : (
-            <div
-              key={i}
-              onClick={() => clickSlot(part.blankIdx)}
-              onDragOver={e => e.preventDefault()}
-              onDrop={e => { e.preventDefault(); slotDrop(part.blankIdx); }}
-              className={`inline-block min-w-[60px] px-2 py-0.5 rounded border-2 transition-colors ${
-                slots[part.blankIdx]
-                  ? "border-primary-400 bg-primary-50 cursor-grab active:cursor-grabbing hover:bg-primary-50"
-                  : "border-dashed border-zinc-300"
-              }`}
-            >
-              {slots[part.blankIdx] ? (
-                <span
-                  draggable
-                  onDragStart={() => dragStart(slots[part.blankIdx]!, part.blankIdx)}
-                  className="inline-block w-full"
-                >
-                  {slots[part.blankIdx]}
-                </span>
-              ) : "___"}
-            </div>
-          )
-        )}
+        <div className="contents" dangerouslySetInnerHTML={{ __html: buildHtml(slots, submitted || attemptsExhausted) }} />
       </div>
 
-      {pool.length > 0 && (
-        <div
-          className="flex flex-wrap gap-2 mb-4"
-          onDragOver={e => e.preventDefault()}
-        >
+      {!submitted && !attemptsExhausted && pool.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
           {pool.map((word, i) => (
-            <div
-              key={i}
-              onClick={() => clickPoolWord(word)}
-              draggable
-              onDragStart={() => dragStart(word, "pool")}
+            <div key={i} onClick={() => clickPoolWord(word)}
+              draggable onDragStart={() => { setDragWord(word); setDragSource("pool"); }}
               className="px-3 py-1.5 bg-white border border-primary-300 rounded-lg text-sm hover:bg-primary-50 cursor-grab active:cursor-grabbing transition-colors select-none"
             >
               {word}
@@ -726,11 +803,28 @@ function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: s
         </div>
       )}
 
-      <button onClick={handleSubmit} disabled={!allFilled}
-        className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50"
-      >
-        Проверить
-      </button>
+      {attemptsExhausted && !submitted && (
+        <div className="flex flex-wrap gap-2 mb-4 opacity-50">
+          {correctWords.map((w, i) => (
+            <span key={i} className="px-3 py-1.5 bg-zinc-100 border border-zinc-300 rounded-lg text-sm text-zinc-500">{w}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {!submitted && !attemptsExhausted && (
+          <button onClick={handleSubmit} disabled={!allFilled}
+            className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50"
+          >
+            Проверить
+          </button>
+        )}
+        {maxAttempts > 1 && <AttemptsDots used={usedAttempts} max={maxAttempts} message={attemptMessage} />}
+      </div>
+
+      {attemptsExhausted && !submitted && <p className="text-sm mt-2 text-zinc-500">Попытки исчерпаны. Правильно: {correctWords.join(" ")}</p>}
+      {submitted && !isCorrect && <p className="text-sm mt-2">Правильно: {correctWords.join(" ")}</p>}
+      {submitted && isCorrect && <p className="text-sm mt-2 text-green-600">✓ Правильно!</p>}
     </div>
   );
 }
@@ -739,7 +833,35 @@ function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: s
   const c = block.content as ImagePickContent;
   const [selected, setSelected] = useState<number[]>([]);
   const [submitted, setSubmitted] = useState(false);
+  const maxAttempts = c.maxAttempts || 1;
+  const [usedAttempts, setUsedAttempts] = useState(0);
+  const [attemptsExhausted, setAttemptsExhausted] = useState(false);
   const supabase = createClient();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
+      .eq("student_id", studentId).maybeSingle()
+      .then(({ data }) => {
+        if (data?.answer) {
+          try {
+            if (data.answer.startsWith("{")) {
+              const parsed = JSON.parse(data.answer);
+              setSelected(parsed.selected || []);
+              setUsedAttempts(parsed.attemptsUsed || 0);
+              if (parsed.correct) setSubmitted(true);
+              else if ((parsed.attemptsUsed || 0) >= maxAttempts) setAttemptsExhausted(true);
+            } else {
+              setSelected(data.answer ? data.answer.split(",").map(Number) : []);
+              setSubmitted(true);
+            }
+            setLoading(false);
+            return;
+          } catch {}
+        }
+        setLoading(false);
+      });
+  }, [block.id]);
 
   const toggle = (i: number) => {
     if (c.multiple) {
@@ -749,19 +871,41 @@ function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: s
     }
   };
 
+  const isCorrect = JSON.stringify([...selected].sort()) === JSON.stringify([...c.correct].sort());
+
+  const [attemptMessage, setAttemptMessage] = useState("");
+
   const handleSubmit = async () => {
-    await fetch("/api/submit-answer", {
-      method: "POST",
-      body: JSON.stringify({ lessonBlockId: block.id, answer: selected.join(",") }),
-    });
-    setSubmitted(true);
+    if (isCorrect) {
+      setAttemptMessage("Верно!");
+      await fetch("/api/submit-answer", {
+        method: "POST",
+        body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ selected, attemptsUsed: usedAttempts, correct: true }) }),
+      });
+      setSubmitted(true);
+    } else {
+      const next = usedAttempts + 1;
+      setUsedAttempts(next);
+      await fetch("/api/submit-answer", {
+        method: "POST",
+        body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ selected, attemptsUsed: next, correct: false }) }),
+      });
+      if (next >= maxAttempts) {
+        setAttemptsExhausted(true);
+        setAttemptMessage("Попытки исчерпаны");
+      } else {
+        const rem = maxAttempts - next;
+        setAttemptMessage(`Неверно, осталось ${rem} ${rem === 1 ? "попытка" : "попытки"}`);
+      }
+    }
   };
 
+  if (loading) return <div className="border border-primary-200 rounded-lg p-4 text-sm text-zinc-400">Загрузка...</div>;
+
   if (submitted) {
-    const isCorrect = JSON.stringify([...selected].sort()) === JSON.stringify([...c.correct].sort());
     return (
       <div className={`rounded-lg p-4 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
-        <p className="font-medium mb-2">{c.question}</p>
+        <div className="font-medium mb-2 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
         <div className="grid grid-cols-2 gap-2">
           {c.images.map((img, i) => (
             <div key={i} className={`rounded-lg border-2 p-1 ${selected.includes(i) ? "border-primary-500" : "border-transparent"}`}>
@@ -777,22 +921,28 @@ function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: s
 
   return (
     <div className="border border-primary-200 rounded-lg p-4">
-      <p className="font-medium text-zinc-800 mb-3">{c.question}</p>
+      <div className="font-medium text-zinc-800 mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
       <div className="grid grid-cols-2 gap-3 mb-3">
         {c.images.map((img, i) => (
           <button key={i} onClick={() => toggle(i)}
-            className={`rounded-lg border-2 overflow-hidden transition-colors ${selected.includes(i) ? "border-primary-500 ring-2 ring-primary-300" : "border-zinc-200 hover:border-primary-300"}`}
+            className={`rounded-lg border-2 overflow-hidden transition-colors ${selected.includes(i) ? "border-primary-500 ring-2 ring-primary-300" : "border-zinc-200 hover:border-primary-300"} ${attemptsExhausted ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <img src={img.src} alt={img.label} loading="lazy" className="w-full h-28 object-cover" />
             <p className="text-xs text-center py-1 bg-white">{img.label}</p>
           </button>
         ))}
       </div>
-      <button onClick={handleSubmit} disabled={selected.length === 0}
-        className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50"
-      >
-        Ответить
-      </button>
+      {attemptsExhausted && (
+        <p className="text-sm text-red-500 mt-2">Попытки исчерпаны. Верный: {c.correct.map(i => c.images[i]?.label).join(", ")}</p>
+      )}
+      <div className="flex items-center gap-2">
+        <button onClick={handleSubmit} disabled={selected.length === 0 || attemptsExhausted}
+          className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50"
+        >
+          {attemptsExhausted ? "Попытки исчерпаны" : "Ответить"}
+        </button>
+        {maxAttempts > 1 && <AttemptsDots used={usedAttempts} max={maxAttempts} message={attemptMessage} />}
+      </div>
     </div>
   );
 }
@@ -895,7 +1045,7 @@ function VideoAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
   if (sent) {
     return (
       <div className={`rounded-lg p-4 ${reviewed ? "bg-green-50 border border-green-200" : "bg-primary-50 border border-primary-200"}`}>
-        <p className="font-medium mb-2">{c.prompt}</p>
+        <div className="font-medium mb-2 text-content" dangerouslySetInnerHTML={{ __html: c.prompt }} />
         {videoUrl && <video src={videoUrl} controls className="w-full max-w-md rounded" />}
         {reviewed ? (
           <>
@@ -911,7 +1061,7 @@ function VideoAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
 
   return (
     <div className="border border-primary-200 rounded-lg p-4">
-      <p className="font-medium text-zinc-800 mb-3">{c.prompt}</p>
+      <div className="font-medium text-zinc-800 mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.prompt }} />
 
       {cameraError && <p className="text-sm text-red-500 mb-2">{cameraError}</p>}
 
@@ -936,6 +1086,285 @@ function VideoAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
               {sending ? "Отправка..." : "Отправить"}
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttemptsDots({ used, max, message }: { used: number; max: 1 | 3; message?: string }) {
+  if (max === 1) return null;
+  return (
+    <div className="flex items-center gap-2 text-xs text-zinc-500">
+      <div className="flex flex-col items-center gap-[2px]">
+        {Array.from({ length: max }, (_, i) => (
+          <span
+            key={i}
+            className={`w-[5px] h-[5px] rounded-full border border-primary-400 ${i < used ? "bg-primary-500" : "bg-white"}`}
+          />
+        ))}
+      </div>
+      {message && <span>{message}</span>}
+    </div>
+  );
+}
+
+function GroupDragBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+  const c = block.content as GroupDragContent;
+  const groups = c.groups || [];
+  const supabase = createClient();
+
+  const flatAll = groups.flatMap((g, gi) => g.words.map(w => ({ word: w, groupIdx: gi })));
+
+  const [pool, setPool] = useState<string[]>([]);
+  const [slots, setSlots] = useState<{ groupIdx: number; word: string | null }[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const [usedAttempts, setUsedAttempts] = useState(0);
+  const maxAttempts = c.maxAttempts || 1;
+  const [attemptsExhausted, setAttemptsExhausted] = useState(false);
+  const [attemptMessage, setAttemptMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const initialSlots = groups.flatMap((g, gi) =>
+      g.words.map(() => ({ groupIdx: gi, word: null as string | null }))
+    );
+
+    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
+      .eq("student_id", studentId).maybeSingle()
+      .then(({ data }) => {
+        if (data?.answer) {
+          try {
+            const parsed = JSON.parse(data.answer);
+            const savedWords: (string | null)[] = parsed.words || parsed;
+            const savedAttempts = parsed.attemptsUsed || 0;
+            const wasCorrect = parsed.correct === true;
+            const allFilled = savedWords.every(v => v !== null);
+            const restored = initialSlots.map((slot, i) => ({
+              ...slot,
+              word: savedWords[i] || null
+            }));
+            setSlots(restored);
+            const placed = savedWords.filter((w): w is string => w !== null);
+            setPool(flatAll.map(w => w.word).filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
+            setUsedAttempts(savedAttempts);
+            if (wasCorrect) {
+              setSubmitted(true);
+            } else if (savedAttempts >= maxAttempts) {
+              setAttemptsExhausted(true);
+            }
+            setLoading(false);
+            return;
+          } catch {}
+        }
+        setSlots(initialSlots);
+        setPool([...flatAll].sort(() => Math.random() - 0.5).map(w => w.word));
+        setLoading(false);
+      });
+  }, [c.groups]);
+
+  const handleDragStart = (e: React.DragEvent, word: string) => {
+    e.dataTransfer.setData("text/plain", word);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const placeWord = (word: string, slotIdx: number) => {
+    setSlots(prev => {
+      const copy = [...prev];
+      if (copy[slotIdx].word) setPool(p => [...p, copy[slotIdx].word!]);
+      copy[slotIdx] = { ...copy[slotIdx], word };
+      return copy;
+    });
+    setPool(prev => {
+      const next = prev.filter(w => w !== word);
+      if (next.length === prev.length) return prev;
+      return next;
+    });
+  };
+
+  const handleSlotDrop = (e: React.DragEvent, slotIdx: number) => {
+    e.preventDefault();
+    const word = e.dataTransfer.getData("text/plain");
+    if (!word) return;
+    placeWord(word, slotIdx);
+  };
+
+  const handlePoolDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const word = e.dataTransfer.getData("text/plain");
+    if (!word) return;
+    setSlots(prev => {
+      const copy = [...prev];
+      const idx = copy.findIndex(s => s.word === word);
+      if (idx >= 0) copy[idx] = { ...copy[idx], word: null };
+      return copy;
+    });
+    setPool(prev => prev.includes(word) ? prev : [...prev, word]);
+  };
+
+  const handleSlotClick = (slotIdx: number) => {
+    const slot = slots[slotIdx];
+    if (!slot.word) return;
+    setSlots(prev => {
+      const copy = [...prev];
+      copy[slotIdx] = { ...copy[slotIdx], word: null };
+      return copy;
+    });
+    setPool(prev => [...prev, slot.word!]);
+  };
+
+  const handlePoolClick = (word: string) => {
+    const emptyIdx = slots.findIndex(s => s.word === null);
+    if (emptyIdx < 0) return;
+    setSlots(prev => {
+      const copy = [...prev];
+      copy[emptyIdx] = { ...copy[emptyIdx], word };
+      return copy;
+    });
+    setPool(prev => prev.filter(w => w !== word));
+  };
+
+  const allFilled = slots.length > 0 && slots.every(s => s.word !== null);
+
+  const checkCorrect = () => groups.every((g, gi) => {
+    const placed = slots.filter(s => s.groupIdx === gi && s.word !== null).map(s => s.word);
+    return g.words.every(w => placed.includes(w));
+  });
+
+  const handleSubmit = async () => {
+    const correct = checkCorrect();
+    if (!correct) {
+      const next = usedAttempts + 1;
+      setUsedAttempts(next);
+      if (next >= maxAttempts) {
+        setAttemptsExhausted(true);
+        setAttemptMessage("Попытки исчерпаны");
+      } else {
+        const rem = maxAttempts - next;
+        setAttemptMessage(`Неверно, осталось ${rem} ${rem === 1 ? "попытка" : "попытки"}`);
+      }
+      await fetch("/api/submit-answer", {
+        method: "POST",
+        body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ words: slots.map(s => s.word), attemptsUsed: next, correct: false }) }),
+      });
+      return;
+    }
+    setAttemptMessage("Верно!");
+    await fetch("/api/submit-answer", {
+      method: "POST",
+      body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ words: slots.map(s => s.word), attemptsUsed: usedAttempts, correct: true }) }),
+    });
+    setSubmitted(true);
+  };
+
+  const groupColors = ["#FF6B35", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F"];
+
+  if (loading) return <div className="border border-primary-200 rounded-lg p-4 text-sm text-zinc-400">Загрузка...</div>;
+
+  if (submitted) {
+    const isCorrect = checkCorrect();
+    return (
+      <div className={`rounded-lg p-4 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+        {c.instruction && <div className="font-medium mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.instruction }} />}
+        <div className={c.layout === "table" ? "table w-full border-collapse" : "grid gap-4"} style={c.layout === "columns" ? { gridTemplateColumns: `repeat(${groups.length}, 1fr)` } : {}}>
+          {groups.map((g, gi) => {
+            const groupSlots = slots.filter(s => s.groupIdx === gi);
+            return (
+              <div key={gi} className={c.layout === "table" ? "table-cell align-top p-2 border border-zinc-200" : ""}>
+                <div className="font-semibold text-sm mb-2 px-2 py-1 rounded" style={{ backgroundColor: groupColors[gi % groupColors.length] + "22", color: groupColors[gi % groupColors.length] }}>{g.label}</div>
+                {groupSlots.map((slot, si) => {
+                  const ok = slot.word !== null && g.words.includes(slot.word);
+                  return (
+                    <div key={si} className={`p-2 mb-1 rounded text-sm ${ok ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                      {slot.word || "___"}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-sm mt-1">{isCorrect ? "✓ Правильно" : "✗ Неправильно"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-primary-200 rounded-lg p-4">
+      {c.instruction && <div className="font-medium mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.instruction }} />}
+
+      <div className={c.layout === "table" ? "table w-full border-collapse mb-4" : "grid gap-4 mb-4"} style={c.layout === "columns" ? { gridTemplateColumns: `repeat(${groups.length}, 1fr)` } : {}}>
+        {groups.map((g, gi) => {
+          const groupSlots = slots.filter(s => s.groupIdx === gi);
+          return (
+            <div key={gi} className={c.layout === "table" ? "table-cell align-top p-2 border border-zinc-200" : ""}>
+              <div className="font-semibold text-sm mb-2 px-2 py-1 rounded" style={{ backgroundColor: groupColors[gi % groupColors.length] + "22", color: groupColors[gi % groupColors.length] }}>{g.label}</div>
+              {groupSlots.map((slot, si) => {
+                const idx = slots.indexOf(slot);
+                return (
+                  <div key={si}
+                    draggable={!!slot.word}
+                    onDragStart={slot.word ? (e) => handleDragStart(e, slot.word!) : undefined}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleSlotDrop(e, idx)}
+                    onClick={() => handleSlotClick(idx)}
+                    className={`p-2 mb-1 rounded text-sm border-2 select-none transition-colors min-h-[36px] ${slot.word ? "border-primary-400 bg-primary-50 cursor-grab active:cursor-grabbing" : "border-dashed border-zinc-300 bg-zinc-50"}`}
+                  >
+                    {slot.word || <span className="text-zinc-300">перетащи сюда</span>}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {!attemptsExhausted && pool.length > 0 && (
+        <div onDragOver={handleDragOver} onDrop={handlePoolDrop} className="flex flex-wrap gap-2 mb-4 p-3 rounded-lg bg-zinc-50 border-2 border-dashed border-zinc-200 min-h-[44px]">
+          {pool.map((word, i) => (
+            <div key={i}
+              draggable
+              onDragStart={(e) => handleDragStart(e, word)}
+              onClick={() => handlePoolClick(word)}
+              className="px-3 py-1.5 bg-white border-2 border-zinc-300 rounded-lg text-sm hover:border-primary-400 hover:bg-primary-50 cursor-grab active:cursor-grabbing transition-colors select-none"
+            >
+              {word}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {attemptsExhausted && (
+        <div className="flex flex-wrap gap-2 mb-4 opacity-50">
+          {flatAll.map((item, i) => (
+            <span key={i} className="px-3 py-1.5 bg-zinc-100 border border-zinc-300 rounded-lg text-sm text-zinc-500">{item.word}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        {!submitted && (
+          <button onClick={handleSubmit} disabled={!allFilled || attemptsExhausted}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${attemptsExhausted ? "bg-zinc-300 text-zinc-500 cursor-not-allowed" : "bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50"}`}
+          >
+            {attemptsExhausted ? "Попытки исчерпаны" : "Проверить"}
+          </button>
+        )}
+        {maxAttempts > 1 && <AttemptsDots used={usedAttempts} max={maxAttempts} message={attemptMessage} />}
+      </div>
+
+      {attemptsExhausted && (
+        <div className="mt-2 text-sm text-zinc-500">
+          {groups.map((g, gi) => (
+            <div key={gi} className="mb-1">
+              <span className="font-medium">{g.label}:</span> {g.words.join(", ")}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -974,6 +1403,7 @@ export function BlockRenderer({ block, studentId }: { block: LessonBlock; studen
       {block.type === "video_answer" && studentId && <VideoAnswerBlock block={block} studentId={studentId} />}
       {block.type === "drag_order" && studentId && <DragOrderBlock block={block} studentId={studentId} />}
       {block.type === "image_pick" && studentId && <ImagePickBlock block={block} studentId={studentId} />}
+      {block.type === "group_drag" && studentId && <GroupDragBlock block={block} studentId={studentId} />}
     </div>
   );
 }

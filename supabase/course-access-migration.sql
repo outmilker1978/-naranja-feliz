@@ -49,5 +49,8 @@ AS $$
   ) OR EXISTS (
     SELECT 1 FROM profiles
     WHERE id = uid AND subscription_until > NOW()
+  ) OR EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = uid AND role = 'admin'
   );
 $$;
