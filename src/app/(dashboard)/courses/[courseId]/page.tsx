@@ -28,13 +28,16 @@ export default async function CourseDetailPage({
 
   if (!course) notFound();
 
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const isAdmin = profile?.role === "admin";
+
   if (course.created_by === user.id && viewRole !== "student") {
     redirect(`/admin/courses/${courseId}`);
   }
 
   const isOwner = course.created_by === user.id;
-  let canAccess = isOwner;
-  if (!isOwner && (course.access_mode === "subscription" || course.access_mode === "per_course")) {
+  let canAccess = isOwner || isAdmin;
+  if (!canAccess && (course.access_mode === "subscription" || course.access_mode === "per_course")) {
     const { data: hasAccess } = await supabase.rpc("check_course_access", { uid: user.id, cid: courseId });
     canAccess = !!hasAccess;
   }

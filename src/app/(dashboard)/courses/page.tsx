@@ -20,6 +20,7 @@ export default async function CoursesPage() {
   const { data: profileMeta } = await svc.from("profiles").select("role").eq("id", user.id).maybeSingle();
 
   const dbRole = profileMeta?.role;
+  const isAdmin = dbRole === "admin" || metaRole === "admin";
   const isElevated = dbRole === "teacher" || dbRole === "admin" || metaRole === "teacher" || metaRole === "admin";
   const realRole = isElevated ? "teacher" : "student";
   const isTeacherView = realRole === "teacher" && (viewRole === "teacher" || !viewRole);
@@ -115,7 +116,7 @@ export default async function CoursesPage() {
           <div className="space-y-4">
             {(availableCourses ?? []).map((course) => {
               const isEnrolled = enrolledIds.includes(course.id) || ownedIds.includes(course.id);
-              const hasAccess = accessGrantedIds.includes(course.id) || ownedIds.includes(course.id);
+              const hasAccess = accessGrantedIds.includes(course.id) || ownedIds.includes(course.id) || isAdmin;
               if (isEnrolled || hasAccess) {
                 const lc = lessonCountMap.get(course.id);
                 const total = lc?.published ?? lc?.total ?? 0;

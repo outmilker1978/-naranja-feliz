@@ -26,6 +26,8 @@
 | #15 | OrangeDivider — renderHTML с лишней скобкой | Лишний `],` в return-массиве renderHTML. Убран, билд проходит | проверено |
 | #16 | TiptapEditor — bold активен при пустом тексте | Добавлен useEffect: сброс bold-маркера, если в HTML нет `<strong>/<b>` | проверено |
 | #17 | textarea ввода слов группы — Enter/пробел режут текст | Убран `filter(Boolean)` из onChange. Фильтрация только в buildContent | проверено |
+| #18 | Большие фото не загружаются (413 Payload Too Large) | Yandex Cloud Gateway не пропускает >10MB. Фикс: добавил клиентскую компрессию (canvas → resize 1920px → JPEG 80) перед отправкой | готово |
+| #19 | Админ не видит курс учителя | RPC `check_course_access` не имел проверки `role='admin'`. Обновлён в Supabase. + Добавлен `isAdmin` bypass на страницы курса, урока и списка | готово |
 
 ---
 

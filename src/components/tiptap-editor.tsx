@@ -101,10 +101,24 @@ export function TiptapEditor({
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   }, [editor]);
 
+  const compressImage = useCallback(async (file: File): Promise<File> => {
+    if (!file.type.startsWith("image/") || file.size < 1024 * 1024) return file;
+    const img = await createImageBitmap(file);
+    let w = img.width, h = img.height;
+    if (w > 1920) { h = Math.round(h * 1920 / w); w = 1920; }
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, w, h);
+    img.close();
+    return new Promise<File>(resolve => canvas.toBlob(b => resolve(new File([b!], file.name, { type: "image/jpeg" })), "image/jpeg", 80));
+  }, []);
+
   const uploadFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!editor) return;
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
     if (!file) return;
+    file = await compressImage(file);
 
     const formData = new FormData();
     formData.append("file", file);

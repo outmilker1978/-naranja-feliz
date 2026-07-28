@@ -25,9 +25,11 @@ export default async function StudentLessonPage({
     .eq("id", courseId)
     .single();
 
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const isAdmin = profile?.role === "admin";
   const isOwner = course?.created_by === user.id;
 
-  if (!isOwner) {
+  if (!isOwner && !isAdmin) {
     if (course?.access_mode === "per_course" || course?.access_mode === "subscription") {
       const { data: hasCourseAccess } = await supabase.rpc("check_course_access", { uid: user.id, cid: courseId });
       if (!hasCourseAccess) {
