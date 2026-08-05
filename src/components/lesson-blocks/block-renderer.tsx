@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Volume2, Mic, Video, Square, HardDrive, Folder, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, VideoAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent, GroupDragContent } from "./types";
+import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, VideoAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent, GroupDragContent, MemoryContent } from "./types";
 import { SubmissionThread } from "@/components/submission-thread";
 import { useVocabPicker } from "@/components/vocab-picker-context";
 
@@ -305,7 +305,8 @@ function FillBlankBlock({ block, studentId }: { block: LessonBlock; studentId: s
   };
 
   const allCorrect = checked && blanks.every(([, a], i) => (values[i] || "").trim().toLowerCase() === a.trim().toLowerCase());
-  const isDisabled = attemptsExhausted || allCorrect;
+  const hasAnyValue = values.some(v => (v || "").trim() !== "");
+  const isDisabled = saved || !hasAnyValue;
 
   return (
     <div>
@@ -1371,6 +1372,145 @@ function GroupDragBlock({ block, studentId }: { block: LessonBlock; studentId: s
   );
 }
 
+interface MemoryCard {
+  id: string;
+  text: string;
+  pairId: number;
+}
+
+function MemoryBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+  const c = block.content as MemoryContent;
+  const pairs = (c.pairs || []).filter(p => p.left.trim() && p.right.trim());
+  const [deck, setDeck] = useState<MemoryCard[]>([]);
+  const [flipped, setFlipped] = useState<string[]>([]);
+  const [matched, setMatched] = useState<Set<string>>(new Set());
+  const [steps, setSteps] = useState(0);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [win, setWin] = useState(false);
+  const lock = useRef(false);
+  const supabase = createClient();
+
+  const buildDeck = () => {
+    const cards: MemoryCard[] = [];
+    pairs.forEach((p, i) => {
+      cards.push({ id: `${i}-l`, text: p.left, pairId: i });
+      cards.push({ id: `${i}-r`, text: p.right, pairId: i });
+    });
+    return cards.sort(() => Math.random() - 0.5);
+  };
+
+  useEffect(() => {
+    if (pairs.length === 0) { setLoading(false); return; }
+    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
+      .eq("student_id", studentId).maybeSingle()
+      .then(({ data }) => {
+        if (data?.answer) {
+          try {
+            const parsed = JSON.parse(data.answer);
+            if (parsed && parsed.correct) {
+              const allMatched = new Set(pairs.map((_, i) => `${i}-l`).concat(pairs.map((_, i) => `${i}-r`)));
+              setMatched(allMatched);
+              setSteps(parsed.steps || pairs.length);
+              setWin(true);
+              setDone(true);
+              setLoading(false);
+              return;
+            }
+          } catch {}
+        }
+        setDeck(buildDeck());
+        setLoading(false);
+      });
+  }, [c.pairs]);
+
+  const flip = (id: string) => {
+    if (lock.current || matched.has(id) || done) return;
+    if (flipped.includes(id)) return;
+    const next = [...flipped, id];
+    setFlipped(next);
+    if (next.length === 2) {
+      lock.current = true;
+      const [a, b] = next;
+      const ca = deck.find(x => x.id === a)!;
+      const cb = deck.find(x => x.id === b)!;
+      if (ca.pairId === cb.pairId) {
+        setMatched(prev => new Set([...prev, a, b]));
+        setFlipped([]);
+        lock.current = false;
+        setSteps(s => s + 1);
+        if (matched.size + 2 === pairs.length * 2) {
+          setWin(true);
+          setDone(true);
+          fetch("/api/submit-answer", {
+            method: "POST",
+            body: JSON.stringify({ lessonBlockId: block.id, answer: JSON.stringify({ correct: true, steps: steps + 1 }) }),
+          });
+        }
+      } else {
+        setTimeout(() => {
+          setFlipped([]);
+          lock.current = false;
+        }, 900);
+        setSteps(s => s + 1);
+      }
+    }
+  };
+
+  const reset = () => {
+    setDeck(buildDeck());
+    setFlipped([]);
+    setMatched(new Set());
+    setSteps(0);
+    setDone(false);
+    setWin(false);
+    lock.current = false;
+  };
+
+  const cols = c.size === 20 ? "grid-cols-5" : c.size === 16 ? "grid-cols-4" : "grid-cols-4 sm:grid-cols-6";
+
+  if (loading) return <div className="border border-primary-200 rounded-lg p-4 text-sm text-zinc-400">Загрузка...</div>;
+  if (pairs.length === 0) return <div className="border border-primary-200 rounded-lg p-4 text-sm text-zinc-400">Блок пуст</div>;
+
+  return (
+    <div className={`rounded-lg p-4 ${win ? "bg-green-50 border border-green-200" : "border border-primary-200"}`}>
+      {c.instruction && <div className="font-medium mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.instruction }} />}
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm text-zinc-600">Шаги: <span className="font-semibold text-accent">{steps}</span> из минимум {pairs.length}</div>
+        <div className="flex items-center gap-2">
+          {done && (
+            <button onClick={reset} className="text-xs px-3 py-1.5 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition-colors">
+              Сыграть ещё раз
+            </button>
+          )}
+        </div>
+      </div>
+      <div className={`grid ${cols} gap-2`}>
+        {deck.map(card => {
+          const isFlipped = flipped.includes(card.id) || matched.has(card.id);
+          const isMatched = matched.has(card.id);
+          return (
+            <button
+              key={card.id}
+              onClick={() => flip(card.id)}
+              className={`aspect-[3/4] rounded-lg border-2 text-sm font-medium transition-all select-none ${
+                isMatched
+                  ? "bg-green-100 border-green-400 text-green-800 cursor-default"
+                  : isFlipped
+                    ? "bg-white border-primary-400 text-accent"
+                    : "bg-primary-100 border-primary-200 text-transparent hover:bg-primary-200"
+              }`}
+            >
+              {isFlipped ? card.text : "?"}
+            </button>
+          );
+        })}
+      </div>
+      {win && <p className="text-sm mt-3 text-green-700">✓ Победа за {steps} шагов!</p>}
+    </div>
+  );
+}
+
 export function BlockRenderer({ block, studentId }: { block: LessonBlock; studentId?: string }) {
 
   const handleCheck = () => {
@@ -1404,6 +1544,7 @@ export function BlockRenderer({ block, studentId }: { block: LessonBlock; studen
       {block.type === "drag_order" && studentId && <DragOrderBlock block={block} studentId={studentId} />}
       {block.type === "image_pick" && studentId && <ImagePickBlock block={block} studentId={studentId} />}
       {block.type === "group_drag" && studentId && <GroupDragBlock block={block} studentId={studentId} />}
+      {block.type === "memory" && studentId && <MemoryBlock block={block} studentId={studentId} />}
     </div>
   );
 }

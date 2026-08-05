@@ -6,39 +6,71 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { studentId } = await req.json();
+  const { studentId, days, mode } = await req.json();
   if (!studentId) return NextResponse.json({ error: "Missing studentId" }, { status: 400 });
 
-  // Only teachers can extend
+  const allowedModes = ["gift", "credit", "writeoff", "close"];
+  const m = allowedModes.includes(mode) ? mode : "gift";
+  const n = Math.max(1, Math.floor(Number(days) || 30));
+
+  // Only teachers can operate
   const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
   const metaRole = user.user_metadata?.role;
-  if (!(profile?.role === "teacher" || metaRole === "teacher")) {
+  if (!(profile?.role === "teacher" || profile?.role === "admin" || metaRole === "teacher" || metaRole === "admin")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const svc = createServiceClient();
 
-  // Get current subscription date
-  const { data: student } = await svc.from("profiles").select("subscription_until").eq("id", studentId).single();
-  const current = student?.subscription_until ? new Date(student.subscription_until) : new Date();
-  if (current < new Date()) {
-    // If expired, start from now
-    current.setTime(Date.now());
-  }
-  const newUntil = new Date(current.getTime() + 30 * 24 * 60 * 60 * 1000); // +30 days
+  const { data: student } = await svc.from("profiles").select("subscription_until, credit_days").eq("id", studentId).single();
+  const now = Date.now();
+  const currentUntil = student?.subscription_until ? new Date(student.subscription_until) : null;
+  let newUntil: Date | null = currentUntil;
+  if (newUntil && newUntil.getTime() < now) newUntil = new Date(now);
+  const currentCredit = student?.credit_days ?? 0;
 
-  const { error } = await svc.from("profiles").update({ subscription_until: newUntil.toISOString(), subscription_requested_at: null }).eq("id", studentId);
+  let newCredit = currentCredit;
+  let note = "";
+  let historyType = m;
+
+  if (m === "gift" || m === "credit") {
+    const base = newUntil && newUntil.getTime() > now ? newUntil.getTime() : now;
+    newUntil = new Date(base + n * 86400000);
+    if (m === "credit") {
+      newCredit = currentCredit + n;
+      note = `Выдано в кредит ${n} дн.`;
+    } else {
+      note = `Подарок ${n} дн.`;
+    }
+  } else if (m === "writeoff") {
+    const repaid = Math.min(currentCredit, n);
+    newCredit = currentCredit - repaid;
+    note = `Списано ${repaid} дн. долга`;
+    historyType = "writeoff";
+  } else if (m === "close") {
+    newUntil = null;
+    newCredit = 0;
+    note = "Доступ закрыт учителем";
+    historyType = "close";
+  }
+
+  const { error } = await svc.from("profiles").update({
+    subscription_until: newUntil ? newUntil.toISOString() : null,
+    credit_days: newCredit,
+    subscription_requested_at: null,
+  }).eq("id", studentId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Notify student
-  const teacherName = profile?.full_name || user.user_metadata?.full_name || "Учитель";
-  await svc.from("notifications").insert({
+  await svc.from("subscription_credit_history").insert({
     user_id: studentId,
     actor_id: user.id,
-    title: `✓ Подписка продлена`,
-    body: `${teacherName} продлил твою подписку до ${newUntil.toLocaleDateString("ru-RU")}`,
-    link: `/settings`,
+    type: historyType,
+    days: historyType === "close" ? 0 : n,
+    note,
   });
 
-  return NextResponse.json({ ok: true, subscription_until: newUntil.toISOString() });
+  const teacherName = profile?.full_name || user.user_metadata?.full_name || "Учитель";
+  const title = m === "writeoff" ? "✓ Долг списан" : m === "credit" ? "📌 Доступ в кредит" : m === "close" ? "⛔ Доступ закрыт" : "✓ Подписка продлена";
+
+  return NextResponse.json({ ok: true, subscription_until: newUntil?.toISOString() ?? null, credit_days: newCredit });
 }

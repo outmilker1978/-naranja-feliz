@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await svc
     .from("profiles")
-    .select("subscription_until")
+    .select("subscription_until, credit_days")
     .eq("id", tx.user_id)
     .single();
 
@@ -55,10 +55,29 @@ export async function POST(req: NextRequest) {
     : now;
   if (currentUntil < now) currentUntil.setTime(now.getTime());
 
-  const newUntil = new Date(currentUntil.getTime() + tx.plan_duration_days * 86400000);
+  const planDays = tx.plan_duration_days;
+  const currentCredit = profile?.credit_days ?? 0;
 
-  await svc.from("profiles").update({ subscription_until: newUntil.toISOString() }).eq("id", tx.user_id);
+  // Pay off credit first, remainder extends the subscription
+  const repaid = Math.min(currentCredit, planDays);
+  const newCredit = currentCredit - repaid;
+  const remainingDays = planDays - repaid;
+
+  const newUntil = new Date(currentUntil.getTime() + remainingDays * 86400000);
+
+  await svc.from("profiles").update({
+    subscription_until: newUntil.toISOString(),
+    credit_days: newCredit,
+    subscription_requested_at: null,
+  }).eq("id", tx.user_id);
   await svc.from("payment_transactions").update({ status: "succeeded", updated_at: new Date().toISOString() }).eq("id", tx.id);
+
+  await svc.from("subscription_credit_history").insert({
+    user_id: tx.user_id,
+    type: "payment",
+    days: planDays,
+    note: repaid > 0 ? `Оплата ${planDays} дн., из них ${repaid} дн. погасили долг` : `Оплата ${planDays} дн.`,
+  });
 
   await svc.from("notifications").insert({
     user_id: tx.user_id,

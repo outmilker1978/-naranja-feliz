@@ -76,6 +76,21 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
     router.refresh();
   };
 
+  const setDirector = async (userId: string, isDirector: boolean) => {
+    setMessage("");
+    setLoadingId(`dir-${userId}`);
+    const res = await fetch("/api/set-director", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, isDirector }),
+    });
+    const data = await res.json();
+    if (res.ok) setMessage(isDirector ? "Директор школы назначен" : "Директор снят");
+    else setMessage("Ошибка: " + (data.error || "неизвестная"));
+    setLoadingId(null);
+    router.refresh();
+  };
+
   const canManage = (profile: any) => {
     if (!canManageRoles) return false;
     if (profile.id === currentUserId && role === "admin") return false;
@@ -99,66 +114,84 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
 
       <div className="space-y-2">
         {filtered.map((profile) => (
-          <div key={profile.id} ref={profile.id === focusStudentId ? focusRef : undefined} className={`flex items-center justify-between card px-4 py-3 ${profile.id === focusStudentId ? "ring-2 ring-primary-400 bg-primary-50/50" : ""}`}>
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="" loading="lazy" className="w-8 h-8 rounded-full object-cover" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center text-xs text-primary-500 font-bold">
-                    {(profile.full_name ?? profile.email)[0].toUpperCase()}
-                  </div>
-                )}
-                {profile.last_seen && (Date.now() - new Date(profile.last_seen).getTime()) < 120000 && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-accent truncate">
-                  {profile.full_name || "Без имени"}
-                  {profile.id === currentUserId && <span className="text-xs text-muted ml-1">(это вы)</span>}
-                </p>
-                <p className="text-xs text-muted truncate">{profile.email}</p>
-                {profile.role !== "teacher" && profile.role !== "admin" && (
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <LevelControl userId={profile.id} currentLevel={profile.language_level} confirmed={!!profile.language_level_confirmed_by} />
-                    <SubscriptionControl userId={profile.id} subscriptionUntil={profile.subscription_until} requestedAt={profile.subscription_requested_at} />
-                    <CourseAccessControl userId={profile.id} focusStudentId={profile.id === focusStudentId ? focusStudentId : null} focusCourseId={profile.id === focusStudentId ? focusCourseId : null} />
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 ml-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[profile.role] ?? "bg-zinc-100 text-zinc-500"}`}>
-                {ROLE_LABELS[profile.role] ?? profile.role}
-              </span>
-              {profile.role === "admin" && canManage(profile) && (
-                <button onClick={() => demoteUser(profile.id)} disabled={loadingId === profile.id}
-                  className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50">
-                  {loadingId === profile.id ? "..." : "Сделать учеником"}
-                </button>
-              )}
-              {profile.role === "teacher" && canManage(profile) && (
-                <>
-                  <button onClick={() => setRole(profile.email, "admin")} disabled={loadingId === `set-${profile.email}`}
-                    className="text-xs text-purple-500 hover:text-purple-700 hover:underline disabled:opacity-50">
-                    {loadingId === `set-${profile.email}` ? "..." : "Сделать админом"}
-                  </button>
-                  {profile.id !== currentUserId && (
-                    <button onClick={() => demoteUser(profile.id)} disabled={loadingId === profile.id}
-                      className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50">
-                      {loadingId === profile.id ? "..." : "Сделать учеником"}
-                    </button>
+          <div key={profile.id} ref={profile.id === focusStudentId ? focusRef : undefined} className={`card px-4 py-3 ${profile.id === focusStudentId ? "ring-2 ring-primary-400 bg-primary-50/50" : ""}`}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative shrink-0">
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-xs text-primary-500 font-bold">
+                      {(profile.full_name ?? profile.email)[0].toUpperCase()}
+                    </div>
                   )}
-                </>
-              )}
-              {profile.role === "student" && canManage(profile) && (
-                <button onClick={() => setRole(profile.email, "teacher")} disabled={loadingId === `set-${profile.email}`}
-                  className="text-xs text-primary-500 hover:text-primary-700 hover:underline disabled:opacity-50">
-                  {loadingId === `set-${profile.email}` ? "..." : "Назначить учителем"}
-                </button>
-              )}
+                  {profile.last_seen && (Date.now() - new Date(profile.last_seen).getTime()) < 120000 && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-accent truncate">
+                    {profile.full_name || "Без имени"}
+                    {profile.id === currentUserId && <span className="text-xs text-muted ml-1">(это вы)</span>}
+                    {profile.is_director && <span className="text-xs text-amber-600 ml-1.5">👑 директор</span>}
+                  </p>
+                  <p className="text-xs text-muted truncate">{profile.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[profile.role] ?? "bg-zinc-100 text-zinc-500"}`}>
+                  {ROLE_LABELS[profile.role] ?? profile.role}
+                </span>
+                {profile.role === "admin" && canManage(profile) && (
+                  <button onClick={() => demoteUser(profile.id)} disabled={loadingId === profile.id}
+                    className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50">
+                    {loadingId === profile.id ? "..." : "Сделать учеником"}
+                  </button>
+                )}
+                {profile.role === "teacher" && canManage(profile) && (
+                  <>
+                    <button onClick={() => setRole(profile.email, "admin")} disabled={loadingId === `set-${profile.email}`}
+                      className="text-xs text-purple-500 hover:text-purple-700 hover:underline disabled:opacity-50">
+                      {loadingId === `set-${profile.email}` ? "..." : "Сделать админом"}
+                    </button>
+                    {profile.id !== currentUserId && (
+                      <button onClick={() => demoteUser(profile.id)} disabled={loadingId === profile.id}
+                        className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50">
+                        {loadingId === profile.id ? "..." : "Сделать учеником"}
+                      </button>
+                    )}
+                  </>
+                )}
+                {profile.role === "teacher" && role === "admin" && (
+                  <button onClick={() => setDirector(profile.id, !profile.is_director)} disabled={loadingId === `dir-${profile.id}`}
+                    className={`text-xs hover:underline disabled:opacity-50 ${profile.is_director ? "text-amber-600 hover:text-amber-700" : "text-zinc-500 hover:text-zinc-700"}`}>
+                    {loadingId === `dir-${profile.id}` ? "..." : profile.is_director ? "Снять с директора" : "Сделать директором"}
+                  </button>
+                )}
+                {profile.role === "student" && canManage(profile) && (
+                  <button onClick={() => setRole(profile.email, "teacher")} disabled={loadingId === `set-${profile.email}`}
+                    className="text-xs text-primary-500 hover:text-primary-700 hover:underline disabled:opacity-50">
+                    {loadingId === `set-${profile.email}` ? "..." : "Назначить учителем"}
+                  </button>
+                )}
+              </div>
             </div>
+            {profile.role !== "teacher" && profile.role !== "admin" && (
+              <div className="mt-3 pt-3 border-t border-zinc-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Уровень</p>
+                  <LevelControl userId={profile.id} currentLevel={profile.language_level} confirmed={!!profile.language_level_confirmed_by} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Подписка</p>
+                  <SubscriptionControl userId={profile.id} subscriptionUntil={profile.subscription_until} requestedAt={profile.subscription_requested_at} creditDays={profile.credit_days ?? 0} />
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-muted mb-1">Доступ к курсам</p>
+                  <CourseAccessControl userId={profile.id} focusStudentId={profile.id === focusStudentId ? focusStudentId : null} focusCourseId={profile.id === focusStudentId ? focusCourseId : null} />
+                </div>
+              </div>
+            )}
           </div>
         ))}
         {filtered.length === 0 && (

@@ -53,6 +53,12 @@ jobs:
           ENV_VARS="$ENV_VARS,NEXT_PUBLIC_SITE_URL=https://naranja.outmilk.online"
           ENV_VARS="$ENV_VARS,YANDEX_API_KEY=$YANDEX_KEY"
           ENV_VARS="$ENV_VARS,YANDEX_FOLDER_ID=b1gsrqv6ri6jr7ue41fc"
+          ENV_VARS="$ENV_VARS,SMTP_HOST=smtp.yandex.ru"
+          ENV_VARS="$ENV_VARS,SMTP_PORT=465"
+          ENV_VARS="$ENV_VARS,SMTP_USER=$SMTP_USER"
+          ENV_VARS="$ENV_VARS,SMTP_PASS=$SMTP_PASS"
+          ENV_VARS="$ENV_VARS,SMTP_FROM=naranja-feliz@yandex.ru"
+          ENV_VARS="$ENV_VARS,CRON_SECRET=$CRON_SECRET"
           yc serverless container revision deploy \
             --container-id ${{ env.CONTAINER_ID }} \
             --image ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }} \
@@ -66,6 +72,9 @@ jobs:
           YC_SA_KEY: ${{ secrets.YC_SA_KEY_JSON }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           YANDEX_KEY: ${{ secrets.YANDEX_API_KEY }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
       - name: Health check
         run: |

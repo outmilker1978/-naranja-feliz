@@ -3,6 +3,7 @@ import "./globals.css";
 import SiteHeader from "@/components/site-header";
 import Footer from "@/components/footer";
 import ToolsPanelWrapper from "@/components/tools-panel-wrapper";
+import { TwemojiGlobal } from "@/components/twemoji-global";
 
 export const metadata: Metadata = {
   title: "Naranja Feliz — Motivación en cada gajo",
@@ -20,7 +21,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" className="h-full antialiased">
+      <head>
+        <link rel="stylesheet" href="/fonts.css" />
+      </head>
       <body className="min-h-full bg-surface text-zinc-900">
+        <TwemojiGlobal />
         <div className="sticky top-0 z-50">
           <SiteHeader />
         </div>

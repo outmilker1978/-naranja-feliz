@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { TiptapEditor } from "@/components/tiptap-editor";
-import { LessonBlock, BlockType, BLOCK_LABELS, BLOCK_DESCRIPTIONS, TextContent, ImageContent, VideoContent, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, DragOrderContent, ImagePickContent, GroupDragContent } from "./types";
+import { LessonBlock, BlockType, BLOCK_LABELS, BLOCK_DESCRIPTIONS, TextContent, ImageContent, VideoContent, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, DragOrderContent, ImagePickContent, GroupDragContent, MemoryContent } from "./types";
 
 function convertOldContent(html: string): string {
   return html
@@ -40,6 +40,10 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
   const [groupGroups, setGroupGroups] = useState(JSON.stringify((content as GroupDragContent).groups || []));
   const [groupLayout, setGroupLayout] = useState<"columns" | "table">((content as GroupDragContent).layout || "columns");
 
+  const [memSize, setMemSize] = useState<12 | 16 | 20>((content as MemoryContent).size || 12);
+  const [memPairs, setMemPairs] = useState(JSON.stringify((content as MemoryContent).pairs || []));
+  const [memInst, setMemInst] = useState((content as MemoryContent).instruction || "");
+
   const [fbAttempts, setFbAttempts] = useState((content as FillBlankContent).maxAttempts || 1);
   const [choiceAttempts, setChoiceAttempts] = useState((content as ChoiceContent).maxAttempts || 1);
   const [dragAttempts, setDragAttempts] = useState((content as DragOrderContent).maxAttempts || 1);
@@ -66,6 +70,11 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
         let groups: { label: string; words: string[] }[] = [];
         try { groups = JSON.parse(groupGroups); } catch {}
         return { instruction: groupInst, groups: groups.map(g => ({ ...g, words: g.words.filter(w => w.trim()) })), layout: groupLayout, maxAttempts: groupAttempts !== 1 ? groupAttempts : undefined };
+      }
+      case "memory": {
+        let pairs: { left: string; right: string }[] = [];
+        try { pairs = JSON.parse(memPairs); } catch {}
+        return { instruction: memInst, pairs: pairs.filter(p => p.left.trim() || p.right.trim()), size: memSize };
       }
       default: return {};
     }
@@ -312,6 +321,67 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
         </>
       )}
 
+      {type === "memory" && (
+        <>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Ученик увидит поле карточек и будет открывать их по две, ища пары слов. Раскладка перемешивается каждый раз. Найденные пары окрашиваются зелёным.
+          </div>
+          <TiptapEditor content={memInst} onChange={setMemInst} placeholder="Инструкция / задание (необязательно)" />
+          <div>
+            <label className="block text-sm font-medium text-zinc-600 mb-1">Размер поля</label>
+            <div className="flex gap-2">
+              {([12, 16, 20] as const).map(sz => {
+                const grid = sz === 12 ? "3×4" : sz === 16 ? "4×4" : "4×5";
+                return (
+                <button key={sz} type="button" title={`${grid} · ${sz} карточек`} onClick={() => {
+                  setMemSize(sz);
+                  let pairs: { left: string; right: string }[] = [];
+                  try { pairs = JSON.parse(memPairs); } catch {}
+                  const target = sz / 2;
+                  const next = Array.from({ length: target }, (_, i) => pairs[i] || { left: "", right: "" });
+                  setMemPairs(JSON.stringify(next));
+                }}
+                  className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${memSize === sz ? "bg-primary-500 text-white border-primary-500" : "bg-white border-zinc-300 text-zinc-600 hover:bg-zinc-50"}`}>
+                  {sz} ({grid})
+                </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">{memSize / 2} пар слов</p>
+          </div>
+          <div className="space-y-2">
+            {(() => {
+              let pairs: { left: string; right: string }[] = [];
+              try { pairs = JSON.parse(memPairs); } catch {}
+              return pairs.map((p, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <span className="text-xs text-zinc-400 w-5 text-right shrink-0">{i + 1}.</span>
+                  <input value={p.left} onChange={e => {
+                    const arr = [...pairs]; arr[i] = { ...arr[i], left: e.target.value };
+                    setMemPairs(JSON.stringify(arr));
+                  }} placeholder="Слово / фраза 1" className="flex-1 px-3 py-1.5 border border-zinc-300 rounded text-sm" />
+                  <span className="text-zinc-300">↔</span>
+                  <input value={p.right} onChange={e => {
+                    const arr = [...pairs]; arr[i] = { ...arr[i], right: e.target.value };
+                    setMemPairs(JSON.stringify(arr));
+                  }} placeholder="Слово / фраза 2" className="flex-1 px-3 py-1.5 border border-zinc-300 rounded text-sm" />
+                  <button type="button" onClick={() => {
+                    const arr = pairs.filter((_, j) => j !== i);
+                    setMemPairs(JSON.stringify(arr));
+                  }} className="text-red-400 hover:text-red-600 text-sm shrink-0">✕</button>
+                </div>
+              ));
+            })()}
+            <button type="button" onClick={() => {
+              let pairs: { left: string; right: string }[] = [];
+              try { pairs = JSON.parse(memPairs); } catch {}
+              if (pairs.length >= memSize / 2) return;
+              setMemPairs(JSON.stringify([...pairs, { left: "", right: "" }]));
+            }} className="text-sm text-primary-500 hover:underline">+ Добавить пару</button>
+          </div>
+        </>
+      )}
+
       <div className="flex gap-2 pt-2">
         <button onClick={() => onSave({ ...block, content: buildContent() })} className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600">Сохранить</button>
         <button onClick={onCancel} className="text-zinc-500 px-4 py-1.5 rounded-lg text-sm hover:bg-zinc-100">Отмена</button>
@@ -361,6 +431,7 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
       drag_order: { sentenceTemplate: "" },
       image_pick: { question: "", images: [], correct: [], multiple: false },
       group_drag: { instruction: "", groups: [], layout: "columns" },
+      memory: { instruction: "", pairs: [], size: 12 },
     };
     const { data, error } = await supabase.from("lesson_blocks").insert({
       lesson_id: lessonId,

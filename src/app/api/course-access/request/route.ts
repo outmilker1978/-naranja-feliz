@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getDirectorId } from "@/lib/director";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -32,12 +33,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, autoGranted: true });
   }
 
-  const { data: teachers } = await svc.from("profiles").select("id").in("role", ["teacher", "admin"]);
+  const directorId = await getDirectorId();
   const studentName = user.user_metadata?.full_name || user.email || "Студент";
 
-  for (const teacher of teachers ?? []) {
+  const notifyUserIds = directorId ? [directorId] : [];
+
+  if (!notifyUserIds.length) {
+    const { data: teachers } = await svc.from("profiles").select("id").in("role", ["teacher", "admin"]);
+    notifyUserIds.push(...(teachers ?? []).map(t => t.id));
+  }
+
+  for (const teacherId of notifyUserIds) {
     await svc.from("notifications").insert({
-      user_id: teacher.id,
+      user_id: teacherId,
       actor_id: user.id,
       title: `🔔 Запрос доступа к курсу`,
       body: `${studentName} запросил доступ к курсу «${course.title}»`,

@@ -57,7 +57,7 @@
   --color-muted: #5C5C6E;
   --color-border: #EAE5DF;
 
-  --font-sans: "Geist", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Twemoji Mozilla", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
   --font-mono: "Geist Mono", monospace;
 
   --animate-float: float 6s ease-in-out infinite;
@@ -71,6 +71,8 @@
     color: var(--color-accent);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-variant-emoji: emoji;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Twemoji Mozilla", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
   }
 
   h1, h2, h3, h4 {

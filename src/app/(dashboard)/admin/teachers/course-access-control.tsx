@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface Course {
   id: string;
@@ -27,13 +27,20 @@ export function CourseAccessControl({ userId, focusStudentId, focusCourseId }: {
   const [error, setError] = useState("");
   const dismissed = useRef(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (focusStudentId && focusCourseId && !dismissed.current) {
       setOpen(true);
-      dismissed.current = false;
+      dismissed.current = true;
     }
   }, [focusStudentId, focusCourseId]);
+
+  const clearFocus = () => {
+    if (focusStudentId || focusCourseId) {
+      router.replace(pathname, { scroll: false });
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +72,7 @@ export function CourseAccessControl({ userId, focusStudentId, focusCourseId }: {
   const close = () => {
     dismissed.current = true;
     setOpen(false);
+    clearFocus();
   };
 
   const grant = async () => {

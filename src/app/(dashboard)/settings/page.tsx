@@ -18,6 +18,7 @@ export default async function SettingsPage() {
   const languageLevelConfirmedBy = profile?.language_level_confirmed_by ?? null;
   const subscriptionUntil = profile?.subscription_until ?? null;
   const subscriptionRequestedAt = profile?.subscription_requested_at ?? null;
+  const creditDays = profile?.credit_days ?? 0;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -33,6 +34,7 @@ export default async function SettingsPage() {
         languageLevelConfirmedBy={languageLevelConfirmedBy}
         subscriptionUntil={subscriptionUntil}
         subscriptionRequestedAt={subscriptionRequestedAt}
+        creditDays={creditDays}
       />
     </div>
   );

@@ -39,6 +39,8 @@ dev-err.txt
 dev-errors.txt
 dev-out.txt
 dev-output.txt
+dev.log
+dev-server*.log
 tmp-*
 test-cases/
 

@@ -138,7 +138,7 @@ DROP POLICY IF EXISTS "Teachers read progress for their courses" ON lesson_progr
 CREATE TABLE IF NOT EXISTS lesson_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lesson_id UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('text','image','video','fill_blank','choice','open_question','audio_answer','video_answer')),
+  type TEXT NOT NULL CHECK (type IN ('text','image','video','fill_blank','choice','open_question','audio_answer','video_answer','drag_order','image_pick','group_drag','memory')),
   content JSONB NOT NULL DEFAULT '{}',
   order_index INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -353,7 +353,7 @@ CREATE POLICY "Students read lessons from enrolled courses"
 -- Allow new block types in lesson_blocks CHECK constraint
 ALTER TABLE lesson_blocks DROP CONSTRAINT IF EXISTS lesson_blocks_type_check;
 ALTER TABLE lesson_blocks ADD CONSTRAINT lesson_blocks_type_check
-  CHECK (type IN ('text','image','video','fill_blank','choice','open_question','audio_answer','video_answer','drag_order','image_pick','group_drag'));
+  CHECK (type IN ('text','image','video','fill_blank','choice','open_question','audio_answer','video_answer','drag_order','image_pick','group_drag','memory'));
 
 -- Notifications table
 CREATE TABLE IF NOT EXISTS notifications (
@@ -728,3 +728,51 @@ AS $$
     WHERE id = uid AND role = 'admin'
   );
 $$;
+
+-- #25: School director flag (admin designates one teacher as director)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_director BOOLEAN NOT NULL DEFAULT false;
+
+-- #24: Subscription credit (days the school issued in advance, repaid by future payments)
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS credit_days INTEGER NOT NULL DEFAULT 0;
+
+-- #24: History of credit/gift/payment/writeoff operations
+CREATE TABLE IF NOT EXISTS subscription_credit_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  actor_id UUID REFERENCES profiles(id),
+  type TEXT NOT NULL CHECK (type IN ('gift', 'credit', 'payment', 'writeoff', 'close')),
+  days INTEGER NOT NULL,
+  note TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE subscription_credit_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users read own credit history"
+  ON subscription_credit_history FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Service can manage credit history"
+  ON subscription_credit_history FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_credit_history_user ON subscription_credit_history(user_id);
+
+-- #23: Email log for subscription reminders (dedup + retry if SMTP failed earlier)
+CREATE TABLE IF NOT EXISTS subscription_email_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  stage TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, stage)
+);
+
+ALTER TABLE subscription_email_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service can manage subscription email log"
+  ON subscription_email_log FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
+CREATE INDEX IF NOT EXISTS idx_email_log_user ON subscription_email_log(user_id);

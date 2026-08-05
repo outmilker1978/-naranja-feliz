@@ -9,7 +9,8 @@ export type BlockType =
   | "video_answer"
   | "drag_order"
   | "image_pick"
-  | "group_drag";
+  | "group_drag"
+  | "memory";
 
 export interface TextContent {
   html: string;
@@ -72,6 +73,12 @@ export interface GroupDragContent {
   maxAttempts?: 1 | 3;
 }
 
+export interface MemoryContent {
+  instruction: string;
+  pairs: { left: string; right: string }[];
+  size: 12 | 16 | 20;
+}
+
 export type BlockContent =
   | TextContent
   | ImageContent
@@ -83,7 +90,8 @@ export type BlockContent =
   | VideoAnswerContent
   | DragOrderContent
   | ImagePickContent
-  | GroupDragContent;
+  | GroupDragContent
+  | MemoryContent;
 
 export interface LessonBlock {
   id: string;
@@ -105,6 +113,7 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   drag_order: "Порядок",
   image_pick: "Выбор изображения",
   group_drag: "Групповой порядок",
+  memory: "Игра в пары",
 };
 
 export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
@@ -119,4 +128,5 @@ export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   drag_order: "Слова перемешиваются — ученик собирает правильный порядок",
   image_pick: "Выбор правильного изображения из нескольких",
   group_drag: "Группы слов — ученик перетаскивает слова в ячейки своей группы (таблица или колонки)",
+  memory: "Поле карточек 12/16/20. Ученик открывает по 2 и ищет пары слов. Рандомная раскладка каждый раз",
 };

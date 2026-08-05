@@ -3,10 +3,10 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createPayment } from "@/lib/yookassa";
 
 const PLANS: Record<string, { price: number; days: number; label: string }> = {
-  "1m": { price: 990, days: 30, label: "Подписка на 1 месяц" },
-  "3m": { price: 2490, days: 90, label: "Подписка на 3 месяца" },
-  "6m": { price: 4590, days: 180, label: "Подписка на 6 месяцев" },
-  "12m": { price: 7990, days: 365, label: "Подписка на 12 месяцев" },
+  "1m": { price: 700, days: 30, label: "Подписка на 1 месяц" },
+  "3m": { price: 1900, days: 90, label: "Подписка на 3 месяца" },
+  "6m": { price: 3500, days: 180, label: "Подписка на 6 месяцев" },
+  "12m": { price: 6000, days: 365, label: "Подписка на 12 месяцев" },
 };
 
 export async function POST(req: NextRequest) {

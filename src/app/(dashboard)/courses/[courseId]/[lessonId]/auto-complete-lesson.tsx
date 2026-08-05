@@ -23,7 +23,7 @@ export function AutoCompleteLesson({
     if (done.current || blocks.length === 0) return;
 
     const interactiveBlocks = blocks.filter(
-      (b) => b.type === "choice" || b.type === "fill_blank" || b.type === "open_question" || b.type === "audio_answer" || b.type === "video_answer" || b.type === "drag_order" || b.type === "image_pick"
+      (b) => b.type === "choice" || b.type === "fill_blank" || b.type === "open_question" || b.type === "audio_answer" || b.type === "video_answer" || b.type === "drag_order" || b.type === "image_pick" || b.type === "group_drag" || b.type === "memory"
     );
     if (interactiveBlocks.length === 0) return;
 

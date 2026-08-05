@@ -66,7 +66,8 @@ Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
 5. Health check (HTTP 200)
 
 ### Файл: `.github/workflows/deploy.yml`
-### Секреты GitHub: `YC_SA_KEY_JSON`, `SUPABASE_SERVICE_ROLE_KEY`, `YANDEX_API_KEY`
+### Файл: `.github/workflows/cron-subscription.yml` — ежедневный cron уведомлений о подписке (06:00 UTC)
+### Секреты GitHub: `YC_SA_KEY_JSON`, `SUPABASE_SERVICE_ROLE_KEY`, `YANDEX_API_KEY`, `SMTP_USER`, `SMTP_PASS`, `CRON_SECRET`
 
 Подробнее — в `docs/CI_CD_PIPELINE.md`.
 
@@ -119,6 +120,12 @@ SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_SITE_URL=http://localhost:3100
 YANDEX_API_KEY=...
 YANDEX_FOLDER_ID=b1gsrqv6ri6jr7ue41fc
+SMTP_HOST=smtp.yandex.ru
+SMTP_PORT=465
+SMTP_USER=naranja-feliz@yandex.ru
+SMTP_PASS=<пароль приложения Яндекс, созданный в id.yandex.ru/security/app-passwords>
+SMTP_FROM=naranja-feliz@yandex.ru
+CRON_SECRET=<случайная строка для защиты cron endpoint>
 YOO_KASSA_SHOP_ID=
 YOO_KASSA_SECRET_KEY=
 ```
@@ -242,3 +249,43 @@ npm run build    # production сборка (output: standalone)
 | src/app/(dashboard)/admin/teachers/course-access-control.tsx | Модалка выдачи |
 | src/app/(dashboard)/courses/[courseId]/request-access-button.tsx | Кнопка запроса |
 | src/app/(dashboard)/courses/enroll-button.tsx | Умная кнопка (403→запрос) |
+
+## 19. Подписка и уведомления
+
+### Статусы подписки
+- `profiles.subscription_until` — дата окончания. NULL = подписки нет.
+- `profiles.credit_days` — кредит (дни в долг от школы, погашается оплатой).
+- `subscription_credit_history` — история операций (gift/credit/payment/writeoff/close).
+- `check_subscription(uid)` RPC — true если `subscription_until > now()`.
+
+### Уведомления о подписке
+- **Стадии:** за 5 дней, за 1 день, «закончилась».
+- **Механика:** единый модуль `src/lib/subscription-reminders.ts`:
+  - `getReminderStage(daysLeft)` — текст для сайта (title/body/link → `/settings`) и email (subject/text → `/pricing`).
+  - `ensureSubscriptionReminder()` — дедупликация по `title+body` (сайт) и по таблице `subscription_email_log` (email, retry при сбое SMTP).
+  - `sendSubscriptionEmail()` — nodemailer через SMTP Яндекс, ошибки логируются в console.error.
+- **Запуск:**
+  1. **Мгновенно при входе** — `SubscriptionCheckOnLogin` в `(dashboard)/layout.tsx` → GET `/api/subscription/check` (emailMode "only-on-create").
+  2. **Ежедневный cron** — `/api/cron/subscription-expiry` (защищён CRON_SECRET), вызывается GitHub Actions `cron-subscription.yml` (06:00 UTC, emailMode "always").
+
+### Таблица subscription_email_log
+- `user_id`, `stage` (in_5_days / in_1_day / expired), `UNIQUE(user_id, stage)`.
+- Нужна для повторной отправки письма: если SMTP упал в первый раз, письмо уйдёт при следующем запуске.
+
+### Ключевые файлы
+| Файл | Назначение |
+|------|-----------|
+| src/lib/subscription-reminders.ts | Логика уведомлений + email |
+| src/app/api/subscription/check/route.ts | Мгновенная проверка при входе |
+| src/app/api/cron/subscription-expiry/route.ts | Cron уведомлений |
+| src/app/api/subscription/extend/route.ts | Выдача подарка/кредита/списание |
+| src/app/api/subscription/credit-history/route.ts | История операций |
+| src/app/api/subscription/request-extend/route.ts | Запрос продления |
+| src/app/(dashboard)/settings/credit-history.tsx | История кредита для ученика |
+| src/components/subscription-check-on-login.tsx | Клиентский хук при входе |
+
+## 20. Директор школы
+- `profiles.is_director` — флаг (ставит админ, только один директор).
+- Запрос продления подписки → директору (если есть), иначе первому учителю.
+- Запрос доступа к курсу → директору (если есть), иначе всем учителям.
+- `src/lib/director.ts` + `src/app/api/set-director/route.ts`.

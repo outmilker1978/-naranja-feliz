@@ -1,0 +1,15 @@
+name: Cron subscription reminders
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  subscription-expiry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call subscription-expiry endpoint
+        run: |
+          curl -s -f -X GET "https://naranja.outmilk.online/api/cron/subscription-expiry" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

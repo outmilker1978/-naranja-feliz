@@ -10,6 +10,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { ResizableImage } from "@/components/resizable-image";
 import { TranslationMark } from "@/components/translation-mark";
 import { OrangeDividerExtension } from "@/components/tiptap-divider";
+import { EmojiPicker } from "@/components/emoji-picker";
 import { createClient } from "@/lib/supabase/client";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -230,6 +231,7 @@ export function TiptapEditor({
         <ToolBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")} title="Маркированный список"><List className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")} title="Нумерованный список"><ListOrdered className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")} title="Цитата"><Quote className="w-4 h-4" /></ToolBtn>
+        <EmojiPicker onSelect={(e) => editor.chain().focus().insertContent(e).run()} />
         <span className="w-px h-5 bg-zinc-300 mx-1" />
         <ToolBtn onClick={() => editor.chain().focus().setTextAlign("left").run()} active={editor.isActive({ textAlign: "left" })} title="Выровнять влево"><AlignLeft className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().setTextAlign("center").run()} active={editor.isActive({ textAlign: "center" })} title="Выровнять по центру"><AlignCenter className="w-4 h-4" /></ToolBtn>

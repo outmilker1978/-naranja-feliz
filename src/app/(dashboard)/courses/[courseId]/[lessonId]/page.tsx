@@ -117,8 +117,9 @@ export default async function StudentLessonPage({
               ← {course?.title}
             </Link>
             <div className="flex items-center gap-2">
-              <ClearAnswersButton lessonId={lessonId} studentId={user.id} blockIds={blockIds} />
+              <LessonProgressTracker lessonId={lessonId} studentId={user.id} />
               <AutoCompleteLesson lessonId={lessonId} studentId={user.id} blocks={lessonBlocks ?? []} initialCompleted={progress?.completed ?? false} />
+              <ClearAnswersButton lessonId={lessonId} studentId={user.id} blockIds={blockIds} />
             </div>
           </div>
         </div>
@@ -128,6 +129,9 @@ export default async function StudentLessonPage({
           {lessonBlocks?.map((block) => (
             <BlockRenderer key={block.id} block={block} studentId={user.id} />
           ))}
+          <div className="mt-8 text-center">
+            <CompleteLessonButton lessonId={lessonId} studentId={user.id} blocks={lessonBlocks ?? []} initialCompleted={progress?.completed ?? false} />
+          </div>
         </div>
       </div>
       <VocabPickerFab lessonId={lessonId} />

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getDirectorId } from "@/lib/director";
 
 export async function POST() {
   const supabase = await createClient();
@@ -8,18 +9,22 @@ export async function POST() {
 
   const svc = createServiceClient();
 
-  // Find a teacher to notify (any teacher)
-  const { data: teachers } = await svc
-    .from("profiles")
-    .select("id")
-    .eq("role", "teacher")
-    .limit(1);
+  let teacherId: string | null = await getDirectorId();
 
-  if (!teachers?.length) return NextResponse.json({ error: "No teachers found" }, { status: 500 });
+  if (!teacherId) {
+    const { data: teachers } = await svc
+      .from("profiles")
+      .select("id")
+      .eq("role", "teacher")
+      .limit(1);
+    teacherId = teachers?.[0]?.id ?? null;
+  }
+
+  if (!teacherId) return NextResponse.json({ error: "No teachers found" }, { status: 500 });
 
   const studentName = user.user_metadata?.full_name || user.email || "Студент";
   await svc.from("notifications").insert({
-    user_id: teachers[0].id,
+    user_id: teacherId,
     actor_id: user.id,
     title: `🔔 Запрос на продление подписки`,
     body: `${studentName} запросил продление подписки`,

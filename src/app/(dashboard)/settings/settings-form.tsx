@@ -3,10 +3,11 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { CreditHistory } from "./credit-history";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
-export function SettingsForm({ userId, email, fullName: initialFullName, avatarUrl: initialAvatarUrl, role, languageLevel: initialLevel, languageLevelConfirmedBy, subscriptionUntil: initialSubscriptionUntil, subscriptionRequestedAt: initialSubscriptionRequestedAt }: { userId: string; email: string; fullName: string; avatarUrl: string | null; role: string; languageLevel: string | null; languageLevelConfirmedBy: string | null; subscriptionUntil: string | null; subscriptionRequestedAt: string | null }) {
+export function SettingsForm({ userId, email, fullName: initialFullName, avatarUrl: initialAvatarUrl, role, languageLevel: initialLevel, languageLevelConfirmedBy, subscriptionUntil: initialSubscriptionUntil, subscriptionRequestedAt: initialSubscriptionRequestedAt, creditDays }: { userId: string; email: string; fullName: string; avatarUrl: string | null; role: string; languageLevel: string | null; languageLevelConfirmedBy: string | null; subscriptionUntil: string | null; subscriptionRequestedAt: string | null; creditDays: number }) {
   const [fullName, setFullName] = useState(initialFullName);
   const [savingName, setSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
@@ -218,9 +219,31 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
             const untilDate = subscriptionUntil ? new Date(subscriptionUntil).toLocaleDateString("ru-RU") : null;
             if (isActive) {
               return (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <p className="text-green-700 font-medium">✓ Подписка активна</p>
-                  <p className="text-sm text-green-600 mt-1">До {untilDate}</p>
+                <div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <p className="text-green-700 font-medium">✓ Подписка активна</p>
+                    <p className="text-sm text-green-600 mt-1">До {untilDate}</p>
+                    {creditDays > 0 && (
+                      <p className="text-sm text-red-500 mt-1">Кредит: {creditDays} дн. — оплати пакет, чтобы погасить</p>
+                    )}
+                  </div>
+                  {subscriptionRequestedAt ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-blue-700 font-medium">✓ Запрос отправлен</p>
+                      <p className="text-sm text-blue-600 mt-1">Учитель получил уведомление. Ожидай подтверждения.</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <button disabled
+                        className="btn-ghost px-6 py-2.5 text-sm opacity-50 cursor-not-allowed"
+                        title="Кнопка активируется, когда подписка закончится">
+                        Запросить доступ у учителя
+                      </button>
+                      <a href="/pricing" className="btn-gradient px-6 py-2.5 text-sm inline-block">
+                        Оплатить доступ
+                      </a>
+                    </div>
+                  )}
                 </div>
               );
             }
@@ -240,16 +263,18 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <a href="/pricing" className="btn-gradient px-6 py-2.5 text-sm inline-block">
-                    Купить подписку
+                    Оплатить доступ
                   </a>
                   <button onClick={requestExtend} disabled={requestingExtend}
                     className="btn-ghost px-6 py-2.5 text-sm">
-                    {requestingExtend ? "..." : "Запросить продление"}
+                    {requestingExtend ? "..." : "Запросить доступ у учителя"}
                   </button>
                 </div>
               </div>
             );
           })()}
+
+          <CreditHistory />
         </div>
       )}
 
