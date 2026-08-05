@@ -40,6 +40,12 @@ Supabase (БД, Auth, Storage)
 | `NEXT_PUBLIC_SITE_URL` | https://naranja.outmilk.online | Редиректы после выхода |
 | `YANDEX_API_KEY` | AI Studio Yandex Cloud | Перевод текстов через Yandex Translate API |
 | `YANDEX_FOLDER_ID` | AI Studio Yandex Cloud | Каталог в Yandex Cloud |
+| `SMTP_HOST` / `SMTP_PORT` | smtp.yandex.ru / 465 | Email-уведомления (подписка) |
+| `SMTP_USER` / `SMTP_PASS` | naranja-feliz@yandex.ru + пароль приложения | Логин/пароль для SMTP. **SMTP_PASS — это пароль приложения Яндекс** (id.yandex.ru/security/app-passwords), не обычный пароль |
+| `SMTP_FROM` | naranja-feliz@yandex.ru | Отправитель писем |
+| `CRON_SECRET` | случайная строка | Защита cron-эндпоинта уведомлений |
+
+> **ВНИМАНИЕ:** Для SMTP Яндекс нужен пароль приложения + включённый доступ «Почтовые программы» (IMAP + «Пароли приложений и OAuth-токены») в настройках почтового ящика. Иначе SMTP вернёт 535.
 
 ---
 
@@ -103,6 +109,8 @@ src/
 | `video_answer` | `{ prompt: string }` | Видео-ответ (скоро) |
 | `drag_order` | `{ sentenceTemplate: string }` | Составь предложение |
 | `image_pick` | `{ question: string, images: { src, label }[], correct: number[], multiple: boolean }` | Выбери изображение |
+| `group_drag` | `{ sentenceTemplate: string, groups: string[] }` | Распредели слова по группам (drag-and-drop) |
+| `memory` | `{ size: number, pairs: { left: string, right: string }[], instruction: string }` | Игра в пары (12=3×4, 16=4×4, 20=4×5) |
 
 ---
 
@@ -160,6 +168,17 @@ src/
 | `/api/content/[id]` | GET/PUT/DELETE | CRUD одного элемента контента |
 | `/api/content/reorder` | POST | Пересортировка блоков контента |
 | `/api/translate` | POST | Перевод текста (Yandex → DeepL → Google → ...) |
+| `/api/subscription/extend` | POST | Выдача подарка/кредита/списание/закрытие подписки |
+| `/api/subscription/request-extend` | POST | Запрос продления (→ директору/учителям) |
+| `/api/subscription/check` | GET | Мгновенная проверка подписки при входе (создаёт уведомление) |
+| `/api/subscription/credit-history` | GET | История операций кредита |
+| `/api/cron/subscription-expiry` | GET | Cron уведомлений (защита CRON_SECRET, заголовок `x-cron-secret`) |
+| `/api/set-director` | POST | Назначение директора (админ) |
+| `/api/course-access/request` | POST | Запрос доступа к курсу |
+| `/api/course-access/grant` | POST | Выдача доступа |
+| `/api/course-access/check` | GET | Проверка доступа |
+| `/api/course-access/student-courses` | GET | Список доступов ученика |
+| `/api/course-access/revoke` | POST | Отзыв доступа |
 
 ---
 
@@ -193,6 +212,43 @@ src/
 - `Комментарий — НазваниеКурса` → `/admin/submissions`
 - `✓ Проверено — НазваниеКурса` → `/courses/.../...`
 - `💬 Комментарий — НазваниеКурса` → `/courses/.../...`
+
+---
+
+## Уведомления о подписке (сайт + email)
+
+### Модуль `src/lib/subscription-reminders.ts`
+Единая логика для cron и мгновенной проверки при входе:
+
+- `getReminderStage(daysLeft)` — стадии: `in_5_days`, `in_1_day`, `expired`. Возвращает текст для сайта (title/body/link → `/settings`) и email (subject/text → `/pricing`).
+- `ensureSubscriptionReminder(svc, student, { emailMode })`:
+  - Дедупликация сайт-уведомления по `title+body`.
+  - Дедупликация email по таблице `subscription_email_log` (unique `user_id+stage`) — повторная отправка при сбое SMTP.
+  - `emailMode: "always"` — cron ретраит письма; `"only-on-create"` — при входе шлёт только если уведомление новое.
+- `sendSubscriptionEmail()` — nodemailer через SMTP Яндекс. Ошибки **логируются** в console.error (`[subscription-reminder] SMTP fail ...`), а не глотаются.
+
+### Запуск
+1. **Мгновенно при входе** — `src/components/subscription-check-on-login.tsx` в `(dashboard)/layout.tsx` → GET `/api/subscription/check` (emailMode "only-on-create").
+2. **Ежедневный cron** — `.github/workflows/cron-subscription.yml` (schedule 06:00 UTC) → GET `https://naranja.outmilk.online/api/cron/subscription-expiry` с заголовком `x-cron-secret`. Единственный способ отправить письма со стадии «always».
+
+### Таблица `subscription_email_log`
+- `user_id`, `stage`, `UNIQUE(user_id, stage)`. RLS: service client (policy "Service can manage subscription email log").
+- Если SMTP упал на стадии — письмо не помечено, при следующем запуске отправится снова.
+
+### Важно (частые грабли)
+- SMTP Яндекс отклоняет письма без пароля приложения (`535 ... no access rights`).
+- Если у ученика `subscription_until = NULL` — проверки его не видят (cron берёт только `.not("subscription_until", "is", null)`).
+- Новые письма могут попадать в СПАМ в первые дни — репутация прогревается.
+- Проверка вручную: `curl "http://localhost:3000/api/cron/subscription-expiry" -H "x-cron-secret: <secret>"` → `{checked, created, emails, already, errors}`.
+
+---
+
+## Эмодзи (Twemoji)
+
+- **В редакторе (живой текст):** цветной шрифт `public/fonts/TwemojiMozilla.ttf`, подключён через `public/fonts.css` (статический файл, `@font-face` с `unicode-range` ТОЛЬКО эмодзи-диапазонов). Шрифт добавлен в стек `body` и `--font-sans` в `globals.css` (`font-variant-emoji: emoji`).
+  - **НЕ добавлять** этот `@font-face` в `globals.css` — Turbopack/LightningCSS вырезает `unicode-range`. Только через статический `public/fonts.css`.
+- **Глобально (SVG-картинки):** `src/components/twemoji-global.tsx` (MutationObserver + двойной RAF) в `layout.tsx` — заменяет эмодзи на `<img src=".../twemoji.svg">` (jsDelivr CDN).
+- **Пикер:** `src/components/emoji-picker.tsx` — 8 групп, вставка в Tiptap через `insertContent`; не закрывается после вставки (закрытие — ✕ или клик вне).
 
 ---
 
