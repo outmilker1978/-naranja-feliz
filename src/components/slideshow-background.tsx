@@ -32,16 +32,19 @@ const ALL_IMAGES = [
 ];
 
 // Background cover needs a reasonable width — wider than typical viewports
-// but far smaller than the 1920 default. Let the proxy produce a webp for
-// whichever format the browser prefers.
-const BG_WIDTH = 1600;
+// but far smaller than the 1920 default. ?fm=webp forces the proxy to encode
+// each slide as webp (3-4x smaller than jpeg) — big transfer win on slow
+// connections. Combined with a modest q this keeps fullscreen crispness
+// without shipping a heavy jpeg down the wire.
+const BG_WIDTH = 1280;
+const BG_QUALITY = 65;
 
 function imgUrl(name: string) {
   return `/api/storage/${BUCKET}/${name}`;
 }
 
 function srcUrl(name: string, width: number) {
-  return `${imgUrl(name)}?w=${width}&q=72`;
+  return `${imgUrl(name)}?w=${width}&q=${BG_QUALITY}&fm=webp`;
 }
 
 function seededShuffle(arr: string[], seed: number): string[] {
@@ -76,6 +79,23 @@ export default function SlideshowBackground({ className }: { className?: string 
     }, 7000);
     return () => clearInterval(timer);
   }, [ready, images.length]);
+
+  // Eagerly preload the first two slides as soon as we mount. The initial
+  // background (idx 0) would otherwise wait for a full cold proxy resize +
+  // transfer before anything paints — this makes the hero appear almost
+  // instantly instead of holding a blank area for many seconds.
+  useEffect(() => {
+    if (!ready) return;
+    const load = (i: number) => {
+      if (loaded[i]) return;
+      const img = new Image();
+      img.onload = () => markLoaded(i);
+      img.src = srcUrl(images[i], BG_WIDTH);
+    };
+    load(0);
+    load(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   // Preload the next image so the crossfade never flashes empty.
   useEffect(() => {
