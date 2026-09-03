@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import SlideshowBackground from "@/components/slideshow-background";
 import CarouselSection from "@/components/carousel-section";
 import { proxyImgUrl } from "@/lib/image-proxy";
+import StorageImage from "@/components/storage-image";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   BookOpen, PenLine, MessageCircle, BarChart3, GraduationCap, Target, Sparkles, Flame, Library, Layers, Bell, Star, Heart, Globe, Music, Palette, Lightbulb, Users, Book, FileText, Image, Camera, Headphones, Clock, Calendar, Settings, User: UserIcon, Shield, Award, Briefcase, Crown, Feather, Gift, Key, Lock, Mail, Map, Phone, PieChart, Rocket, Search, ThumbsUp, Trophy, Wand, Zap, Smile, Type, Compass, Volume2, Eye, Share2, Coffee, Flag, RefreshCw, Trash2, Upload, Download, Plus, Minus, Edit3, ExternalLink, Grid, List, Sliders, Video,
@@ -228,8 +229,8 @@ export default async function Home() {
       <CarouselSection>
         {(user ? (myCourses.length > 0 ? myCourses : enrolledCourses.length > 0 ? enrolledCourses : []) : allCourses ?? []).slice(0, 8).map((course: any) => (
           <Link key={course.id} href={user ? `/courses/${course.id}` : "/register"} className="card overflow-hidden group flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-            <div className="h-44 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center overflow-hidden">
-              {course.image_url ? <img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div className="h-44 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center overflow-hidden relative">
+              {course.image_url ? <StorageImage src={course.image_url} alt="" fill sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 85vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                 : <span className="text-5xl opacity-30">🍊</span>}
             </div>
             <div className="p-4">
@@ -336,7 +337,7 @@ export default async function Home() {
         <CarouselSection>
           {news.slice(0, 6).map((item: any) => (
             <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-              {item.cover_image && <div className="h-40 overflow-hidden"><img src={proxyImgUrl(item.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              {item.cover_image && <div className="h-40 overflow-hidden relative"><StorageImage src={item.cover_image} alt="" fill sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 85vw" className="object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
               <div className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="badge badge-orange">Новость</span>
@@ -363,7 +364,7 @@ export default async function Home() {
           <CarouselSection>
             {items.map((item: any) => (
             <Link key={item.id} href={`/content/${item.id}`} className="card overflow-hidden group block flex-shrink-0 w-[85vw] sm:w-[calc(50vw-3rem)] lg:w-[calc(33.333vw-3.5rem)] max-w-sm snap-start">
-              {item.cover_image && <div className="h-40 overflow-hidden"><img src={proxyImgUrl(item.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
+              {item.cover_image && <div className="h-40 overflow-hidden relative"><StorageImage src={item.cover_image} alt="" fill sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 85vw" className="object-cover transition-transform duration-500 group-hover:scale-105" /></div>}
               <div className="p-4">
                 <span className="badge badge-orange">Статья</span>
                 <h3 className="font-bold text-accent mt-1 group-hover:text-primary-500 transition-colors">{item.title}</h3>
@@ -395,9 +396,9 @@ export default async function Home() {
           {items.map((ad: any) => (
             <a key={ad.id} href={ad.content?.link || "#"} target="_blank" rel="noopener noreferrer" className="card overflow-hidden block group relative">
               {ad.cover_image || ad.content?.image ? (
-                <div className="relative">
-                  <img src={proxyImgUrl(ad.cover_image || ad.content?.image) ?? ""} alt={ad.title} loading="lazy"
-                    className="w-full h-72 sm:h-80 object-cover" />
+                <div className="relative h-72 sm:h-80">
+                  <StorageImage src={ad.cover_image || ad.content?.image} alt={ad.title} fill sizes="100vw"
+                    className="object-cover" />
                   {/* Title top-left */}
                   <div className="absolute top-4 left-4 right-4">
                     <p className="text-white font-extrabold text-2xl sm:text-3xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.7)]">{ad.title}</p>
@@ -428,7 +429,7 @@ export default async function Home() {
   sectionEntries.push({ key: "cta", order: Number.POSITIVE_INFINITY, render: () => (
     <section className="relative overflow-hidden px-6 py-16 sm:py-20 text-center">
       <div className="absolute inset-0 bg-cover bg-center"
-        style={{backgroundImage: `url('${ctaSection?.content?.bg_image || "/api/storage/hero/quino-al-tFbN1bnBynU-unsplash.jpg"}')`}} />
+        style={{backgroundImage: `url('${ctaSection?.content?.bg_image ? proxyImgUrl(ctaSection.content.bg_image) : "/api/storage/hero/quino-al-tFbN1bnBynU-unsplash.jpg?w=1920&q=72"}')`}} />
       <div className="absolute inset-0 bg-gradient-to-br from-primary-500/85 via-orange-500/85 to-gold-400/85" />
       <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -translate-y-1/3 translate-x-1/3" />
       <div className="absolute bottom-0 left-0 w-56 h-56 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/3" />

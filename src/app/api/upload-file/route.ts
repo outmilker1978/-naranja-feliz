@@ -75,11 +75,9 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { data: { publicUrl } } = service.storage.from("lesson-files").getPublicUrl(data.path);
-  let url = publicUrl;
-  const { data: signedData } = await service.storage.from("lesson-files").createSignedUrl(data.path, 60 * 60 * 24 * 365);
-  if (signedData?.signedUrl) {
-    url = signedData.signedUrl;
-  }
-
-  return NextResponse.json({ url });
+  // Public bucket: return the plain public URL so content images flow through
+  // our /api/storage proxy (which bypasses provider quirks and compresses on
+  // the fly). A signed URL here would make the browser hit Supabase directly,
+  // where the image body often fails to arrive for end users.
+  return NextResponse.json({ url: publicUrl });
 }

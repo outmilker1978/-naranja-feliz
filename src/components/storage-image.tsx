@@ -1,6 +1,7 @@
 import Image from "next/image";
 
 const STORAGE_ORIGIN = "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public";
+const STORAGE_SIGN_ORIGIN = "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/sign";
 
 /** Rewrite a Supabase storage URL (or an already-proxied /api/storage path)
  * to a same-origin proxy path. Returns null for non-storage sources. */
@@ -8,12 +9,18 @@ export function toProxyPath(url: string | null | undefined): string | null {
   if (!url) return null;
   if (url.startsWith("/api/storage/")) return url;
   if (url.startsWith(STORAGE_ORIGIN)) return "/api/storage" + url.slice(STORAGE_ORIGIN.length);
+  if (url.startsWith(STORAGE_SIGN_ORIGIN)) return "/api/storage/object/sign" + url.slice(STORAGE_SIGN_ORIGIN.length);
   return null;
 }
 
 /** True if the source is something our Sharp proxy can safely resize/convert. */
 export function isProxyable(url: string | null | undefined): url is string {
-  return !!url && (url.startsWith("/api/storage/") || url.startsWith(STORAGE_ORIGIN));
+  return (
+    !!url &&
+    (url.startsWith("/api/storage/") ||
+      url.startsWith(STORAGE_ORIGIN) ||
+      url.startsWith(STORAGE_SIGN_ORIGIN))
+  );
 }
 
 interface StorageImageProps {

@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import StorageImage from "@/components/storage-image";
 
 export default async function TeachersPage() {
   const svc = createServiceClient();
@@ -22,8 +23,8 @@ export default async function TeachersPage() {
           return (
             <Link key={t.id} href={`/teachers/${t.id}`} className="card overflow-hidden group hover:-translate-y-1 transition-all duration-300">
               {photo ? (
-                <div className="h-56 overflow-hidden">
-                  <img src={photo} alt={t.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="h-56 overflow-hidden relative">
+                  <StorageImage src={photo} alt={t.title} fill sizes="(min-width:1024px) 33vw, (min-width:768px) 50vw, 100vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                 </div>
               ) : (
                 <div className="h-56 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">

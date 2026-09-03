@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const BUCKET = "hero";
 
@@ -31,8 +31,17 @@ const ALL_IMAGES = [
   "victor-rosario-kjoaKUBpudw-unsplash.jpg",
 ];
 
+// Background cover needs a reasonable width — wider than typical viewports
+// but far smaller than the 1920 default. Let the proxy produce a webp for
+// whichever format the browser prefers.
+const BG_WIDTH = 1600;
+
 function imgUrl(name: string) {
   return `/api/storage/${BUCKET}/${name}`;
+}
+
+function srcUrl(name: string, width: number) {
+  return `${imgUrl(name)}?w=${width}&q=72`;
 }
 
 function seededShuffle(arr: string[], seed: number): string[] {
@@ -47,12 +56,16 @@ function seededShuffle(arr: string[], seed: number): string[] {
 }
 
 export default function SlideshowBackground({ className }: { className?: string }) {
-  const [images, setImages] = useState<string[]>([]);
+  const images = useMemo(() => seededShuffle(ALL_IMAGES, 42).slice(0, 10), []);
   const [idx, setIdx] = useState(0);
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState<boolean[]>(() => images.map(() => false));
 
+  const markLoaded = (i: number) =>
+    setLoaded(prev => (prev[i] ? prev : prev.map((v, j) => (j === i ? true : v))));
+
+  // Initial fade-in once the component mounts (first image fades in via CSS).
   useEffect(() => {
-    setImages(seededShuffle(ALL_IMAGES, 42).slice(0, 10));
     setReady(true);
   }, []);
 
@@ -64,24 +77,38 @@ export default function SlideshowBackground({ className }: { className?: string 
     return () => clearInterval(timer);
   }, [ready, images.length]);
 
-  if (!ready || images.length === 0) return null;
+  // Preload the next image so the crossfade never flashes empty.
+  useEffect(() => {
+    if (!ready) return;
+    const next = (idx + 1) % images.length;
+    if (loaded[next]) return;
+    const img = new Image();
+    img.onload = () => markLoaded(next);
+    img.src = srcUrl(images[next], BG_WIDTH);
+  }, [ready, idx, images, loaded]);
+
+  if (!ready) return null;
+
+  // Only render current + previous (for the fade-out tail) as backgrounds.
+  const shown = images
+    .map((src, i) => ({ src, i }))
+    .filter(({ i }) => i === idx || i === (idx - 1 + images.length) % images.length);
 
   return (
     <>
-      {images.map((src, i) => {
-        const isCurrent = i === idx;
-        return (
-          <div key={src}
-            className={`absolute inset-0 bg-cover bg-center ${className || ""}`}
-            style={{
-              backgroundImage: `url('${imgUrl(src)}')`,
-              opacity: isCurrent ? 1 : 0,
-              zIndex: isCurrent ? 1 : 0,
-              transform: isCurrent ? "scale(1)" : "scale(1.08)",
-              transition: "opacity 1s ease-in-out, transform 7s ease-in-out",
-            }} />
-        );
-      })}
+      {shown.map(({ src, i }) => (
+        <div
+          key={src}
+          className={`absolute inset-0 bg-cover bg-center ${className || ""}`}
+          style={{
+            backgroundImage: `url('${srcUrl(src, BG_WIDTH)}')`,
+            opacity: i === idx ? 1 : 0,
+            zIndex: i === idx ? 1 : 0,
+            transform: i === idx ? "scale(1)" : "scale(1.08)",
+            transition: "opacity 1s ease-in-out, transform 7s ease-in-out",
+          }}
+        />
+      ))}
     </>
   );
 }

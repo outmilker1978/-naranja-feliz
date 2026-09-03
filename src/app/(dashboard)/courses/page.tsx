@@ -4,8 +4,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { EnrollButton } from "./enroll-button";
 import { OrangeProgress } from "@/components/orange-progress";
-
-import { proxyImgUrl } from "@/lib/image-proxy";
+import StorageImage from "@/components/storage-image";
 
 export default async function CoursesPage() {
   const supabase = await createClient();
@@ -78,7 +77,7 @@ export default async function CoursesPage() {
             {(myCourses ?? []).map((course) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                 <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                  {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0 relative"><StorageImage src={course.image_url} alt="" fill sizes="(min-width:640px) 240px, 100vw" className="object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-accent break-words">{course.title}</h3>
                     <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
@@ -125,7 +124,7 @@ export default async function CoursesPage() {
                 return (
                   <Link key={course.id} href={`/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                     <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                      {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0 relative"><StorageImage src={course.image_url} alt="" fill sizes="(min-width:640px) 240px, 100vw" className="object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-accent break-words">{course.title}</h3>
                         <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>
@@ -145,7 +144,7 @@ export default async function CoursesPage() {
               return (
                 <Link key={course.id} href={isPerCourse ? `/courses/${course.id}` : "#"} className="group block card overflow-hidden hover:-translate-y-1 transition-all duration-300">
                   <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
-                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0"><img src={proxyImgUrl(course.image_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
+                    {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0 relative"><StorageImage src={course.image_url} alt="" fill sizes="(min-width:640px) 240px, 100vw" className="object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
                     <div className="min-w-0 flex-1">
                       <h3 className="font-bold text-accent break-words">{course.title}</h3>
                       <p className="text-sm text-muted mt-0.5 line-clamp-1">{course.description}</p>

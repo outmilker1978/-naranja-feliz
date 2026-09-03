@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Newspaper, BookOpen } from "lucide-react";
+import StorageImage from "@/components/storage-image";
 
 interface Item {
   id: string;
@@ -45,8 +46,8 @@ export default function ContentCarousel({ items, currentId }: { items: Item[]; c
           <Link key={item.id} href={`/content/${item.id}`}
             className="card overflow-hidden group shrink-0 w-64 snap-start">
             {item.cover_image ? (
-              <div className="h-36 overflow-hidden">
-                <img src={item.cover_image} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+              <div className="h-36 overflow-hidden relative">
+                <StorageImage src={item.cover_image} alt="" fill sizes="256px" className="object-cover transition-transform duration-500 group-hover:scale-105" />
               </div>
             ) : (
               <div className="h-36 bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">

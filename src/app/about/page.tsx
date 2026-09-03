@@ -2,6 +2,17 @@ import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { proxyImgUrl } from "@/lib/image-proxy";
 
+// Append responsive sizing only for storage/proxy URLs (external hotlinks untouched).
+function sizedImg(url: string | null | undefined): string | null {
+  const p = proxyImgUrl(url);
+  if (!p) return null;
+  if (p.startsWith("/api/storage/")) {
+    const sep = p.includes("?") ? "&" : "?";
+    return p + `${sep}w=800&q=70`;
+  }
+  return p;
+}
+
 export default async function AboutPage() {
   const svc = createServiceClient();
   const { data: sections } = await svc
@@ -22,7 +33,8 @@ export default async function AboutPage() {
 
       {(about?.content?.image || about?.cover_image) && (
         <div className="rounded-2xl overflow-hidden shadow-md mb-8 max-w-lg mx-auto">
-          <img src={proxyImgUrl(about.content.image || about.cover_image) ?? ""} alt="О школе" loading="lazy" className="w-full object-cover" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={sizedImg(about.content.image || about.cover_image) ?? ""} alt="О школе" loading="lazy" className="w-full object-cover" />
         </div>
       )}
 

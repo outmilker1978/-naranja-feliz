@@ -23,6 +23,10 @@ function isEditable(node: Node): boolean {
 
 function parseEl(el: HTMLElement) {
   if (isEditable(el)) return;
+  // Skip work if this subtree has already been processed (React often re-uses
+  // large already-rendered nodes on re-render — re-scanning them is wasted DOM
+  // walking that slows mobile devices during carousel scrolls / typing).
+  if (el.querySelector(".twemoji")) return;
   const leaves = el.querySelectorAll("*");
   leaves.forEach(child => {
     if (child.children.length === 0 && !isEditable(child)) {

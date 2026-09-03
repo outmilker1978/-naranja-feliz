@@ -1,6 +1,7 @@
 "use client";
 
 const STORAGE_ORIGIN = "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public";
+const STORAGE_SIGN_ORIGIN = "https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/sign";
 
 /**
  * Custom image loader routing every optimized request through our Sharp proxy
@@ -18,6 +19,12 @@ export default function imageLoader({ src, width, quality }: { src: string; widt
   if (/^https?:\/\//.test(src)) {
     if (src.startsWith(STORAGE_ORIGIN)) {
       return "/api/storage" + src.slice(STORAGE_ORIGIN.length) + `?w=${width}&q=${quality || 80}`;
+    }
+    if (src.startsWith(STORAGE_SIGN_ORIGIN)) {
+      // Preserve the token query while appending sizing params.
+      const rest = src.slice(STORAGE_SIGN_ORIGIN.length); // /<bucket>/<file>?token=...
+      const sep = rest.includes("?") ? "&" : "?";
+      return "/api/storage/object/sign" + rest + `${sep}w=${width}&q=${quality || 80}`;
     }
     return src;
   }

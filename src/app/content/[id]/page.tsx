@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Newspaper, BookOpen, Clock, User, Sparkles, Layers, MessageCircle, GraduationCap, Home } from "lucide-react";
 import ContentCarousel from "@/components/content-carousel";
-import { proxyImgUrl } from "@/lib/image-proxy";
+import StorageImage from "@/components/storage-image";
 
 export default async function ContentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -63,8 +63,8 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
           {/* Main content */}
           <div>
             {item.cover_image && (
-              <div className="rounded-2xl overflow-hidden mb-8 shadow-md">
-                <img src={proxyImgUrl(item.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-72 sm:h-96 object-cover" />
+              <div className="rounded-2xl overflow-hidden mb-8 shadow-md relative h-72 sm:h-96">
+                <StorageImage src={item.cover_image} alt="" fill sizes="(min-width:1024px) calc(100vw - 400px), 100vw" className="object-cover" />
               </div>
             )}
 
@@ -91,9 +91,9 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
 
             {item.profiles && (
               <div className="flex items-center gap-3 mt-10 pt-6 border-t border-border">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-white font-bold text-sm relative">
                   {item.profiles.avatar_url
-                    ? <img src={proxyImgUrl(item.profiles.avatar_url) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover rounded-full" />
+                    ? <StorageImage src={item.profiles.avatar_url} alt="" fill sizes="40px" className="object-cover rounded-full" />
                     : (item.profiles.full_name?.[0] ?? "?")}
                 </div>
                 <div>
@@ -112,8 +112,8 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
                 {related.map(r => (
                   <Link key={r.id} href={`/content/${r.id}`} className="flex gap-3 group">
                     {r.cover_image ? (
-                      <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                        <img src={proxyImgUrl(r.cover_image) ?? ""} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative">
+                        <StorageImage src={r.cover_image} alt="" fill sizes="64px" className="object-cover transition-transform duration-300 group-hover:scale-105" />
                       </div>
                     ) : (
                       <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center shrink-0">

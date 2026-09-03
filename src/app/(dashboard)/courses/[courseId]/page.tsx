@@ -5,7 +5,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { OrangeProgress } from "@/components/orange-progress";
 import { RequestAccessButton } from "./request-access-button";
-import { proxyImgUrl } from "@/lib/image-proxy";
+import StorageImage from "@/components/storage-image";
 
 export default async function CourseDetailPage({
   params,
@@ -88,8 +88,8 @@ export default async function CourseDetailPage({
       <div className="max-w-3xl mx-auto pt-14">
 
       {course.image_url && (
-        <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100">
-          <img src={proxyImgUrl(course.image_url) ?? ""} alt={course.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+        <div className="aspect-video rounded-2xl overflow-hidden mb-6 bg-zinc-100 relative">
+          <StorageImage src={course.image_url} alt={course.title} fill sizes="(min-width:768px) 48rem, 100vw" className="object-cover transition-transform duration-500 hover:scale-105" />
         </div>
       )}
 
@@ -140,8 +140,8 @@ export default async function CourseDetailPage({
             >
               <div className="p-4 flex flex-col sm:flex-row items-start gap-3">
                 {lesson.cover_url && (
-                  <div className="w-full sm:w-60 h-40 rounded-lg overflow-hidden bg-zinc-100 shrink-0">
-                    <img src={lesson.cover_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <div className="w-full sm:w-60 h-40 rounded-lg overflow-hidden bg-zinc-100 shrink-0 relative">
+                    <StorageImage src={lesson.cover_url} alt="" fill sizes="(min-width:640px) 240px, 100vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
                   </div>
                 )}
                 <div className="flex items-start gap-3 min-w-0 flex-1 w-full">

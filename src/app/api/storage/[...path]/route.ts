@@ -62,10 +62,23 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await params;
-  const filePath = path.join("/");
-  const upstream = `${SUPABASE_URL}/storage/v1/object/public/${filePath}`;
-
   const url = new URL(req.url);
+
+  // Detect signed-URL proxying: /api/storage/object/sign/<bucket>/<file>?token=...
+  // (created for content images that were stored with createSignedUrl).
+  // Upstream = /storage/v1/object/sign/<bucket>/<file>?token=...
+  const isSigned = path[0] === "object" && path[1] === "sign";
+  const filePath = isSigned ? path.slice(2).join("/") : path.join("/");
+
+  const token = url.searchParams.get("token");
+  let upstream: string;
+  if (isSigned) {
+    upstream = `${SUPABASE_URL}/storage/v1/object/sign/${filePath}`;
+    if (token) upstream += `?token=${encodeURIComponent(token)}`;
+  } else {
+    upstream = `${SUPABASE_URL}/storage/v1/object/public/${filePath}`;
+  }
+
   const width = parseWidth(url.searchParams.get("w"), 1920);
   const quality = parseQuality(url.searchParams.get("q"), 80);
   const requestedFm = url.searchParams.get("fm");

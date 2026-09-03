@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { proxyImgUrl } from "@/lib/image-proxy";
+import StorageImage from "@/components/storage-image";
 
 export default async function CatalogPage() {
   const svc = createServiceClient();
@@ -42,8 +42,8 @@ export default async function CatalogPage() {
           <div key={course.id} className="card overflow-hidden">
             <div className="grid md:grid-cols-[280px_1fr] gap-0">
               {course.image_url ? (
-                <div className="h-48 md:h-full overflow-hidden">
-                  <img src={proxyImgUrl(course.image_url) ?? ""} alt={course.title} loading="lazy" className="w-full h-full object-cover" />
+                <div className="h-48 md:h-full overflow-hidden relative">
+                  <StorageImage src={course.image_url} alt={course.title} fill sizes="(min-width:768px) 280px, 100vw" className="object-cover" />
                 </div>
               ) : (
                 <div className="h-48 md:h-full bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center">

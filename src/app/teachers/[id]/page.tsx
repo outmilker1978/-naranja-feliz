@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import StorageImage from "@/components/storage-image";
 
 export default async function TeacherPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,8 +31,8 @@ export default async function TeacherPage({ params }: { params: Promise<{ id: st
       {photos.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           {photos.map((url, i) => (
-            <div key={i} className={`rounded-2xl overflow-hidden shadow-md ${i === 0 && photos.length === 1 ? "sm:col-span-2 max-w-lg mx-auto" : ""}`}>
-              <img src={url} alt={`${t.title} — фото ${i + 1}`} loading="lazy" className="w-full h-72 object-cover" />
+            <div key={i} className={`rounded-2xl overflow-hidden shadow-md relative h-72 ${i === 0 && photos.length === 1 ? "sm:col-span-2 max-w-lg mx-auto" : ""}`}>
+              <StorageImage src={url} alt={`${t.title} — фото ${i + 1}`} fill sizes="(min-width:768px) 400px, 100vw" className="object-cover" />
             </div>
           ))}
         </div>
