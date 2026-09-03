@@ -640,9 +640,10 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
 }
 
 function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
-  const c = block.content as DragOrderContent;
+  const c = (block.content ?? {}) as Partial<DragOrderContent>;
   const correctWords: string[] = [];
-  c.sentenceTemplate.replace(/\[([^\]]+)\]/g, (_, w) => { correctWords.push(w); return ""; });
+  const template = c.sentenceTemplate ?? "";
+  template.replace(/\[([^\]]+)\]/g, (_, w) => { correctWords.push(w); return ""; });
 
   const [slots, setSlots] = useState<(string | null)[]>([]);
   const [pool, setPool] = useState<string[]>([]);
@@ -687,7 +688,7 @@ function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: s
         setPool([...correctWords].sort(() => Math.random() - 0.5));
         setLoading(false);
       });
-  }, [c.sentenceTemplate]);
+  }, [template]);
 
   const clickPoolWord = (word: string) => {
     const idx = slots.indexOf(null);
@@ -762,7 +763,7 @@ function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: s
 
   const buildHtml = (filledSlots: (string | null)[], isSubmitted: boolean) => {
     let idx = 0;
-    return c.sentenceTemplate.replace(/\[([^\]]+)\]/g, () => {
+    return template.replace(/\[([^\]]+)\]/g, () => {
       const i = idx++;
       const filled = filledSlots[i];
       if (isSubmitted) {
@@ -1111,8 +1112,8 @@ function AttemptsDots({ used, max, message }: { used: number; max: 1 | 3; messag
 }
 
 function GroupDragBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
-  const c = block.content as GroupDragContent;
-  const groups = c.groups || [];
+  const c = (block.content ?? {}) as Partial<GroupDragContent>;
+  const groups = c.groups ?? [];
   const supabase = createClient();
 
   const flatAll = groups.flatMap((g, gi) => g.words.map(w => ({ word: w, groupIdx: gi })));
@@ -1379,8 +1380,8 @@ interface MemoryCard {
 }
 
 function MemoryBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
-  const c = block.content as MemoryContent;
-  const pairs = (c.pairs || []).filter(p => p.left.trim() && p.right.trim());
+  const c = (block.content ?? {}) as Partial<MemoryContent>;
+  const pairs = (c.pairs ?? []).filter(p => p.left.trim() && p.right.trim());
   const [deck, setDeck] = useState<MemoryCard[]>([]);
   const [flipped, setFlipped] = useState<string[]>([]);
   const [matched, setMatched] = useState<Set<string>>(new Set());

@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 export function LessonActions({ lessonId, courseId, published: initialPublished, title: initialTitle, courseTitle, coverUrl: initialCoverUrl, description: initialDescription }: { lessonId: string; courseId: string; published: boolean; title: string; courseTitle: string; coverUrl: string | null; description: string | null }) {
   const [published, setPublished] = useState(initialPublished);
@@ -105,7 +106,7 @@ export function LessonActions({ lessonId, courseId, published: initialPublished,
       </div>
 
       <div className="flex items-center gap-3">
-        {coverUrl && <img src={coverUrl} alt="" loading="lazy" className="h-20 rounded-lg object-cover border border-zinc-200" />}
+        {coverUrl && <img src={proxyImgUrl(coverUrl) ?? ""} alt="" loading="lazy" className="h-20 rounded-lg object-cover border border-zinc-200" />}
         <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadCover} className="hidden" />
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading} className="text-sm bg-zinc-100 text-zinc-600 px-3 py-1.5 rounded-lg hover:bg-zinc-200 disabled:opacity-50">{uploading ? "..." : "Загрузить обложку урока"}</button>
       </div>
