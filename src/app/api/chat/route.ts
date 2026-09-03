@@ -27,24 +27,34 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false });
 
   const filtered = (chats ?? []).filter(c => c.student_id !== c.teacher_id);
+  const chatIds = filtered.map(c => c.id);
 
-  const enriched = await Promise.all((filtered).map(async (chat) => {
-    const { data: lastMsg } = await svc
+  let lastByChat: Record<string, any> = {};
+  let unreadByChat: Record<string, number> = {};
+
+  if (chatIds.length > 0) {
+    // One batched query: fetch the latest message per chat + per-chat read state for this user.
+    const { data: allMsgs } = await svc
       .from("chat_messages")
-      .select("*")
-      .eq("chat_id", chat.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .select("*, sender:sender_id(id, full_name, avatar_url, role, last_seen)")
+      .in("chat_id", chatIds)
+      .order("created_at", { ascending: false });
 
-    const { count: unread } = await svc
-      .from("chat_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("chat_id", chat.id)
-      .neq("sender_id", user.id)
-      .eq("read", false);
+    const grouped: Record<string, any[]> = {};
+    for (const m of (allMsgs ?? [])) {
+      (grouped[m.chat_id] = grouped[m.chat_id] || []).push(m);
+    }
+    for (const id of chatIds) {
+      const msgs = grouped[id] ?? [];
+      lastByChat[id] = msgs[0] ?? null;
+      unreadByChat[id] = msgs.filter(m => m.sender_id !== user.id && !m.read).length;
+    }
+  }
 
-    return { ...chat, last_message: lastMsg ?? null, unread_count: unread ?? 0 };
+  const enriched = filtered.map((chat) => ({
+    ...chat,
+    last_message: lastByChat[chat.id] ?? null,
+    unread_count: unreadByChat[chat.id] ?? 0,
   }));
 
   return NextResponse.json({ chats: enriched });
