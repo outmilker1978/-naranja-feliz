@@ -36,7 +36,7 @@
 | #25 | Новая фича: Директор школы | is_director + /api/set-director + UI. Запросы продления/доступа → директору, иначе учителям. Задеплоено v0.6.0 | релиз |
 | #26 | ЮKassa не настроена | `YOO_KASSA_SHOP_ID` и `YOO_KASSA_SECRET_KEY` пустые в .env.local — оплата упадёт. Нужны ключи из личного кабинета ЮKassa. Отложено пользователем | бэклог |
 | #27 | Модалка «Доступ к курсам» дёргается/мелькает | dismissed фиксируется, URL-параметры очищаются. Задеплоено v0.6.0 | релиз |
-| #28 | Сайт очень медленно грузится на мобильном интернете | На 4G страница списка курсов и инструмент редактирования контента грузятся слишком долго. Нужна оптимизация: ленивые чанки, меньший бандл, кэширование, image optimization. Пригодится для будущего Android-приложения | бэклог |
+| #28 | Сайт очень медленно грузится на мобильном интернете | Публичные страницы мигрированы на `StorageImage` (next/image → прокси `/api/storage` с `?w/?q/?fm`, compression sharp, Accept-negotiation, ленивая загрузка, защита от layout-shift). Фикс корня «картинки не грузятся»: прокси теперь умеет **signed URL** (`/object/sign/...?token=`), `upload-file` возвращает public URL — браузер не ходит напрямую на supabase.co. Тяжёлые чанки (editor/ProseMirror 532KB, recharts 325KB) подтверждены **вне публичного пути** (route-splitting). TwemojiGlobal — пропуск уже обработанных поддеревьев. Коммиты: `fd77f6c` (прокси+loader+StorageImage), `c134ce9` (миграция публичных страниц). Проверено: `tsc` 0 ошибок, `build` success, SSR — 0 прямых supabase-URL. Осталось: обновить docs (ARM/RN) → один деплой | готово |
 | #29 | FillBlank: «Проверить» не активирует сохранение/прогресс | isDisabled = saved || !hasAnyValue. Кнопка активна при введённых значениях. Задеплоено v0.6.0 | релиз |
 | #30 | Модалка «Доступ к курсам» — редкое мерцание при выносе мыши за её пределы | После фикса #27 основное мерцание ушло. Остаток: если вывести курсор за границы модалки (на затемнение), изредка она мигает. Внутри модалки при наведении на поля мерцания нет | бэклог |
 
@@ -45,6 +45,11 @@
 ## История (закрытые)
 
 _(крупные вехи и закрытые ишью)_
+
+### 2026-09-03 — v0.7.0 (в разработке): мобильная оптимизация публичных страниц
+- `fd77f6c` — perf: прокси `/api/storage` (`?w/?q/?fm` + Accept-negotiation + `Vary: Accept` + Cache-Control + `sharp.rotate()`), custom image loader + `StorageImage`, `next.config.ts` (custom loader + formats)
+- `c134ce9` — миграция публичных страниц на `StorageImage` (главная, catalog, content/[id], reviews, about, teachers, teachers/[id], content-carousel, слайдшоу, CTA). Прокси умеет signed URL, `upload-file` → public URL, TwemojiGlobal — skip обработанных поддеревьев
+- Ветка: `opt/mobile-optimization`. Деплой — одним релизом после проверки
 
 ### 2026-07-19 — v0.5.0: divider + alignment + owner bypass + docs
 - `d47463b` — fix: divider React NodeView, image alignment CSS fallback. Файлы: `tiptap-divider.tsx`, `resizable-image.tsx`, `block-renderer.tsx`, `tiptap-editor.tsx`

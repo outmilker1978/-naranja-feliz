@@ -87,15 +87,22 @@ Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
 ## 6. Прокси-роут `/api/storage/[...path]`
 - **Назначение:** сервер-серверный fetch до Supabase Storage (обходит блокировки провайдера)
 - **Upstream:** `https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/{path}`
-- **Обработка изображений:** Sharp resize до 1920px (fit inside, без увеличений) + JPEG q80
+- **Поддержка signed URL:** путь `/api/storage/object/sign/{bucket}/{file}?token=...` проксирует на `/storage/v1/object/sign/{path}?token=...` (нужен для старых записей, где URL был signed)
+- **Query-параметры сжатия:** `?w` (ширина), `?q` (качество), `?fm` (формат) — используются next/image srcset
+- **Обработка изображений:** Sharp resize (fit inside, без увеличений) + JPEG quality + `sharp.rotate()` (EXIF-ориентация)
 - **Content-Type:** принудительно `image/jpeg` для изображений (Supabase отдаёт `text/plain`)
+- **Accept-negotiation:** отдаёт WebP/AVIF если браузер поддерживает (+`Vary: Accept`)
 - **Кэш:** `Cache-Control: public, max-age=86400`
 - **Fallback:** не-image файлы (видео, аудио, PDF) — passthrough без изменений
 
-## 7. Прокси для изображений на фронтенде
-- Утилита `proxyImgUrl()` в `src/lib/image-proxy.ts`
-- Заменяет `https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/...` на `/api/storage/...`
-- Применена на: главная (about, отзывы, реклама), отзывы, о школе, контент, аватар в шапке, каталог курсов, курсы студента, админка курсов, карточки новостей/статей
+## 7. Оптимизация изображений на фронтенде (next/image + StorageImage)
+- Компонент `StorageImage` (`src/components/storage-image.tsx`, обёртка над next/image) — для контентных картинок из Supabase Storage.
+- Storage-URL (public и signed) автоматически переписываются в прокси-путь `/api/storage/...` (`toProxyPath`/`isProxyable`); responsive srcset (`?w=256..2560`), ленивая загрузка, `priority` там где надо, защита от layout-shift (fill/пропорции).
+- Всё остальное (внешние hotlink-и: Google Drive / Яндекс.Диск, gif, svg, локальные ассеты `/logo-128.png`) fallback на обычный `<img>` (`raw`) — через прокси не гоняется.
+- `next.config.ts`: `images.loader: "custom"` (loader → `/api/storage`), `images.formats: ["image/avif","image/webp"]`.
+- `upload-file` больше **не создаёт signed URL** — возвращает public URL (`/object/public/`), бакет `lesson-files` публичный.
+- Распространено на все публичные страницы: главная, catalog, content/[id], reviews, about, teachers, teachers/[id], content-carousel, слайдшоу, CTA.
+- Тяжёлые клиентские библиотеки (editor/ProseMirror, recharts) подтверждены **вне публичного пути** — route-splitting не тянет их на лендинг.
 
 ## 8. Auth (авторизация)
 - **Регистрация:** `POST /api/auth/signup` → `admin.createUser({ email_confirm: true })` → сразу вход
