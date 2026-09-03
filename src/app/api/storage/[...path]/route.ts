@@ -85,6 +85,26 @@ export async function GET(
   const ext = filePath.split(".").pop()?.toLowerCase() || "";
   const isImage = IMAGE_EXTS.has(ext);
 
+  // DEV-ONLY STUB: with this machine's ISP the real Storage body never arrives
+  // (provider drops it ~70s then 500), which freezes the browser while it waits
+  // for layout checks. In development we return a fast local SVG placeholder for
+  // IMAGES so the page loads instantly to verify layout/markup. This never runs
+  // in production (NODE_ENV !== "development"). Non-image files (video/audio/pdf)
+  // still go to the real upstream so their behaviour can still be exercised.
+  if (process.env.NODE_ENV === "development" && isImage) {
+    const svg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.min(width ?? 512, 1024)}" height="240"><rect width="100%" height="100%" fill="#f0e3d0"/><text x="50%" y="50%" fill="#b08968" font-family="Arial" font-size="18" text-anchor="middle" dominant-baseline="middle">placeholder (${ext})</text></svg>`,
+    );
+    return new NextResponse(new Uint8Array(svg), {
+      status: 200,
+      headers: {
+        "Content-Type": "image/svg+xml",
+        "Cache-Control": "no-store",
+        "X-Dev-Placeholder": "1",
+      },
+    });
+  }
+
   try {
     const resp = await fetch(upstream);
     if (!resp.ok) {
