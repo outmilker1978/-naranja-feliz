@@ -316,9 +316,50 @@ npm run build    # production сборка (output: standalone)
 | `get_course_page(uid, cid)` | Курс `/courses/[courseId]` | 6 | 1 |
 | `get_lesson_page(uid, cid, lid)` | Урок `/courses/[courseId]/[lessonId]` | 12 | 1 |
 | `get_course_list(uid)` | Список `/courses` | 9 | 1+1 |
-| `get_chat_data(uid)` | Чат `/tools/chat` | 5–7 | (подключение след.) |
+| `get_chat_data(uid)` | Чат `/tools/chat` | 5–7 | 1 (v0.8.0, см. §23) |
 
 - Все функции — `SECURITY DEFINER` (`SET search_path='public'`), принимают `uid` и проверяют доступ внутри SQL.
 - Логика редиректов сохранилась: неопубликованный урок видит только владелец (`@page.tsx:42-44`), отсутствие доступа → редирект на `/courses`.
 - Индексы: `lesson_blocks(lesson_id, order_index)`, `enrollments(student_id)`, `course_access(student_id)`, `lesson_progress(student_id, lesson_id)`, `content(type,status,sort_order)`, `chat_messages(chat_id, created_at)` и др. — 14 штук.
 - Обновление функции после правки SQL: перезапустить `CREATE OR REPLACE FUNCTION ...` в Supabase SQL Editor.
+
+## 22. Фиксы UX (v0.7.3)
+
+### `<Avatar>` — единый аватар (`src/components/avatar.tsx`)
+- Все аватары (шапка, настройки, чат, уведомления, учительская, проверка) идут через компонент `<Avatar>`:
+  - URL через прокси `/api/storage` с `?w={size}&q=65&fm=webp` (маленький вес).
+  - Если картинка не грузится (`onError`) — показывается первая буква имени (fallback).
+- Заменил сырые `<img>` в: `user-menu`, `dashboard-header`, `settings-form`, `tools/chat`, `notifications`, `admin/teachers/profile-list`, `admin/submissions/submissions-list`, `admin/courses/[courseId]`, `content/[id]`, `submission-thread`.
+
+### Кэш картинок в прокси (`src/app/api/storage/[...path]/route.ts`)
+- In-memory кэш обработанных картинок: `Map` (ключ — URL), TTL 10 мин, лимит 500 записей, LRU-evict.
+- Повторный запрос того же URL → `X-Storage-Cache: hit` (не повторяет sharp/fetch).
+- Ответы с `Cache-Control: public, max-age=86400, s-maxage=86400, immutable` — браузер не перекачивает.
+
+### RPC `clear_lesson_answers(student_id, lesson_id)` (`supabase/rpc-aggregation.sql`)
+- Удаляет ответы блока (`block_submissions`) + прогресс урока (`lesson_progress`) в **одной транзакции**.
+- Кнопка «Очистить ответы» (`clear-answers-button.tsx`): 1 вызов RPC + `router.refresh()` (без полной перезагрузки страницы).
+- Раньше было 2 клиентских запроса + `window.location.reload()` — урок с 13 блоками вис висел ~1 мин.
+
+### Доступ к черновикам уроков
+- `page.tsx` урока: редирект для неопубликованных уроков пропускает `isAdmin` и владельца курса.
+- RPC `get_course_page`: список уроков фильтрует черновики (`published OR админ OR владелец`).
+
+### Статистика
+- `/api/stats` — `revalidate = 0` + `Cache-Control: no-store` (были устаревшие цифры из кэша).
+
+## 23. Скорость дашборда (v0.8.0, ждёт деплоя)
+
+### Чат на 1 запрос (`/api/chat/init`)
+- `src/app/api/chat/init/route.ts`: `POST` → RPC `get_chat_data(uid)` (профиль, учителя, история, подписка в одной транзакции). Если RPC упал — fallback `legacyInit()` на старой клиентской логике (чат не ломается).
+- `tools/chat/page.tsx`: начальная загрузка одним `fetch("/api/chat/init")` вместо `/api/auth/me` + `/api/chat/teachers` + `/api/chat`.
+
+### Дедупликация сессии на дашборде (`src/lib/auth-cache.ts`)
+- `getServerClient()` — `React.cache()`-обёртка над `createClient()`: **1 Supabase-клиент на HTTP-запрос**.
+- `getCurrentUser()` — `React.cache()`-обёртка над `auth.getUser()` + `profiles`: **1 `getUser` + 1 `profiles` на запрос** (было: 3×`getUser` в layout + 2×`profiles` в страницах, которые дублировали друг друга).
+- Переведены: `(dashboard)/layout.tsx`, курсы (список/курс/урок), `settings`, `admin/teachers`, `admin/submissions`, `admin/courses/[courseId]`, `admin/lessons/[lessonId]` (для RLS-запросов — `getServerClient()`), `tools/chat`.
+- Client-страницы (`admin/stats`, `admin/history`, `admin/content*`, `admin/courses/new`) используют `@/lib/supabase/client` — не затронуты.
+
+### B7 (кэш публичных страниц) — объяснение, почему не сделано
+- `export const revalidate = 60` на публичные страницы (catalog/content/reviews/about/teachers) **не даёт ISR**: страницы остаются `ƒ Dynamic`, т.к. `supabaseFetch` (`server.ts`) делает обычный `fetch` без `next:{revalidate}`.
+- Включение revalidate при данных из cookies/авторизации рискованно (устаревший контент учителя). Отклонено на сессии 04.09.2026.

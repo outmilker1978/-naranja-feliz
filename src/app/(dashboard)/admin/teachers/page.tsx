@@ -1,11 +1,11 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth-cache";
+import { createServiceClient } from "@/lib/supabase/server";
 import { AllUsersList } from "./profile-list";
 
 export default async function TeacherAdminPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const svc = createServiceClient();

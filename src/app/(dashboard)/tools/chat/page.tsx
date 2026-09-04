@@ -20,15 +20,14 @@ export default function ChatPage() {
   const [contactSearch, setContactSearch] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Find first teacher to chat with
+  // Load chat page data in one request (chats + teachers + user)
   useEffect(() => {
     (async () => {
-      const meRes = await fetch("/api/auth/me");
-      const { user } = await meRes.json();
+      const initRes = await fetch("/api/chat/init");
+      const { user, chats, teachers } = await initRes.json();
       if (!user) return;
       setUserId(user.id);
-      const res = await fetch("/api/chat/teachers");
-      const { teachers } = await res.json();
+      setChats(chats ?? []);
       setContacts(teachers ?? []);
       if (teachers?.length) {
         setTeacherId(teachers[0].id);

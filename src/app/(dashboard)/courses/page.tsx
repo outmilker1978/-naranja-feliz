@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { createClient } from "@/lib/supabase/server";
+import { getServerClient, getCurrentUser } from "@/lib/auth-cache";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { EnrollButton } from "./enroll-button";
@@ -7,9 +7,9 @@ import { OrangeProgress } from "@/components/orange-progress";
 import StorageImage from "@/components/storage-image";
 
 export default async function CoursesPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return null;
+  const supabase = await getServerClient();
 
   const cookieStore = await cookies();
   const viewRole = cookieStore.get("view_role")?.value;

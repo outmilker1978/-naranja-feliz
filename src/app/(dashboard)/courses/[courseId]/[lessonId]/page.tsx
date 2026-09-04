@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getServerClient, getCurrentUser } from "@/lib/auth-cache";
 import Link from "next/link";
 import { BlockRenderer } from "@/components/lesson-blocks/block-renderer";
 import type { SavedByBlock } from "@/components/lesson-blocks/types";
@@ -16,9 +16,9 @@ export default async function StudentLessonPage({
   params: Promise<{ courseId: string; lessonId: string }>;
 }) {
   const { courseId, lessonId } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const supabase = await getServerClient();
 
   // 1 RPC вместо 12 последовательных запросов
   const { data: rpc } = await supabase.rpc("get_lesson_page", {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
       studentsByLevel: (studentsByLevel as any[]) ?? [],
       progressStats: (progressStats as any[]) ?? [],
     });
-    res.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=120");
+    res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
     return res;
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

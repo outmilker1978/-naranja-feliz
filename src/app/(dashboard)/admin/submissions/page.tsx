@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth-cache";
+import { createServiceClient } from "@/lib/supabase/server";
 import { SubmissionsList } from "./submissions-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function SubmissionsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
   const svc = createServiceClient();
   const { data: callerProfile } = await svc.from("profiles").select("role").eq("id", user.id).single();

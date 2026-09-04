@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { getServerClient, getCurrentUser } from "@/lib/auth-cache";
+import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { CourseActions } from "./course-actions";
 import { NewLessonForm } from "./new-lesson-form";
@@ -14,9 +15,9 @@ export default async function CourseDetailPage({
   params: Promise<{ courseId: string }>;
 }) {
   const { courseId } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const supabase = await getServerClient();
   const svc = createServiceClient();
   const { data: callerProfile } = await svc.from("profiles").select("role").eq("id", user.id).maybeSingle();
   const metaRole = user.user_metadata?.role;
