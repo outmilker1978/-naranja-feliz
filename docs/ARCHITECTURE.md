@@ -348,7 +348,7 @@ npm run build    # production сборка (output: standalone)
 ### Статистика
 - `/api/stats` — `revalidate = 0` + `Cache-Control: no-store` (были устаревшие цифры из кэша).
 
-## 23. Скорость дашборда (v0.8.0, ждёт деплоя)
+## 23. Скорость дашборда (v0.8.0, задеплоен — `73e60ff` → `deploy-1788547720`)
 
 ### Чат на 1 запрос (`/api/chat/init`)
 - `src/app/api/chat/init/route.ts`: `POST` → RPC `get_chat_data(uid)` (профиль, учителя, история, подписка в одной транзакции). Если RPC упал — fallback `legacyInit()` на старой клиентской логике (чат не ломается).
