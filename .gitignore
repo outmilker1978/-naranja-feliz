@@ -56,3 +56,7 @@ gh-actions-sa-key.json
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local dev-only utilities / rollback backups (not for the repo)
+backup-pre-opt/
+src/app/api/debug/perf/

@@ -110,6 +110,16 @@ Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
 - **Выход:** `POST /api/auth/logout` → очистка сессии
 - **Сброс пароля:** `/forgot-password` → `resetPasswordForEmail()` → письмо → `/auth/callback` → `/reset-password` → `updateUser()`
 - **Auth callback:** `/auth/callback` → `exchangeCodeForSession()` → редирект на NEXT_PUBLIC_SITE_URL (не на request.url)
+- **Текущий пользователь (BFF):** `GET /api/auth/me` → возвращает `{ user: { id, email, user_metadata } }` из серверной сессии (куки). Используется **клиентскими** страницами/компонентами вместо браузерного `supabase.auth.getUser()`. Это убирает прямой вызов Supabase из браузера → нет зависаний на медленных сетях, и задаёт направление **BFF** (Frontend ходит в наш API, не в Supabase напрямую).
+
+### Закалка соединений к Supabase (надёжность)
+- На **всех серверных** Supabase-клиентах (`createClient/createAdminClient/createServiceClient`, `middleware.ts`, auth-роуты, `tools-panel-wrapper`) применяется `supabaseFetch` из `lib/supabase/server.ts` — обёртка, форсирующая `Connection: close` на каждом запросе.
+- **Зачем:** долгоживущий процесс накапливает «протухшие» keep-alive сокеты к Supabase → случайный запрос зависал на 20–70с (особенно в dev и на медленных сетях). `Connection: close` не даёт переиспользовать протухшие сокеты → стабильность.
+- **Ограничение:** это закалка надёжности, а не оптимум. Правильнее — настроить undici Agent (keepAliveTimeout) и **сократить число последовательных запросов** (см. направление B + RPC). Для низкого трафика текущее решение приемлемо.
+
+### Направление BFF (важно для Android)
+- Браузер/мобильный клиент **не должен** ходить в Supabase напрямую (анон-ключ + зависания). Все данные — через наш Next-API (`/api/*`), сервер — единственный, кто знает секреты.
+- Контентные страницы (уроки, курсы) уже собираются на сервере. Клиентские сценарии, которым нужен `getUser`, переводятся на `/api/auth/me`.
 
 ## 9. ЮKassa
 - **Статус:** НЕ НАСТРОЕНА
