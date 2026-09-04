@@ -4,10 +4,13 @@ import SiteHeader from "@/components/site-header";
 import Footer from "@/components/footer";
 import ToolsPanelWrapper from "@/components/tools-panel-wrapper";
 import { TwemojiGlobal } from "@/components/twemoji-global";
+import PwaRegister from "@/components/pwa-register";
 
 export const metadata: Metadata = {
   title: "Naranja Feliz — Motivación en cada gajo",
   description: "Школа испанского языка. Учись с мотивацией.",
+  manifest: "/manifest.webmanifest",
+  themeColor: "#FF4D2D",
   icons: {
     icon: "/logo-128.png",
     apple: "/apple-icon.png",
@@ -32,6 +35,7 @@ export default function RootLayout({
         {children}
         <Footer />
         <ToolsPanelWrapper />
+        <PwaRegister />
       </body>
     </html>
   );

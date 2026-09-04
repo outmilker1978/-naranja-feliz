@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseFetch } from "@/lib/supabase/server";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -11,6 +12,14 @@ export async function POST(request: Request) {
   if (!email || !password) {
     return NextResponse.redirect(
       new URL(`/login?error=${encodeURIComponent("Email и пароль обязательны")}`, process.env.NEXT_PUBLIC_SITE_URL!),
+    );
+  }
+
+  // Brute-force guard (generous: 15 attempts/min per IP — normal users unaffected).
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (!checkRateLimit(ip, "login", { windowMs: 60_000, max: 15 })) {
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent("Слишком много попыток входа. Подождите минуту.")}`, process.env.NEXT_PUBLIC_SITE_URL!),
     );
   }
 

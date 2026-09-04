@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { FUNCTION_WORDS } from "@/data/spanish-function-words";
+import { checkRateLimit, rateLimited } from "@/lib/rate-limit";
 
 const DEEPL_API_KEY = process.env.DEEPL_API_KEY;
 const YANDEX_API_KEY = process.env.YANDEX_API_KEY;
 const YANDEX_FOLDER_ID = process.env.YANDEX_FOLDER_ID;
 
 export async function POST(req: Request) {
+  // Protect paid external API from abuse (generous: 90/min per IP).
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  if (!checkRateLimit(ip, "translate", { windowMs: 60_000, max: 90 })) {
+    return rateLimited("translate");
+  }
+
   const { text, source = "es", target = "ru" } = await req.json();
   if (!text || typeof text !== "string") return NextResponse.json({ error: "No text" }, { status: 400 });
 

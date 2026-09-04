@@ -132,7 +132,7 @@ Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
 ## 11. .env.local (локальная разработка)
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_Uyz3DPUyEZFkfXzDTOUiJg_aupb397O
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_... (реальный — только в .env.local, не коммитить, убрано из доков по гигиене) 
 SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_SITE_URL=http://localhost:3100
 YANDEX_API_KEY=...
