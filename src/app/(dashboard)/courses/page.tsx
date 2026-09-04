@@ -1,5 +1,5 @@
 export const dynamic = "force-dynamic";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { EnrollButton } from "./enroll-button";
@@ -15,30 +15,29 @@ export default async function CoursesPage() {
   const viewRole = cookieStore.get("view_role")?.value;
 
   const metaRole = user.user_metadata?.role;
-  const svc = createServiceClient();
-  const { data: profileMeta } = await svc.from("profiles").select("role").eq("id", user.id).maybeSingle();
 
-  const dbRole = profileMeta?.role;
+  // 1 RPC вместо 9 последовательных запросов
+  const { data: rpc } = await supabase.rpc("get_course_list", { uid: user.id });
+
+  const dbRole = rpc?.role;
   const isAdmin = dbRole === "admin" || metaRole === "admin";
   const isElevated = dbRole === "teacher" || dbRole === "admin" || metaRole === "teacher" || metaRole === "admin";
   const realRole = isElevated ? "teacher" : "student";
   const isTeacherView = realRole === "teacher" && (viewRole === "teacher" || !viewRole);
 
-  const { data: enrollments } = await supabase.from("enrollments").select("course_id, paid").eq("student_id", user.id);
-  const enrolledIds = (enrollments ?? []).map((e) => e.course_id);
+  const enrolledIds = (rpc?.enrollments ?? []).map((e: any) => e.course_id);
+  const accessGrantedIds = rpc?.course_access ?? [];
+  const ownedCourses = rpc?.owned_courses ?? [];
+  const ownedIds = ownedCourses.map((c: any) => c.id);
 
-  let accessGrantedIds: string[] = [];
-  try {
-    const { data: ca } = await svc.from("course_access").select("course_id").eq("student_id", user.id);
-    accessGrantedIds = (ca ?? []).map((r: any) => r.course_id);
-  } catch {}
+  const lessonProgress = rpc?.lesson_progress ?? [];
+  const completedLessonIds = new Set(lessonProgress.filter((p: any) => p.completed).map((p: any) => p.lesson_id));
 
-  // Teachers/admins in student mode see their own courses as accessible
-  const { data: ownedCourses } = isElevated
-    ? await svc.from("courses").select("id").eq("created_by", user.id)
-    : { data: [] };
-  const ownedIds = (ownedCourses ?? []).map((c: any) => c.id);
+  const availableCourses = rpc?.courses ?? [];
+  const myCourses = isTeacherView ? (rpc?.owned_courses ?? []) : [];
+  const hasOwnCourses = myCourses.length > 0;
 
+  // Для прогресса нужно знать количество уроков на курсе — 1 дополнительный запрос
   const { data: lessonsByCourse } = enrolledIds.length > 0
     ? await supabase.from("lessons").select("id, course_id, published").in("course_id", enrolledIds)
     : { data: [] };
@@ -51,20 +50,6 @@ export default async function CoursesPage() {
     lessonCountMap.set(l.course_id, entry);
   }
 
-  const { data: progressRecords } = enrolledIds.length > 0
-    ? await supabase.from("lesson_progress").select("lesson_id, completed").eq("student_id", user.id)
-    : { data: [] };
-
-  const completedLessonIds = new Set((progressRecords ?? []).filter((p) => p.completed).map((p) => p.lesson_id));
-
-  const { data: availableCourses } = await supabase.from("courses").select("*").eq("published", true).order("created_at", { ascending: false });
-
-  const { data: myCourses } = isTeacherView
-    ? await supabase.from("courses").select("*").eq("created_by", user.id).order("created_at", { ascending: false })
-    : { data: [] };
-
-  const hasOwnCourses = myCourses && myCourses.length > 0;
-
   return (
     <div>
       {isTeacherView && hasOwnCourses && (
@@ -74,7 +59,7 @@ export default async function CoursesPage() {
             <Link href="/admin/courses/new" className="btn-gradient btn-sm">+ Создать курс</Link>
           </div>
           <div className="space-y-4 mb-12">
-            {(myCourses ?? []).map((course) => (
+            {(myCourses ?? []).map((course: any) => (
               <Link key={course.id} href={`/admin/courses/${course.id}`} className="group block card overflow-hidden hover:-translate-y-1">
                 <div className="p-4 sm:p-5 flex flex-col sm:flex-row items-start gap-4">
                   {course.image_url && <div className="w-full sm:w-60 h-40 rounded-xl overflow-hidden bg-zinc-100 shrink-0 relative"><StorageImage src={course.image_url} alt="" fill sizes="(min-width:640px) 240px, 100vw" className="object-cover group-hover:scale-105 transition-transform duration-500" /></div>}
@@ -113,7 +98,7 @@ export default async function CoursesPage() {
         <div>
           {enrolledIds.length > 0 && <p className="text-sm text-muted mb-4">Ты записан на {enrolledIds.length} курс{enrolledIds.length > 1 ? "а" : ""}</p>}
           <div className="space-y-4">
-            {(availableCourses ?? []).map((course) => {
+            {(availableCourses ?? []).map((course: any) => {
               const isEnrolled = enrolledIds.includes(course.id) || ownedIds.includes(course.id);
               const hasAccess = accessGrantedIds.includes(course.id) || ownedIds.includes(course.id) || isAdmin;
               if (isEnrolled || hasAccess) {

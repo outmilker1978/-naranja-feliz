@@ -306,3 +306,19 @@ npm run build    # production сборка (output: standalone)
 - Запрос продления подписки → директору (если есть), иначе первому учителю.
 - Запрос доступа к курсу → директору (если есть), иначе всем учителям.
 - `src/lib/director.ts` + `src/app/api/set-director/route.ts`.
+
+## 21. RPC-агрегация (этап B1 оптимизации, v0.7.2)
+Серверные страницы получают данные **одним вызовом** Postgres-функции вместо 6–12 последовательных запросов (51→5). Функции в `supabase/rpc-aggregation.sql` (применён в Supabase):
+
+| Функция | Страница | Было запросов | Стало |
+|---------|----------|:---:|:---:|
+| `get_home_data(uid)` | Главная `/` | 10 | 1 |
+| `get_course_page(uid, cid)` | Курс `/courses/[courseId]` | 6 | 1 |
+| `get_lesson_page(uid, cid, lid)` | Урок `/courses/[courseId]/[lessonId]` | 12 | 1 |
+| `get_course_list(uid)` | Список `/courses` | 9 | 1+1 |
+| `get_chat_data(uid)` | Чат `/tools/chat` | 5–7 | (подключение след.) |
+
+- Все функции — `SECURITY DEFINER` (`SET search_path='public'`), принимают `uid` и проверяют доступ внутри SQL.
+- Логика редиректов сохранилась: неопубликованный урок видит только владелец (`@page.tsx:42-44`), отсутствие доступа → редирект на `/courses`.
+- Индексы: `lesson_blocks(lesson_id, order_index)`, `enrollments(student_id)`, `course_access(student_id)`, `lesson_progress(student_id, lesson_id)`, `content(type,status,sort_order)`, `chat_messages(chat_id, created_at)` и др. — 14 штук.
+- Обновление функции после правки SQL: перезапустить `CREATE OR REPLACE FUNCTION ...` в Supabase SQL Editor.

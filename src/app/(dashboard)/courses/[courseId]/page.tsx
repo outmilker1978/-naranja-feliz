@@ -20,54 +20,34 @@ export default async function CourseDetailPage({
   const cookieStore = await cookies();
   const viewRole = cookieStore.get("view_role")?.value;
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("*")
-    .eq("id", courseId)
-    .single();
+  // 1 RPC вместо 6 последовательных запросов
+  const { data: rpc } = await supabase.rpc("get_course_page", {
+    uid: user.id,
+    cid: courseId,
+  });
 
-  if (!course) notFound();
+  if (!rpc?.course) notFound();
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  const isAdmin = profile?.role === "admin";
+  const course = rpc.course;
+  const isAdmin = rpc.role === "admin";
 
   if (course.created_by === user.id && viewRole !== "student") {
     redirect(`/admin/courses/${courseId}`);
   }
 
-  const isOwner = course.created_by === user.id;
-  let canAccess = isOwner || isAdmin;
-  if (!canAccess && (course.access_mode === "subscription" || course.access_mode === "per_course")) {
-    const { data: hasAccess } = await supabase.rpc("check_course_access", { uid: user.id, cid: courseId });
-    canAccess = !!hasAccess;
-  }
-
-  const { data: lessons } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("course_id", courseId)
-    .order("order_index", { ascending: true });
-
-  const { data: progressRecords } = await supabase
-    .from("lesson_progress")
-    .select("*")
-    .eq("student_id", user.id);
-
-  const progressMap = new Map(
-    (progressRecords ?? []).map((p) => [p.lesson_id, p]),
-  );
+  const canAccess = rpc.has_access;
+  const lessons = rpc.lessons ?? [];
 
   function lessonStatus(lessonId: string) {
-    const p = progressMap.get(lessonId);
-    if (!p) return "not_started";
-    if (p.completed) return "completed";
+    const l = lessons.find((x: any) => x.id === lessonId);
+    if (!l) return "not_started";
+    if (l.completed) return "completed";
     return "in_progress";
   }
 
-  const totalLessons = lessons?.length ?? 0;
-  const completedLessons = (lessons ?? []).filter(l => lessonStatus(l.id) === "completed").length;
-
-  const nextLesson = (lessons ?? []).find(l => lessonStatus(l.id) !== "completed") ?? null;
+  const totalLessons = lessons.length;
+  const completedLessons = lessons.filter((l: any) => l.completed).length;
+  const nextLesson = lessons.find((l: any) => !l.completed) ?? null;
 
   return (
     <>
@@ -130,7 +110,7 @@ export default async function CourseDetailPage({
       )}
 
       <div className="space-y-3">
-        {lessons?.map((lesson, i) => {
+        {lessons.map((lesson: any) => {
           const status = lessonStatus(lesson.id);
           return (
             <Link

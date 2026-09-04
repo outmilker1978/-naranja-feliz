@@ -1,5 +1,5 @@
 import React from "react";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { Check, Star, Sparkles, ArrowRight, BookOpen, MessageCircle, Bell, PenLine, BarChart3, GraduationCap, Target, Quote, Flame, Library, Layers, Heart, Globe, Music, Palette, Lightbulb, Users, Book, FileText, Image, Camera, Headphones, Clock, Calendar, Settings, User as UserIcon, Shield, Award, Briefcase, Crown, Feather, Gift, Key, Lock, Mail, Map, Phone, PieChart, Rocket, Search, ThumbsUp, Trophy, Wand, Zap, Smile, Type, Compass, Volume2, Eye, Share2, Coffee, Flag, RefreshCw, Trash2, Upload, Download, Plus, Minus, Edit3, ExternalLink, Grid, List, Sliders, Video } from "lucide-react";
@@ -34,40 +34,17 @@ const FEATURE_COLORS = [
 export default async function Home() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const svc = createServiceClient();
 
-  let sections: any[] = [];
-  let news: any[] = [];
-  let articleBlocks: any[] = [];
-  let adBlocks: any[] = [];
-  try {
-    const [sRes, nRes, blocksRes] = await Promise.all([
-      svc.from("content").select("*").eq("type", "page_section").eq("status", "published").is("scheduled_at", null).order("sort_order", { ascending: true }),
-      svc.from("content").select("*, profiles!inner(id, full_name, avatar_url)").eq("type", "news").eq("status", "published").is("scheduled_at", null).order("sort_order", { ascending: true }).limit(6),
-      svc.from("content_blocks").select("*, content(*)").eq("status", "published").order("sort_order", { ascending: true }),
-    ]);
-    sections = sRes.data ?? [];
-    news = nRes.data ?? [];
-    const allBlocks = blocksRes.data ?? [];
-    articleBlocks = allBlocks.filter((b: any) => b.type === "article");
-    adBlocks = allBlocks.filter((b: any) => b.type === "ad");
+  // 1 RPC вместо 10 последовательных запросов
+  const { data: rpc } = await supabase.rpc("get_home_data", { uid: user?.id ?? null });
 
-    // Sort content within each block
-    for (const block of [...articleBlocks, ...adBlocks]) {
-      block.content = (block.content ?? []).sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    }
-  } catch {}
-
-  let courseCount = 0;
-  let lessonCount = 0;
-  try {
-    const [cRes, lRes] = await Promise.all([
-      svc.from("courses").select("*", { count: "exact", head: true }),
-      svc.from("lessons").select("*", { count: "exact", head: true }),
-    ]);
-    courseCount = cRes.count ?? 0;
-    lessonCount = lRes.count ?? 0;
-  } catch {}
+  const sections: any[] = rpc?.sections ?? [];
+  const news: any[] = rpc?.news ?? [];
+  const allContentBlocks: any[] = rpc?.content_blocks ?? [];
+  const articleBlocks = allContentBlocks.filter((b: any) => b.type === "article");
+  const adBlocks = allContentBlocks.filter((b: any) => b.type === "ad");
+  const courseCount = rpc?.course_count ?? 0;
+  const lessonCount = rpc?.lesson_count ?? 0;
 
   const getSection = (cat: string) => sections?.find(s => s.category === cat);
   const hero = getSection("hero");
@@ -85,36 +62,30 @@ export default async function Home() {
   let isSubActive = false;
   let profileRole: string | null = null;
 
-  if (user) {
+  if (user && rpc?.profile) {
+    const p = rpc.profile;
     const cookieStore = await cookies();
     const viewRole = cookieStore.get("view_role")?.value;
-    const { data: p } = await svc.from("profiles").select("role, full_name, avatar_url, subscription_until").eq("id", user.id).maybeSingle();
-    profileName = p?.full_name ?? null;
-    avatarUrl = p?.avatar_url ?? null;
-    profileRole = p?.role ?? null;
-    isSubActive = !!(p?.subscription_until && new Date(p.subscription_until) > new Date());
+    profileName = p.full_name ?? null;
+    avatarUrl = p.avatar_url ?? null;
+    profileRole = p.role ?? null;
+    isSubActive = !!(p.subscription_until && new Date(p.subscription_until) > new Date());
     const mRole = user.user_metadata?.role;
-    const isElevated = p?.role === "teacher" || p?.role === "admin" || mRole === "teacher" || mRole === "admin";
+    const isElevated = p.role === "teacher" || p.role === "admin" || mRole === "teacher" || mRole === "admin";
     const isTeacherView = isElevated && (viewRole === "teacher" || !viewRole);
 
     if (isTeacherView) {
-      const { data: mc } = await svc.from("courses").select("id, title, image_url, level, access_mode").eq("created_by", user.id).limit(6);
-      myCourses = mc ?? [];
+      myCourses = rpc.owned_courses ?? [];
     } else {
-      const { data: enrolls } = await supabase.from("enrollments").select("course_id").eq("student_id", user.id);
-      const enrolledIds = (enrolls ?? []).map(e => e.course_id);
-      if (enrolledIds.length > 0) {
-        const { data: ec } = await supabase.from("courses").select("id, title, image_url, level, access_mode").in("id", enrolledIds).limit(6);
-        enrolledCourses = ec ?? [];
-      }
-      const { count } = await svc.from("block_submissions").select("*", { count: "exact", head: true }).eq("student_id", user.id).eq("reviewed", false);
-      pendingSubmissions = count ?? 0;
+      enrolledCourses = (rpc.enrollments ?? []).map((e: any) => {
+        const c = (rpc.published_courses ?? []).find((pc: any) => pc.id === e.course_id);
+        return c ?? { id: e.course_id };
+      }).filter(Boolean);
+      pendingSubmissions = rpc.pending_count ?? 0;
     }
   }
 
-  const { data: allCourses } = await supabase
-    .from("courses").select("id, title, image_url, level, description, access_mode")
-    .eq("published", true).order("created_at", { ascending: false }).limit(8);
+  const allCourses = rpc?.published_courses ?? [];
 
   const sectionEntries: { key: string; order: number; render: () => React.ReactNode }[] = [];
 

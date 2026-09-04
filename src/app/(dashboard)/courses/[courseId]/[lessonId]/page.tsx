@@ -20,109 +20,45 @@ export default async function StudentLessonPage({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: course } = await supabase
-    .from("courses")
-    .select("created_by, title, access_mode")
-    .eq("id", courseId)
-    .single();
+  // 1 RPC вместо 12 последовательных запросов
+  const { data: rpc } = await supabase.rpc("get_lesson_page", {
+    uid: user.id,
+    cid: courseId,
+    lid: lessonId,
+  });
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  const isAdmin = profile?.role === "admin";
+  if (!rpc?.lesson) redirect(`/courses/${courseId}`);
+
+  const course = rpc.course;
+  const lesson = rpc.lesson;
+  const role = rpc.role;
+  const isAdmin = role === "admin";
   const isOwner = course?.created_by === user.id;
 
-  if (!isOwner && !isAdmin) {
-    if (course?.access_mode === "per_course" || course?.access_mode === "subscription") {
-      const { data: hasCourseAccess } = await supabase.rpc("check_course_access", { uid: user.id, cid: courseId });
-      if (!hasCourseAccess) {
-        if (course?.access_mode === "subscription") {
-          redirect("/settings");
-        }
-        redirect("/courses");
-      }
-    }
-
-    const { data: enrollment } = await supabase
-      .from("enrollments")
-      .select("paid")
-      .eq("student_id", user.id)
-      .eq("course_id", courseId)
-      .maybeSingle();
-
-    if (!enrollment || !enrollment.paid) {
-      redirect("/courses");
-    }
+  if (!isOwner && !isAdmin && !rpc.has_access) {
+    redirect("/courses");
   }
 
-  const { data: lesson } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("id", lessonId)
-    .eq("course_id", courseId)
-    .single();
-
-  if (!lesson) redirect(`/courses/${courseId}`);
-
-  const isCurrentUserOwner = course?.created_by === user.id;
-
-  if (!isCurrentUserOwner && !lesson.published) {
+  if (!isOwner && !lesson.published) {
     redirect(`/courses/${courseId}`);
   }
 
-  const { data: nextLesson } = await supabase
-    .from("lessons")
-    .select("id, title, order_index")
-    .eq("course_id", courseId)
-    .eq("published", true)
-    .gt("order_index", lesson.order_index)
-    .order("order_index", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+  // Навигация: вычисляем prev/next из all_lessons
+  const allLessons = rpc.all_lessons ?? [];
+  const currentIdx = allLessons.findIndex((l: any) => l.id === lessonId);
+  const prevLesson = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
+  const nextLesson = currentIdx < allLessons.length - 1 ? allLessons[currentIdx + 1] : null;
 
-  const { data: prevLesson } = await supabase
-    .from("lessons")
-    .select("id, title, order_index")
-    .eq("course_id", courseId)
-    .eq("published", true)
-    .lt("order_index", lesson.order_index)
-    .order("order_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const lessonBlocks = rpc.blocks ?? [];
+  const blockIds = lessonBlocks.map((b: any) => b.id);
 
-  const { data: allLessons } = await supabase
-    .from("lessons")
-    .select("id, title, order_index, published")
-    .eq("course_id", courseId)
-    .order("order_index", { ascending: true });
-
-  const { data: lessonBlocks } = await supabase
-    .from("lesson_blocks")
-    .select("*")
-    .eq("lesson_id", lessonId)
-    .order("order_index", { ascending: true });
-
-  const blockIds = lessonBlocks?.map(b => b.id) ?? [];
-
-  // Load ALL saved answers for this lesson's blocks in ONE server query.
-  // Before: each interactive block made its own client query to block_submissions
-  // (N parallel requests over the student's network -> slow lesson). Now: 1 request.
+  // Преобразуем saved_answers из массива в Record<blockId, submission>
   const savedByBlock: SavedByBlock = {};
-  if (blockIds.length > 0) {
-    const { data: savedSubs } = await supabase
-      .from("block_submissions")
-      .select("lesson_block_id, id, answer, reviewed, comment")
-      .eq("student_id", user.id)
-      .in("lesson_block_id", blockIds);
-    for (const s of savedSubs ?? []) {
-      savedByBlock[s.lesson_block_id] = { id: s.id, answer: s.answer, reviewed: !!s.reviewed, comment: s.comment ?? null };
-    }
+  for (const s of rpc.saved_answers ?? []) {
+    savedByBlock[s.lesson_block_id] = { id: s.id, answer: s.answer, reviewed: !!s.reviewed, comment: s.comment ?? null };
   }
 
-  const { data: progress } = await supabase
-    .from("lesson_progress")
-    .select("completed")
-    .eq("lesson_id", lessonId)
-    .eq("student_id", user.id)
-    .maybeSingle();
+  const completed = rpc.completed ?? false;
 
   return (
     <VocabPickerProvider>
@@ -134,7 +70,7 @@ export default async function StudentLessonPage({
             </Link>
             <div className="flex items-center gap-2">
               <LessonProgressTracker lessonId={lessonId} studentId={user.id} />
-              <AutoCompleteLesson lessonId={lessonId} studentId={user.id} blocks={lessonBlocks ?? []} initialCompleted={progress?.completed ?? false} />
+              <AutoCompleteLesson lessonId={lessonId} studentId={user.id} blocks={lessonBlocks} initialCompleted={completed} />
               <ClearAnswersButton lessonId={lessonId} studentId={user.id} blockIds={blockIds} />
             </div>
           </div>
@@ -142,11 +78,11 @@ export default async function StudentLessonPage({
 
         <div className="max-w-3xl mx-auto px-5 md:px-8 py-8">
           <h1 className="text-2xl font-bold text-accent mb-6">{lesson.title}</h1>
-          {lessonBlocks?.map((block) => (
+          {lessonBlocks.map((block: any) => (
             <BlockRenderer key={block.id} block={block} studentId={user.id} savedByBlock={savedByBlock} />
           ))}
           <div className="mt-8 text-center">
-            <CompleteLessonButton lessonId={lessonId} studentId={user.id} blocks={lessonBlocks ?? []} initialCompleted={progress?.completed ?? false} />
+            <CompleteLessonButton lessonId={lessonId} studentId={user.id} blocks={lessonBlocks} initialCompleted={completed} />
           </div>
         </div>
       </div>
