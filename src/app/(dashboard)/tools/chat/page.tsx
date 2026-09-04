@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { MessageCircle } from "lucide-react";
+import Avatar from "@/components/avatar";
 
 export default function ChatPage() {
   const [chats, setChats] = useState<any[]>([]);
@@ -247,13 +248,7 @@ export default function ChatPage() {
                   className={`w-full text-left px-3 py-2.5 border-b border-primary-50 hover:bg-primary-50 transition-colors ${selectedChat === chat.id ? "bg-primary-50" : ""}`}>
                   <div className="flex items-center gap-2">
                     <div className="relative shrink-0">
-                      {other?.avatar_url ? (
-                        <img src={other.avatar_url} alt="" loading="lazy" className="w-8 h-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center text-xs text-primary-500 font-bold">
-                          {(other?.full_name || "?")[0].toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar src={other?.avatar_url} name={other?.full_name} size={32} />
                       {other?.last_seen && (Date.now() - new Date(other.last_seen).getTime()) < 120000 && (
                         <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
                       )}

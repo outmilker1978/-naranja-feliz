@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { Menu, X, Bell, MessageCircle, Settings, LogOut, ChevronDown, LayoutDashboard } from "lucide-react";
+import Avatar from "./avatar";
 
 function getLevelLabel(count: number): string {
   if (count === 0) return "— Новичок";
@@ -114,7 +115,6 @@ export function DashboardHeader({
     }
   };
 
-  const initial = (userName || userEmail)[0].toUpperCase();
   const levelLabel = getLevelLabel(completedLessons);
 
   const isSubActive = subscriptionUntil && new Date(subscriptionUntil) > new Date();
@@ -214,13 +214,7 @@ export function DashboardHeader({
                 </Link>
               )}
               <div className="relative">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border-2 border-primary-200 shadow-sm" />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-sm text-white font-bold shadow-sm">
-                    {initial}
-                  </div>
-                )}
+                <Avatar src={avatarUrl} name={userName || userEmail} size={36} className="border-2 border-primary-200 shadow-sm" />
                 {realRole !== "teacher" && realRole !== "admin" && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white bg-secondary-500" />
                 )}

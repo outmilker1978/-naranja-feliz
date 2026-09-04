@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Newspaper, BookOpen, Clock, User, Sparkles, Layers, MessageCircle, GraduationCap, Home } from "lucide-react";
 import ContentCarousel from "@/components/content-carousel";
 import StorageImage from "@/components/storage-image";
+import Avatar from "@/components/avatar";
 
 export default async function ContentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -92,9 +93,7 @@ export default async function ContentPage({ params }: { params: Promise<{ id: st
             {item.profiles && (
               <div className="flex items-center gap-3 mt-10 pt-6 border-t border-border">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-white font-bold text-sm relative">
-                  {item.profiles.avatar_url
-                    ? <StorageImage src={item.profiles.avatar_url} alt="" fill sizes="40px" className="object-cover rounded-full" />
-                    : (item.profiles.full_name?.[0] ?? "?")}
+                  <Avatar src={item.profiles.avatar_url} name={item.profiles.full_name} size={40} />
                 </div>
                 <div>
                   <span className="text-sm font-semibold text-accent flex items-center gap-1"><User className="w-3.5 h-3.5" /> {item.profiles.full_name}</span>

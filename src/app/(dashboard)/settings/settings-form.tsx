@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CreditHistory } from "./credit-history";
+import Avatar from "@/components/avatar";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
@@ -125,13 +126,7 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
       <div className="card p-6">
         <h2 className="text-lg font-semibold text-accent mb-4">Аватар</h2>
         <div className="flex items-center gap-4">
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" loading="lazy" className="w-20 h-20 rounded-full object-cover border-2 border-border" />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-primary-50 flex items-center justify-center text-2xl text-primary-500 font-bold">
-              {(fullName || email)[0].toUpperCase()}
-            </div>
-          )}
+          <Avatar src={avatarUrl} name={fullName || email} size={80} className="border-2 border-border" />
           <div>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={uploadAvatar} className="hidden" />
             <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="btn-gradient px-4 py-2 text-sm disabled:opacity-50">

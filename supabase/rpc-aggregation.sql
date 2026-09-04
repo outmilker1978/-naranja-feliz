@@ -127,6 +127,11 @@ AS $$
         FROM lessons les
         LEFT JOIN lesson_progress lp ON lp.lesson_id = les.id AND lp.student_id = uid
         WHERE les.course_id = cid
+          AND (
+            les.published = true
+            OR EXISTS (SELECT 1 FROM profiles WHERE id = uid AND role = 'admin')
+            OR EXISTS (SELECT 1 FROM courses WHERE id = cid AND created_by = uid)
+          )
         ORDER BY les.order_index
       ) l
     ),
@@ -399,6 +404,30 @@ AS $$
   );
 $$;
 
+
+-- ============================================================
+-- clear_lesson_answers(student_id, lesson_id) — быстрая очистка ответов
+-- Одна транзакция вместо 2 клиентских запросов + reload (~1 минута висения → <1с)
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.clear_lesson_answers(student_id uuid, lesson_id uuid)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = 'public'
+AS $$
+  DELETE FROM block_submissions
+  WHERE block_submissions.student_id = clear_lesson_answers.student_id
+    AND block_submissions.lesson_block_id IN (
+      SELECT id FROM lesson_blocks WHERE lesson_blocks.lesson_id = clear_lesson_answers.lesson_id
+    );
+
+  INSERT INTO lesson_progress (lesson_id, student_id, completed, completed_at)
+  VALUES (clear_lesson_answers.lesson_id, clear_lesson_answers.student_id, false, NULL)
+  ON CONFLICT (lesson_id, student_id)
+  DO UPDATE SET completed = false, completed_at = NULL;
+
+  SELECT true;
+$$;
 
 -- ============================================================
 -- Индексы для ускорения RPC-функций

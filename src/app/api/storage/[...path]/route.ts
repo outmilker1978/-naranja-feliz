@@ -22,6 +22,22 @@ const EXT_TO_MIME: Record<string, string> = {
 // Max pixels for safety against DoS. Sharp can be CPU-heavy on huge images.
 const MAX_DIM = 2560;
 
+// Simple in-memory cache: process each image URL once, serve repeats from memory.
+// Serverless containers are ephemeral but keep warm between requests down to
+// seconds, so repeat visits (back/forward, chats, lists) skip sharp+fetch entirely.
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const cache = new Map<string, { buf: Buffer; mime: string; vary: boolean; ts: number }>();
+
+function cacheGet(key: string) {
+  const hit = cache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.ts > CACHE_TTL_MS) {
+    cache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
 function parseQuality(q: string | null, fallback: number): number {
   if (!q) return fallback;
   const n = Number.parseInt(q, 10);
@@ -85,6 +101,22 @@ export async function GET(
   const ext = filePath.split(".").pop()?.toLowerCase() || "";
   const isImage = IMAGE_EXTS.has(ext);
 
+  // Cache key covers URL params + negotiated format (Accept is cache-busted via Vary)
+  const accept = req.headers.get("accept") ?? "";
+  const cacheKey = isImage ? `${filePath}|w=${width}|q=${quality}|fm=${requestedFm}|acc=${requestedFm ? "" : accept}` : "";
+  const cached = isImage ? cacheGet(cacheKey) : null;
+  if (cached) {
+    return new NextResponse(new Uint8Array(cached.buf), {
+      status: 200,
+      headers: {
+        "Content-Type": cached.mime,
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+        ...(cached.vary ? { "Vary": "Accept" } : {}),
+        "X-Storage-Cache": "hit",
+      },
+    });
+  }
+
   // DEV-ONLY STUB: with this machine's ISP the real Storage body never arrives
   // (provider drops it ~70s then 500), which freezes the browser while it waits
   // for layout checks. In development we return a fast local SVG placeholder for
@@ -135,6 +167,15 @@ export async function GET(
       output = buffer;
     }
 
+    if (cacheKey && output.length > 0) {
+      cache.set(cacheKey, { buf: output, mime: outMime, vary, ts: Date.now() });
+      if (cache.size > 500) {
+        // Evict oldest entries when the map grows (keep memory bounded)
+        const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts).slice(0, cache.size - 400);
+        for (const [k] of oldest) cache.delete(k);
+      }
+    }
+
     return new NextResponse(new Uint8Array(output), {
       status: 200,
       headers: {
@@ -142,6 +183,7 @@ export async function GET(
         // Vary: Accept so format negotiation is cached correctly
         "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
         ...(vary ? { "Vary": "Accept" } : {}),
+        "X-Storage-Cache": "miss",
       },
     });
   } catch (e) {

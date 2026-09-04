@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
+import Avatar from "@/components/avatar";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -57,7 +58,6 @@ export default function NotificationsPage() {
         <div className="space-y-2">
           {notifications.map((n: any) => {
             const actor = n.actor as { id: string; full_name: string | null; avatar_url: string | null } | null;
-            const initial = (actor?.full_name || "?")[0].toUpperCase();
             return (
               <Link
                 key={n.id}
@@ -69,13 +69,7 @@ export default function NotificationsPage() {
               >
                 <div className="flex items-start gap-3">
                   {actor ? (
-                    actor.avatar_url ? (
-                      <img src={actor.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-sm text-primary-500 font-bold shrink-0">
-                        {initial}
-                      </div>
-                    )
+                    <Avatar src={actor.avatar_url} name={actor.full_name} size={36} className="border border-border" />
                   ) : (
                     <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center text-sm text-muted shrink-0">?</div>
                   )}

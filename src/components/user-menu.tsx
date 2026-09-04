@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Settings, LogOut, ChevronDown } from "lucide-react";
+import Avatar from "./avatar";
 
 interface Props {
   userName: string | null;
@@ -27,22 +28,13 @@ export function UserMenu({ userName, userEmail, realRole, avatarUrl }: Props) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const [imgError, setImgError] = useState(false);
-  const initial = (userName || userEmail)[0].toUpperCase();
-
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 focus:outline-none"
       >
-        {avatarUrl && !imgError ? (
-          <img src={avatarUrl} alt="" loading="lazy" onError={() => setImgError(true)} className="w-9 h-9 rounded-full object-cover border-2 border-primary-200 shadow-sm" />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-400 flex items-center justify-center text-sm text-white font-bold shadow-sm">
-            {initial}
-          </div>
-        )}
+        <Avatar src={avatarUrl} name={userName || userEmail} size={36} className="border-2 border-primary-200 shadow-sm" />
         <ChevronDown className={`w-4 h-4 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (

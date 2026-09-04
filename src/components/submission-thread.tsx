@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import Avatar from "./avatar";
 
 interface Comment {
   id: string;
@@ -68,12 +69,10 @@ export function SubmissionThread({ submissionId }: { submissionId: string }) {
       <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
         {comments.map((c) => (
           <div key={c.id} className="flex items-start gap-2">
-            {c.profiles?.avatar_url ? (
-              <img src={c.profiles.avatar_url} alt="" loading="lazy" className="w-6 h-6 rounded-full object-cover border border-primary-200 shrink-0 mt-0.5" />
+            {c.profiles ? (
+              <Avatar src={c.profiles.avatar_url} name={c.profiles.full_name || c.profiles.email} size={24} className="border border-primary-200 mt-0.5" />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-primary-50 flex items-center justify-center text-[10px] text-primary-500 font-bold shrink-0 mt-0.5">
-                {(c.profiles?.full_name || c.profiles?.email || "?")[0].toUpperCase()}
-              </div>
+              <div className="w-6 h-6 rounded-full bg-zinc-100 flex items-center justify-center text-[10px] text-muted shrink-0 mt-0.5">?</div>
             )}
             <div className="flex-1 min-w-0">
               <p className="text-xs text-zinc-500">

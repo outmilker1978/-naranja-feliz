@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LevelControl } from "./confirm-level-button";
 import { SubscriptionControl } from "./subscription-control";
 import { CourseAccessControl } from "./course-access-control";
+import Avatar from "@/components/avatar";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Админ",
@@ -118,13 +119,7 @@ export function AllUsersList({ profiles, currentUserId }: { profiles: any[]; cur
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="relative shrink-0">
-                  {profile.avatar_url ? (
-                    <img src={profile.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-xs text-primary-500 font-bold">
-                      {(profile.full_name ?? profile.email)[0].toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar src={profile.avatar_url} name={profile.full_name || profile.email} size={36} />
                   {profile.last_seen && (Date.now() - new Date(profile.last_seen).getTime()) < 120000 && (
                     <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500" />
                   )}

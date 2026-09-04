@@ -6,6 +6,7 @@ import { NewLessonForm } from "./new-lesson-form";
 import { LessonList } from "./lesson-list";
 import { OrangeProgress } from "@/components/orange-progress";
 import { proxyImgUrl } from "@/lib/image-proxy";
+import Avatar from "@/components/avatar";
 
 export default async function CourseDetailPage({
   params,
@@ -131,13 +132,7 @@ export default async function CourseDetailPage({
                   className="border border-border rounded-lg p-3"
                 >
                   <div className="flex items-center gap-3">
-                    {profile?.avatar_url ? (
-                      <img src={profile.avatar_url} alt="" loading="lazy" className="w-9 h-9 rounded-full object-cover border border-border shrink-0" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-primary-50 flex items-center justify-center text-sm text-primary-500 font-bold shrink-0">
-                        {(profile?.full_name || profile?.email || "?")[0].toUpperCase()}
-                      </div>
-                    )}
+                    <Avatar src={profile?.avatar_url} name={profile?.full_name || profile?.email} size={36} className="border border-border" />
                     <div>
                       <p className="text-sm font-medium">{profile?.full_name || profile?.email}</p>
                       <p className="text-xs text-muted">{profile?.email}</p>

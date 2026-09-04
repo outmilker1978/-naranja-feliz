@@ -39,7 +39,8 @@ export default async function StudentLessonPage({
     redirect("/courses");
   }
 
-  if (!isOwner && !lesson.published) {
+  // Неопубликованный урок виден только владельцу и админу (директор/учительский превью)
+  if (!isOwner && !isAdmin && !lesson.published) {
     redirect(`/courses/${courseId}`);
   }
 
@@ -50,7 +51,6 @@ export default async function StudentLessonPage({
   const nextLesson = currentIdx < allLessons.length - 1 ? allLessons[currentIdx + 1] : null;
 
   const lessonBlocks = rpc.blocks ?? [];
-  const blockIds = lessonBlocks.map((b: any) => b.id);
 
   // Преобразуем saved_answers из массива в Record<blockId, submission>
   const savedByBlock: SavedByBlock = {};
@@ -71,7 +71,7 @@ export default async function StudentLessonPage({
             <div className="flex items-center gap-2">
               <LessonProgressTracker lessonId={lessonId} studentId={user.id} />
               <AutoCompleteLesson lessonId={lessonId} studentId={user.id} blocks={lessonBlocks} initialCompleted={completed} />
-              <ClearAnswersButton lessonId={lessonId} studentId={user.id} blockIds={blockIds} />
+              <ClearAnswersButton lessonId={lessonId} studentId={user.id} />
             </div>
           </div>
         </div>

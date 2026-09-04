@@ -1,36 +1,36 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Trash2 } from "lucide-react";
 
 export function ClearAnswersButton({
   lessonId,
   studentId,
-  blockIds,
 }: {
   lessonId: string;
   studentId: string;
-  blockIds: string[];
 }) {
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const router = useRouter();
   const supabase = createClient();
 
   const clearAll = async () => {
     setLoading(true);
-    await supabase
-      .from("block_submissions")
-      .delete()
-      .in("lesson_block_id", blockIds)
-      .eq("student_id", studentId);
-    await supabase
-      .from("lesson_progress")
-      .upsert(
-        { lesson_id: lessonId, student_id: studentId, completed: false, completed_at: null },
-        { onConflict: "lesson_id,student_id" },
-      );
-    window.location.reload();
+    // 1 RPC вместо 2 запросов + перезагрузки — удаляет ответы и сбрасывает прогресс в одной транзакции
+    const { error } = await supabase.rpc("clear_lesson_answers", {
+      student_id: studentId,
+      lesson_id: lessonId,
+    });
+    setLoading(false);
+    if (error) {
+      alert("Не удалось очистить ответы. Попробуйте ещё раз.");
+      return;
+    }
+    setConfirm(false);
+    router.refresh();
   };
 
   if (!confirm) {
@@ -45,10 +45,10 @@ export function ClearAnswersButton({
     <span className="text-xs text-zinc-500">
       Точно очистить?{" "}
       <button onClick={clearAll} disabled={loading} className="text-red-600 hover:underline disabled:opacity-50">
-        {loading ? "..." : "Да"}
+        {loading ? "Очищаю..." : "Да"}
       </button>
       {" / "}
-      <button onClick={() => setConfirm(false)} className="text-zinc-400 hover:underline">Нет</button>
+      <button onClick={() => setConfirm(false)} disabled={loading} className="text-zinc-400 hover:underline">Нет</button>
     </span>
   );
 }
