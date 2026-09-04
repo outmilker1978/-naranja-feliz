@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { MessageCircle } from "lucide-react";
 
 export default function ChatPage() {
@@ -20,12 +19,11 @@ export default function ChatPage() {
   const [contactSearch, setContactSearch] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const supabase = createClient();
-
   // Find first teacher to chat with
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const meRes = await fetch("/api/auth/me");
+      const { user } = await meRes.json();
       if (!user) return;
       setUserId(user.id);
       const res = await fetch("/api/chat/teachers");
@@ -48,20 +46,32 @@ export default function ChatPage() {
 
   useEffect(() => { if (!findingTeacher) loadChats(); }, [findingTeacher]);
 
-  // Poll messages every 5s
+  // Auto-scroll ONLY when explicitly requested (open chat, own message), never on background polling.
+  const pendingScrollRef = useRef(false);
+  useEffect(() => {
+    if (pendingScrollRef.current) {
+      pendingScrollRef.current = false;
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Poll messages every 5s. Mark scroll pending only on chat open (first fetch); background polling never scrolls.
   useEffect(() => {
     if (!selectedChat) return;
+    let opened = false;
     const load = async () => {
       const res = await fetch(`/api/chat?chatId=${selectedChat}`);
       const data = await res.json();
       setMessages(data.messages ?? []);
+      if (!opened) {
+        opened = true;
+        pendingScrollRef.current = true;
+      }
     };
     load();
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
   }, [selectedChat]);
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const openChat = async (chatId: string) => {
     setSelectedChat(chatId);
@@ -87,6 +97,7 @@ export default function ChatPage() {
     const res = await fetch(`/api/chat?chatId=${selectedChat}`);
     const data = await res.json();
     setMessages(data.messages ?? []);
+    pendingScrollRef.current = true;
     loadChats();
   };
 

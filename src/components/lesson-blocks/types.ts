@@ -116,6 +116,15 @@ export const BLOCK_LABELS: Record<BlockType, string> = {
   memory: "Игра в пары",
 };
 
+export interface SavedSubmission {
+  id: string;
+  answer: string;
+  reviewed: boolean;
+  comment: string | null;
+}
+
+export type SavedByBlock = Record<string, SavedSubmission>;
+
 export const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   text: "Форматированный текст с возможностью перевода и озвучки фрагментов",
   image: "Изображение с подписью, настраиваемой шириной",

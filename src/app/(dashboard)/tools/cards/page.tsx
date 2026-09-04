@@ -3,12 +3,10 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Shuffle, ArrowLeft, ArrowRight, RotateCcw, Layers, BookOpen, MessageCircle, GraduationCap, Volume2 } from "lucide-react";
 
 export default function CardsGamePage() {
   const router = useRouter();
-  const supabase = createClient();
   const [words, setWords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [idx, setIdx] = useState(0);
@@ -17,11 +15,12 @@ export default function CardsGamePage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const res = await fetch("/api/auth/me");
+      const { user } = await res.json();
       if (!user) { router.replace("/login"); return; }
-      const res = await fetch("/api/vocabulary");
-      if (res.ok) {
-        const data = await res.json();
+      const res2 = await fetch("/api/vocabulary");
+      if (res2.ok) {
+        const data = await res2.json();
         setWords(data);
       }
       setLoading(false);

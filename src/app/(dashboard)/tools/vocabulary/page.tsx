@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Search, Plus, X, FlipHorizontal, List, Shuffle, ArrowLeft, ArrowRight, Volume2, Layers, MessageCircle, GraduationCap } from "lucide-react";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -21,7 +20,6 @@ interface Word {
 
 export default function VocabularyPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -47,7 +45,8 @@ export default function VocabularyPage() {
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const res = await fetch("/api/auth/me");
+      const { user } = await res.json();
       if (!user) { router.replace("/login"); return; }
       load();
     })();

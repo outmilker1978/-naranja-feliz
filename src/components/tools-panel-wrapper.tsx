@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import ToolsPanel from "./tools-panel";
+import { supabaseFetch } from "@/lib/supabase/server";
 
 export default async function ToolsPanelWrapper() {
   let role: string | null = null;
@@ -11,6 +12,7 @@ export default async function ToolsPanelWrapper() {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        global: { fetch: supabaseFetch },
         cookies: {
           getAll() { return cookieStore.getAll(); },
           setAll() {},

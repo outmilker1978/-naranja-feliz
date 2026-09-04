@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { supabaseFetch } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   const { password } = await request.json();
@@ -13,6 +14,7 @@ export async function POST(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: supabaseFetch },
       cookies: {
         getAll() { return cookieStore.getAll(); },
         setAll(cookiesToSet) { for (const { name, value, options } of cookiesToSet) { cookieStore.set(name, value, options); } },

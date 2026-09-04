@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Volume2, Mic, Video, Square, HardDrive, Folder, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, VideoAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent, GroupDragContent, MemoryContent } from "./types";
+import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent, GroupDragContent, MemoryContent, SavedSubmission, SavedByBlock } from "./types";
 import { SubmissionThread } from "@/components/submission-thread";
 import { useVocabPicker } from "@/components/vocab-picker-context";
 
@@ -183,10 +183,9 @@ function VideoBlock({ block }: { block: LessonBlock }) {
   );
 }
 
-function FillBlankBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function FillBlankBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = block.content as FillBlankContent;
   const { pickMode } = useVocabPicker();
-  const supabase = createClient();
   const contentRef = useRef<HTMLDivElement>(null);
   const htmlSet = useRef(false);
   const [values, setValues] = useState<string[]>([]);
@@ -205,17 +204,13 @@ function FillBlankBlock({ block, studentId }: { block: LessonBlock; studentId: s
   }, [c.text]);
 
   useEffect(() => {
-    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
-      .eq("student_id", studentId).maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          try {
-            setValues(JSON.parse(data.answer));
-            setSaved(true);
-          } catch {}
-        }
-      });
-  }, [block.id, studentId]);
+    if (initialSubmission?.answer) {
+      try {
+        setValues(JSON.parse(initialSubmission.answer));
+        setSaved(true);
+      } catch {}
+    }
+  }, [initialSubmission]);
 
   useEffect(() => {
     if (!contentRef.current || htmlSet.current) return;
@@ -330,7 +325,7 @@ function FillBlankBlock({ block, studentId }: { block: LessonBlock; studentId: s
   );
 }
 
-function ChoiceBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function ChoiceBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = block.content as ChoiceContent;
   const correct = c.correct ?? [];
   const correctIndices = correct.length > 0 && correct.every((n: number) => n >= 1)
@@ -342,22 +337,13 @@ function ChoiceBlock({ block, studentId }: { block: LessonBlock; studentId: stri
   const [usedAttempts, setUsedAttempts] = useState(0);
   const [attemptsExhausted, setAttemptsExhausted] = useState(false);
   const [attemptMessage, setAttemptMessage] = useState("");
-  const supabase = createClient();
 
   useEffect(() => {
-    supabase
-      .from("block_submissions")
-      .select("answer")
-      .eq("lesson_block_id", block.id)
-      .eq("student_id", studentId)
-      .maybeSingle()
-      .then(({ data }: { data: { answer: string } | null }) => {
-        if (data?.answer) {
-          setSelected(data.answer.split(",").map(s => parseInt(s)).filter(n => !isNaN(n)));
-          setSubmitted(true);
-        }
-      });
-  }, [block.id, studentId]);
+    if (initialSubmission?.answer) {
+      setSelected(initialSubmission.answer.split(",").map(s => parseInt(s)).filter(n => !isNaN(n)));
+      setSubmitted(true);
+    }
+  }, [initialSubmission]);
 
   const toggle = (i: number) => {
     if (c.multiple) {
@@ -432,7 +418,7 @@ function ChoiceBlock({ block, studentId }: { block: LessonBlock; studentId: stri
   );
 }
 
-function OpenQuestionBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function OpenQuestionBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = block.content as OpenQuestionContent;
   const [answer, setAnswer] = useState("");
   const [saved, setSaved] = useState(false);
@@ -440,25 +426,16 @@ function OpenQuestionBlock({ block, studentId }: { block: LessonBlock; studentId
   const [reviewed, setReviewed] = useState(false);
   const [comment, setComment] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
-  const supabase = createClient();
 
   useEffect(() => {
-    supabase
-      .from("block_submissions")
-      .select("id, answer, reviewed, comment")
-      .eq("lesson_block_id", block.id)
-      .eq("student_id", studentId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          setSubmissionId(data.id);
-          setAnswer(data.answer);
-          setSubmitted(true);
-          setReviewed(!!data.reviewed);
-          setComment(data.comment);
-        }
-      });
-  }, [block.id, studentId]);
+    if (initialSubmission?.answer) {
+      setSubmissionId(initialSubmission.id);
+      setAnswer(initialSubmission.answer);
+      setSubmitted(true);
+      setReviewed(!!initialSubmission.reviewed);
+      setComment(initialSubmission.comment);
+    }
+  }, [initialSubmission]);
 
   const saveAnswer = async () => {
     if (!answer.trim()) return;
@@ -520,7 +497,7 @@ function OpenQuestionBlock({ block, studentId }: { block: LessonBlock; studentId
   );
 }
 
-function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function AudioAnswerBlock({ block, studentId, initialSubmission }: { block: LessonBlock; studentId: string; initialSubmission?: SavedSubmission | null }) {
   const c = block.content as AudioAnswerContent;
   const [recording, setRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -532,22 +509,14 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
   const supabase = createClient();
 
   useEffect(() => {
-    supabase
-      .from("block_submissions")
-      .select("id, answer, reviewed, comment")
-      .eq("lesson_block_id", block.id)
-      .eq("student_id", studentId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          setSubmissionId(data.id);
-          setAudioUrl(data.answer);
-          setSubmitted(true);
-          setReviewed(!!data.reviewed);
-          setComment(data.comment);
-        }
-      });
-  }, [block.id, studentId]);
+    if (initialSubmission?.answer) {
+      setSubmissionId(initialSubmission.id);
+      setAudioUrl(initialSubmission.answer);
+      setSubmitted(true);
+      setReviewed(!!initialSubmission.reviewed);
+      setComment(initialSubmission.comment);
+    }
+  }, [initialSubmission]);
 
   const startRecording = async () => {
     try {
@@ -639,7 +608,7 @@ function AudioAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
   );
 }
 
-function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function DragOrderBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = (block.content ?? {}) as Partial<DragOrderContent>;
   const correctWords: string[] = [];
   const template = c.sentenceTemplate ?? "";
@@ -655,40 +624,35 @@ function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: s
   const [attemptsExhausted, setAttemptsExhausted] = useState(false);
   const [attemptMessage, setAttemptMessage] = useState("");
   const contentRef = useRef<HTMLDivElement>(null);
-  const supabase = createClient();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
-      .eq("student_id", studentId).maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          try {
-            const parsed = JSON.parse(data.answer);
-            if (Array.isArray(parsed)) {
-              setSlots(parsed);
-              const placed = parsed.filter((w): w is string => w !== null);
-              setPool(correctWords.filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
-              if (placed.length === correctWords.length) setSubmitted(true);
-            } else {
-              const savedWords: (string | null)[] = parsed.words || [];
-              const savedAttempts = parsed.attemptsUsed || 0;
-              setSlots(savedWords);
-              const placed = savedWords.filter((w): w is string => w !== null);
-              setPool(correctWords.filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
-              setUsedAttempts(savedAttempts);
-              if (parsed.correct) setSubmitted(true);
-              else if (savedAttempts >= maxAttempts) setAttemptsExhausted(true);
-            }
-            setLoading(false);
-            return;
-          } catch {}
+    if (initialSubmission?.answer) {
+      try {
+        const parsed = JSON.parse(initialSubmission.answer);
+        if (Array.isArray(parsed)) {
+          setSlots(parsed);
+          const placed = parsed.filter((w): w is string => w !== null);
+          setPool(correctWords.filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
+          if (placed.length === correctWords.length) setSubmitted(true);
+        } else {
+          const savedWords: (string | null)[] = parsed.words || [];
+          const savedAttempts = parsed.attemptsUsed || 0;
+          setSlots(savedWords);
+          const placed = savedWords.filter((w): w is string => w !== null);
+          setPool(correctWords.filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
+          setUsedAttempts(savedAttempts);
+          if (parsed.correct) setSubmitted(true);
+          else if (savedAttempts >= maxAttempts) setAttemptsExhausted(true);
         }
-        setSlots(new Array(correctWords.length).fill(null));
-        setPool([...correctWords].sort(() => Math.random() - 0.5));
         setLoading(false);
-      });
-  }, [template]);
+        return;
+      } catch {}
+    }
+    setSlots(new Array(correctWords.length).fill(null));
+    setPool([...correctWords].sort(() => Math.random() - 0.5));
+    setLoading(false);
+  }, [initialSubmission]);
 
   const clickPoolWord = (word: string) => {
     const idx = slots.indexOf(null);
@@ -831,39 +795,34 @@ function DragOrderBlock({ block, studentId }: { block: LessonBlock; studentId: s
   );
 }
 
-function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function ImagePickBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = block.content as ImagePickContent;
   const [selected, setSelected] = useState<number[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const maxAttempts = c.maxAttempts || 1;
   const [usedAttempts, setUsedAttempts] = useState(0);
   const [attemptsExhausted, setAttemptsExhausted] = useState(false);
-  const supabase = createClient();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
-      .eq("student_id", studentId).maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          try {
-            if (data.answer.startsWith("{")) {
-              const parsed = JSON.parse(data.answer);
-              setSelected(parsed.selected || []);
-              setUsedAttempts(parsed.attemptsUsed || 0);
-              if (parsed.correct) setSubmitted(true);
-              else if ((parsed.attemptsUsed || 0) >= maxAttempts) setAttemptsExhausted(true);
-            } else {
-              setSelected(data.answer ? data.answer.split(",").map(Number) : []);
-              setSubmitted(true);
-            }
-            setLoading(false);
-            return;
-          } catch {}
+    if (initialSubmission?.answer) {
+      try {
+        if (initialSubmission.answer.startsWith("{")) {
+          const parsed = JSON.parse(initialSubmission.answer);
+          setSelected(parsed.selected || []);
+          setUsedAttempts(parsed.attemptsUsed || 0);
+          if (parsed.correct) setSubmitted(true);
+          else if ((parsed.attemptsUsed || 0) >= maxAttempts) setAttemptsExhausted(true);
+        } else {
+          setSelected(initialSubmission.answer ? initialSubmission.answer.split(",").map(Number) : []);
+          setSubmitted(true);
         }
         setLoading(false);
-      });
-  }, [block.id]);
+        return;
+      } catch {}
+    }
+    setLoading(false);
+  }, [initialSubmission]);
 
   const toggle = (i: number) => {
     if (c.multiple) {
@@ -949,7 +908,7 @@ function ImagePickBlock({ block, studentId }: { block: LessonBlock; studentId: s
   );
 }
 
-function VideoAnswerBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function VideoAnswerBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = block.content as AudioAnswerContent;
   const [recording, setRecording] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -962,24 +921,15 @@ function VideoAnswerBlock({ block, studentId }: { block: LessonBlock; studentId:
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const recordedBlob = useRef<Blob | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const supabase = createClient();
 
   useEffect(() => {
-    supabase
-      .from("block_submissions")
-      .select("id, answer, reviewed, comment")
-      .eq("lesson_block_id", block.id)
-      .eq("student_id", studentId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          setVideoUrl(data.answer);
-          setSent(true);
-          setReviewed(!!data.reviewed);
-          setComment(data.comment);
-        }
-      });
-  }, [block.id, studentId]);
+    if (initialSubmission?.answer) {
+      setVideoUrl(initialSubmission.answer);
+      setSent(true);
+      setReviewed(!!initialSubmission.reviewed);
+      setComment(initialSubmission.comment);
+    }
+  }, [initialSubmission]);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -1111,10 +1061,9 @@ function AttemptsDots({ used, max, message }: { used: number; max: 1 | 3; messag
   );
 }
 
-function GroupDragBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function GroupDragBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = (block.content ?? {}) as Partial<GroupDragContent>;
   const groups = c.groups ?? [];
-  const supabase = createClient();
 
   const flatAll = groups.flatMap((g, gi) => g.words.map(w => ({ word: w, groupIdx: gi })));
 
@@ -1132,38 +1081,33 @@ function GroupDragBlock({ block, studentId }: { block: LessonBlock; studentId: s
       g.words.map(() => ({ groupIdx: gi, word: null as string | null }))
     );
 
-    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
-      .eq("student_id", studentId).maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          try {
-            const parsed = JSON.parse(data.answer);
-            const savedWords: (string | null)[] = parsed.words || parsed;
-            const savedAttempts = parsed.attemptsUsed || 0;
-            const wasCorrect = parsed.correct === true;
-            const allFilled = savedWords.every(v => v !== null);
-            const restored = initialSlots.map((slot, i) => ({
-              ...slot,
-              word: savedWords[i] || null
-            }));
-            setSlots(restored);
-            const placed = savedWords.filter((w): w is string => w !== null);
-            setPool(flatAll.map(w => w.word).filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
-            setUsedAttempts(savedAttempts);
-            if (wasCorrect) {
-              setSubmitted(true);
-            } else if (savedAttempts >= maxAttempts) {
-              setAttemptsExhausted(true);
-            }
-            setLoading(false);
-            return;
-          } catch {}
+    if (initialSubmission?.answer) {
+      try {
+        const parsed = JSON.parse(initialSubmission.answer);
+        const savedWords: (string | null)[] = parsed.words || parsed;
+        const savedAttempts = parsed.attemptsUsed || 0;
+        const wasCorrect = parsed.correct === true;
+        const restored = initialSlots.map((slot, i) => ({
+          ...slot,
+          word: savedWords[i] || null
+        }));
+        setSlots(restored);
+        const placed = savedWords.filter((w): w is string => w !== null);
+        setPool(flatAll.map(w => w.word).filter(w => !placed.includes(w)).sort(() => Math.random() - 0.5));
+        setUsedAttempts(savedAttempts);
+        if (wasCorrect) {
+          setSubmitted(true);
+        } else if (savedAttempts >= maxAttempts) {
+          setAttemptsExhausted(true);
         }
-        setSlots(initialSlots);
-        setPool([...flatAll].sort(() => Math.random() - 0.5).map(w => w.word));
         setLoading(false);
-      });
-  }, [c.groups]);
+        return;
+      } catch {}
+    }
+    setSlots(initialSlots);
+    setPool([...flatAll].sort(() => Math.random() - 0.5).map(w => w.word));
+    setLoading(false);
+  }, [initialSubmission]);
 
   const handleDragStart = (e: React.DragEvent, word: string) => {
     e.dataTransfer.setData("text/plain", word);
@@ -1379,7 +1323,7 @@ interface MemoryCard {
   pairId: number;
 }
 
-function MemoryBlock({ block, studentId }: { block: LessonBlock; studentId: string }) {
+function MemoryBlock({ block, initialSubmission }: { block: LessonBlock; initialSubmission?: SavedSubmission | null }) {
   const c = (block.content ?? {}) as Partial<MemoryContent>;
   const pairs = (c.pairs ?? []).filter(p => p.left.trim() && p.right.trim());
   const [deck, setDeck] = useState<MemoryCard[]>([]);
@@ -1390,7 +1334,6 @@ function MemoryBlock({ block, studentId }: { block: LessonBlock; studentId: stri
   const [loading, setLoading] = useState(true);
   const [win, setWin] = useState(false);
   const lock = useRef(false);
-  const supabase = createClient();
 
   const buildDeck = () => {
     const cards: MemoryCard[] = [];
@@ -1402,28 +1345,23 @@ function MemoryBlock({ block, studentId }: { block: LessonBlock; studentId: stri
   };
 
   useEffect(() => {
-    if (pairs.length === 0) { setLoading(false); return; }
-    supabase.from("block_submissions").select("answer").eq("lesson_block_id", block.id)
-      .eq("student_id", studentId).maybeSingle()
-      .then(({ data }) => {
-        if (data?.answer) {
-          try {
-            const parsed = JSON.parse(data.answer);
-            if (parsed && parsed.correct) {
-              const allMatched = new Set(pairs.map((_, i) => `${i}-l`).concat(pairs.map((_, i) => `${i}-r`)));
-              setMatched(allMatched);
-              setSteps(parsed.steps || pairs.length);
-              setWin(true);
-              setDone(true);
-              setLoading(false);
-              return;
-            }
-          } catch {}
+    if (initialSubmission?.answer) {
+      try {
+        const parsed = JSON.parse(initialSubmission.answer);
+        if (parsed && parsed.correct) {
+          const allMatched = new Set(pairs.map((_, i) => `${i}-l`).concat(pairs.map((_, i) => `${i}-r`)));
+          setMatched(allMatched);
+          setSteps(parsed.steps || pairs.length);
+          setWin(true);
+          setDone(true);
+          setLoading(false);
+          return;
         }
-        setDeck(buildDeck());
-        setLoading(false);
-      });
-  }, [c.pairs]);
+      } catch {}
+    }
+    setDeck(buildDeck());
+    setLoading(false);
+  }, [initialSubmission]);
 
   const flip = (id: string) => {
     if (lock.current || matched.has(id) || done) return;
@@ -1512,7 +1450,8 @@ function MemoryBlock({ block, studentId }: { block: LessonBlock; studentId: stri
   );
 }
 
-export function BlockRenderer({ block, studentId }: { block: LessonBlock; studentId?: string }) {
+export function BlockRenderer({ block, studentId, savedByBlock }: { block: LessonBlock; studentId?: string; savedByBlock?: SavedByBlock }) {
+  const initialSubmission = savedByBlock?.[block.id];
 
   const handleCheck = () => {
     if (!studentId) return;
@@ -1537,15 +1476,15 @@ export function BlockRenderer({ block, studentId }: { block: LessonBlock; studen
       {block.type === "text" && <TextBlock block={block} />}
       {block.type === "image" && <ImageBlock block={block} />}
       {block.type === "video" && <VideoBlock block={block} />}
-      {block.type === "fill_blank" && studentId && <FillBlankBlock block={block} studentId={studentId} />}
-      {block.type === "choice" && studentId && <ChoiceBlock block={block} studentId={studentId} />}
-      {block.type === "open_question" && studentId && <OpenQuestionBlock block={block} studentId={studentId} />}
-      {block.type === "audio_answer" && studentId && <AudioAnswerBlock block={block} studentId={studentId} />}
-      {block.type === "video_answer" && studentId && <VideoAnswerBlock block={block} studentId={studentId} />}
-      {block.type === "drag_order" && studentId && <DragOrderBlock block={block} studentId={studentId} />}
-      {block.type === "image_pick" && studentId && <ImagePickBlock block={block} studentId={studentId} />}
-      {block.type === "group_drag" && studentId && <GroupDragBlock block={block} studentId={studentId} />}
-      {block.type === "memory" && studentId && <MemoryBlock block={block} studentId={studentId} />}
+      {block.type === "fill_blank" && studentId && <FillBlankBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "choice" && studentId && <ChoiceBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "open_question" && studentId && <OpenQuestionBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "audio_answer" && studentId && <AudioAnswerBlock block={block} studentId={studentId} initialSubmission={initialSubmission} />}
+      {block.type === "video_answer" && studentId && <VideoAnswerBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "drag_order" && studentId && <DragOrderBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "image_pick" && studentId && <ImagePickBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "group_drag" && studentId && <GroupDragBlock block={block} initialSubmission={initialSubmission} />}
+      {block.type === "memory" && studentId && <MemoryBlock block={block} initialSubmission={initialSubmission} />}
     </div>
   );
 }

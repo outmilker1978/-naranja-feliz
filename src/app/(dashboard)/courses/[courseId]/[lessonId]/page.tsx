@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { BlockRenderer } from "@/components/lesson-blocks/block-renderer";
+import type { SavedByBlock } from "@/components/lesson-blocks/types";
 import { LessonProgressTracker } from "./lesson-progress-tracker";
 import { CompleteLessonButton } from "./complete-lesson-button";
 import { AutoCompleteLesson } from "./auto-complete-lesson";
@@ -101,6 +102,21 @@ export default async function StudentLessonPage({
 
   const blockIds = lessonBlocks?.map(b => b.id) ?? [];
 
+  // Load ALL saved answers for this lesson's blocks in ONE server query.
+  // Before: each interactive block made its own client query to block_submissions
+  // (N parallel requests over the student's network -> slow lesson). Now: 1 request.
+  const savedByBlock: SavedByBlock = {};
+  if (blockIds.length > 0) {
+    const { data: savedSubs } = await supabase
+      .from("block_submissions")
+      .select("lesson_block_id, id, answer, reviewed, comment")
+      .eq("student_id", user.id)
+      .in("lesson_block_id", blockIds);
+    for (const s of savedSubs ?? []) {
+      savedByBlock[s.lesson_block_id] = { id: s.id, answer: s.answer, reviewed: !!s.reviewed, comment: s.comment ?? null };
+    }
+  }
+
   const { data: progress } = await supabase
     .from("lesson_progress")
     .select("completed")
@@ -127,7 +143,7 @@ export default async function StudentLessonPage({
         <div className="max-w-3xl mx-auto px-5 md:px-8 py-8">
           <h1 className="text-2xl font-bold text-accent mb-6">{lesson.title}</h1>
           {lessonBlocks?.map((block) => (
-            <BlockRenderer key={block.id} block={block} studentId={user.id} />
+            <BlockRenderer key={block.id} block={block} studentId={user.id} savedByBlock={savedByBlock} />
           ))}
           <div className="mt-8 text-center">
             <CompleteLessonButton lessonId={lessonId} studentId={user.id} blocks={lessonBlocks ?? []} initialCompleted={progress?.completed ?? false} />
