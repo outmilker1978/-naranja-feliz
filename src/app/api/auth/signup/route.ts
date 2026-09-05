@@ -3,8 +3,10 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseFetch } from "@/lib/supabase/server";
+import { requestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: Request) {
+  const origin = requestOrigin(request);
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
@@ -12,7 +14,7 @@ export async function POST(request: Request) {
 
   if (!email || !password || !fullName) {
     return NextResponse.redirect(
-      new URL(`/register?error=${encodeURIComponent("Все поля обязательны")}`, process.env.NEXT_PUBLIC_SITE_URL!),
+      new URL(`/register?error=${encodeURIComponent("Все поля обязательны")}`, origin),
     );
   }
 
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL(`/register?error=${encodeURIComponent(error.message)}`, process.env.NEXT_PUBLIC_SITE_URL!),
+      new URL(`/register?error=${encodeURIComponent(error.message)}`, origin),
     );
   }
 
@@ -78,11 +80,11 @@ export async function POST(request: Request) {
   const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
   if (signInError) {
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(signInError.message)}`, process.env.NEXT_PUBLIC_SITE_URL!),
+      new URL(`/login?error=${encodeURIComponent(signInError.message)}`, origin),
     );
   }
 
-  const response = NextResponse.redirect(new URL("/courses", process.env.NEXT_PUBLIC_SITE_URL!));
+  const response = NextResponse.redirect(new URL("/courses", origin));
   for (const { name, value, options } of pendingCookies) {
     response.cookies.set(name, value, options);
   }

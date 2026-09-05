@@ -3,15 +3,18 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseFetch } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { requestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: Request) {
+  // Redirect base = the host the CLIENT actually used (via forwarded headers).
+  const origin = requestOrigin(request);
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
 
   if (!email || !password) {
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent("Email и пароль обязательны")}`, process.env.NEXT_PUBLIC_SITE_URL!),
+      new URL(`/login?error=${encodeURIComponent("Email и пароль обязательны")}`, origin),
     );
   }
 
@@ -19,7 +22,7 @@ export async function POST(request: Request) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!checkRateLimit(ip, "login", { windowMs: 60_000, max: 15 })) {
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent("Слишком много попыток входа. Подождите минуту.")}`, process.env.NEXT_PUBLIC_SITE_URL!),
+      new URL(`/login?error=${encodeURIComponent("Слишком много попыток входа. Подождите минуту.")}`, origin),
     );
   }
 
@@ -47,11 +50,11 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(error.message)}`, process.env.NEXT_PUBLIC_SITE_URL!),
+      new URL(`/login?error=${encodeURIComponent(error.message)}`, origin),
     );
   }
 
-  const response = NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_SITE_URL!));
+  const response = NextResponse.redirect(new URL("/", origin));
   for (const { name, value, options } of pendingCookies) {
     response.cookies.set(name, value, options);
   }

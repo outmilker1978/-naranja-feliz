@@ -1,30 +1,23 @@
-/* PWA service worker — safe caching:
-   - Hashed static assets (_next/static/*) -> cache-first (immutable names).
-   - Navigations -> network-first with a hard timeout (a cold/hung server must
-     never leave the tab spinner spinning forever); offline fallback to the
-     cached shell, else a plain 503.
-   - Everything else -> cache-first, revalidate in background with timeout.
-   Never responds with `undefined` (which made Chrome throw
-   "Failed to convert value to 'Response'" and kept the favicon spinner alive).
-   Only successful (ok) network responses are cached. */
-const CACHE = "nf-v3";
+/* PWA service worker — safe caching.
+   Lessons learned (v4→v5):
+   - NEVER clone/cache responses that Next.js streams (RSC payloads, streamed
+     SSR pages): grabbing a copy locks the body of the Response we then hand
+     back, and Chrome aborts with "a Response whose body is locked cannot be
+     used to respond to a request".
+   - NEVER time out navigations with a small budget: a cold Serverless
+     container boots in tens of seconds; a 15s timeout made the SW fabricate
+     "503 Offline" for healthy pages.
+   Only hashed static assets (_next/static/*) are cached (immutable names,
+     non-streaming). Everything else is a transparent pass-through so the
+     network is the single source of truth, with a plain 503 only on real
+     network failures. */
+const CACHE = "nf-v5";
 
-const FETCH_TIMEOUT_MS = 15000;
 const OFFLINE = new Response("Нет соединения", {
   status: 503,
   statusText: "Offline",
   headers: { "Content-Type": "text/plain; charset=utf-8" },
 });
-
-function withTimeout(promise, ms) {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("sw-fetch-timeout")), ms);
-    promise.then(
-      (v) => { clearTimeout(timer); resolve(v); },
-      (e) => { clearTimeout(timer); reject(e); }
-    );
-  });
-}
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -43,66 +36,43 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
 
-  // Streaming media though the storage proxy: never intercept. Range/206 responses
-  // cannot be cloned/cached by a Service Worker (breaks seeking and playback), and a
-  // hung upstream must surface to the <audio>/<video> element, not the SW 503 shell.
+  // Streaming media through the storage proxy (and its signed-URL redirect to
+  // Supabase): never intercept. Range/206 responses can't be cloned/cached by a
+  // Service Worker (breaks seeking/playback), and a hung upstream must surface
+  // to the player, not the SW 503 shell.
   if (url.origin === location.origin && url.pathname.startsWith("/api/storage/")) {
-    event.respondWith(fetch(req));
+    event.respondWith(fetch(req).catch(() => OFFLINE));
     return;
   }
 
-  // Next.js static build assets — immutable hashed filenames, safe to cache-first.
+  // Next.js static build assets — immutable hashed filenames, non-streaming and
+  // safe to cache-first. Everything read to its end before caching.
   if (url.origin === location.origin && url.pathname.startsWith("/_next/static/")) {
     event.respondWith(
       caches.match(req).then((cached) => {
         if (cached) return cached;
-        return withTimeout(fetch(req), FETCH_TIMEOUT_MS).then((res) => {
+return fetch(req).then((res) => {
           if (res.ok) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy));
           }
           return res;
-        });
-      })
+        }).catch(() => OFFLINE)
     );
     return;
   }
 
-  // Navigations — always try network first (fresh content), bounded by a timeout
-  // so a slow server never freezes the tab. Offline -> cached shell, else 503.
-  if (req.mode === "navigate") {
-    event.respondWith(
-      withTimeout(fetch(req), FETCH_TIMEOUT_MS)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put("/", copy));
-          }
-          return res;
-        })
-        .catch(async () => {
-          const cached = await caches.match("/");
-          return cached || OFFLINE;
-        })
-    );
-    return;
-  }
-
-  // Other same-origin GETs — cache-first, background revalidate with timeout.
+  // Everything else (page navigations, Next RSC payloads, JSON APIs): plain
+  // pass-through to the network. No timeout, no cloning, no response caching —
+  // a cold container just takes a few seconds and the tab keeps waiting
+  // instead of failing. Offline → cached shell for the root, else 503.
   if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(req).then((cached) => {
-        if (cached) return cached;
-        return withTimeout(fetch(req), FETCH_TIMEOUT_MS)
-          .then((res) => {
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(req, copy));
-            }
-            return res;
-          })
-          .catch(() => OFFLINE);
+      fetch(req).catch(async () => {
+        const cached = await caches.match("/");
+        return cached || OFFLINE;
       })
     );
+    return;
   }
 });

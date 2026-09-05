@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import sharp from "sharp";
+import { createClient } from "@/lib/supabase/server";
 
 const SUPABASE_URL = "https://zphehhzgbudetyzezunk.supabase.co";
 
@@ -50,6 +51,10 @@ const MEDIA_EXTS = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "mp4", "w
 // client's range). Media elements + PDF viewers continue with small Range
 // requests, so playback/seeking works exactly like a static file server.
 const MAX_MEDIA_SLICE = 1024 * 1024;
+
+// Hard cap for responses served whole as 200. Must stay well under the Yandex
+// entity limit (3,670,016 B): we keep a comfortable margin.
+const MAX_FULL_RESPONSE = 3_400_000;
 
 const mediaInflight = new Set<string>();
 
@@ -247,6 +252,7 @@ export async function GET(
     // anon RLS policy but NOT opened publicly (key-less GET returns 403).
     // Sending the (public by design) anon key keeps the proxy working for both cases.
     const range = req.headers.get("range");
+    const hasRangeHeader = !isImage && !!range;
     let rangeHeader: string | undefined;
     // Non-image (audio/video/pdf) responses are capped to MAX_MEDIA_SLICE in
     // EVERY environment: a bigger response entity gets killed by the Yandex
@@ -344,6 +350,50 @@ export async function GET(
     if (!got.ok) {
       return NextResponse.json({ error: got.statusText }, { status: got.statusCode });
     }
+    // A plain GET (no Range) must return the COMPLETE document as 200, or the
+    // browser's PDF viewer / navigation treats the resource as broken. Files
+    // that fit under the serverless response limit are re-fetched whole here;
+    // bigger ones stay on the 206 slice below (media players request ranges
+    // anyway). In dev media goes to the materialized static file instead.
+    if (process.env.NODE_ENV !== "development" && !hasRangeHeader && !isImage) {
+      const total = parseTotal(got.headers["content-range"]);
+      if (total > 0 && total <= MAX_FULL_RESPONSE) {
+        lastStage = "fullGet";
+        const full = await rawGetRetryFull(upstream, { Authorization: headers.Authorization ?? "" });
+        if (full.ok) {
+          return new NextResponse(new Uint8Array(full.buffer), {
+            status: 200,
+            headers: new Headers({
+              "Content-Type": EXT_TO_MIME[ext] || (firstHeader(full.headers, "content-type") ?? "application/octet-stream"),
+              "Cache-Control": "public, max-age=3600",
+              "Accept-Ranges": "bytes",
+              "Content-Length": String(full.buffer.length),
+              "x-nf-mode": "full",
+            }),
+          });
+        }
+      }
+    }
+    if (process.env.NODE_ENV !== "development" && !hasRangeHeader && !isImage) {
+      const total = parseTotal(got.headers["content-range"]);
+      if (total > MAX_FULL_RESPONSE) {
+        // Plain browser navigation to a resource too large for a full 200 must
+        // not dead-end in a truncated 206 (Chrome's PDF viewer refuses such
+        // documents). Answer with a tiny helper page that reconstructs the file
+        // from range slices on the client, so arbitrarily large PDFs keep
+        // working despite the 3.5MB gateway cap.
+        lastStage = "assistHtml";
+      const html = `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Файл</title><style>html,body{height:100%;margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}body{display:flex;flex-direction:column;align-items:stretch}#bar{flex:0 0 auto;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid #e4e4e7;font-size:14px;color:#3f3f46}#hint{color:#71717a}#dl{display:none;background:#0a9d79;color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer;text-decoration:none}#viewer{flex:1 1 auto;border:0;width:100%;min-height:0}#msg{padding:40px;text-align:center;color:#3f3f46}</style></head><body><div id="bar"><span id="state">Подключение к файлу…</span><span id="hint">Этот файл слишком велик для прямого показа, собираем частями…</span><a id="dl" download>Скачать</a></div><div id="msg"></div><iframe id="viewer" style="display:none" allowfullscreen></iframe><script>(function(){var url=new URL(location.href);var SLICE=1048576;function msg(t){var m=document.getElementById("msg");m.textContent=t;}function state(t,i,n){var s=document.getElementById("state");s.textContent=t+" — "+Math.floor(i*100/n)+"%";}async function run(){var first;try{first=await fetch(url,{headers:{Range:"bytes=0-"+(SLICE-1)}});}catch(e){msg("Не удалось открыть файл (нет соединения). Проверьте интернет и попробуйте ещё раз.");return;}if(!first.ok){msg("Не удалось открыть файл (ошибка "+first.status+").");return;}var m=/bytes 0-\\d+\\/(\\d+)/.exec(first.headers.get("Content-Range")||"");var total=parseInt(m?m[1]:"0",10);if(!total){msg("Не удалось определить размер файла.");return;}var parts=[first.arrayBuffer()];var off=SLICE;while(off<total){state("Загрузка файла",off,total);var r=null;try{r=await fetch(url,{headers:{Range:"bytes="+off+"-"+(off+SLICE-1)}});}catch(e){break;}if(!r.ok){msg("Обрыв загрузки на байте "+off+".");return;}parts.push(r.arrayBuffer());off+=SLICE;}var body=await Promise.all(parts);msg("Готово — открываю…");var blob=new Blob(body,{type:"application/pdf"});var obj=URL.createObjectURL(blob);var name=decodeURIComponent(url.pathname.split("/").pop()||"file.pdf");document.title=name;var v=document.getElementById("viewer");v.src=obj;v.style.display="block";var bar=document.getElementById("hint");bar.textContent="PDF собран из "+body.length+" частей";var dl=document.getElementById("dl");dl.href=obj;dl.download=name;dl.style.display="inline-block";}run();})();<\/script></body></html>`;
+      return new NextResponse(html, {
+        status: 200,
+        headers: new Headers({
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "private, no-store",
+          "x-nf-mode": "assist",
+        }),
+      });
+      }
+    }
     const contentType = EXT_TO_MIME[ext] || (firstHeader(got.headers, "content-type") ?? "application/octet-stream");
     const respStatus = got.statusCode;
     const contentRange = firstHeader(got.headers, "content-range");
@@ -364,7 +414,41 @@ export async function GET(
       const staticUrl = `/_media/${name}`;
       if (!existsSync(target) && !mediaInflight.has(name)) {
         mediaInflight.add(name);
-        try {
+// AUTH-GATED DIRECT DOWNLOADS. The Yandex serverless gateway caps any
+  // response body at ~3.5MB — far too small for real lesson media and books.
+  // Instead of proxying (and slicing) audio/video/PDF ourselves, hand the
+  // client a short-lived Supabase signed URL: the browser/player then fetches
+  // the file straight from Supabase, bypassing the gateway cap entirely (PDFs
+  // of any size open instantly; media gets native range seeking). Signed URLs
+  // are issued only by this server (service role) and expire in 6h, so bucket
+  // access stays gated. Images keep using the resize proxy above.
+  if (!isImage) {
+    const slash = filePath.indexOf("/");
+    const bucket = slash > 0 ? filePath.slice(0, slash) : "";
+    const objectPath = slash > 0 ? filePath.slice(slash + 1) : "";
+    if (bucket && objectPath) {
+      try {
+        // User-scoped (session cookie) signing: works without the service-role
+        // key and respects each bucket's RLS policy.
+        const svc = await createClient();
+        const { data, error } = await svc.storage.from(bucket).createSignedUrl(objectPath, 21600);
+        if (!error && data?.signedUrl) {
+          return new NextResponse(null, {
+            status: 307,
+            headers: {
+              Location: data.signedUrl,
+              "Cache-Control": "private, no-store",
+              "x-nf-mode": "signed",
+            },
+          });
+        }
+      } catch {
+        // Signed-URL service hiccup → fall through to the slice proxy below.
+      }
+    }
+  }
+
+  try {
           mkdirSync(dir, { recursive: true });
           const tmp = `${target}.part`;
           if (!existsSync(target)) {

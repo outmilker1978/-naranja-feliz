@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseFetch } from "@/lib/supabase/server";
+import { requestOrigin } from "@/lib/request-origin";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/";
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://naranja.outmilk.online";
+  const siteUrl = requestOrigin(request);
 
   if (code) {
     const supabase = createServerClient(

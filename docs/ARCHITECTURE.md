@@ -363,3 +363,30 @@ npm run build    # production сборка (output: standalone)
 ### B7 (кэш публичных страниц) — объяснение, почему не сделано
 - `export const revalidate = 60` на публичные страницы (catalog/content/reviews/about/teachers) **не даёт ISR**: страницы остаются `ƒ Dynamic`, т.к. `supabaseFetch` (`server.ts`) делает обычный `fetch` без `next:{revalidate}`.
 - Включение revalidate при данных из cookies/авторизации рискованно (устаревший контент учителя). Отклонено на сессии 04.09.2026.
+
+## Отдача файлов из Supabase Storage (v0.8.2, 05.09.2026)
+
+### Потолок платформы
+Yandex Serverless Containers обрезает любой ответ на **3 670 016 Б (~3.5MB)** → `JobResponseTooLong`, у клиента EOF/502/битые файлы. Нельзя гонять файлы целиком через шлюз.
+
+### Схема `/api/storage/[...path]`
+1. **Картинки** (`image/*`) — локальный resize-прокси (до 1920px, WebP/AVIF) — как раньше.
+2. **Не-картинки** — попытка **307 → подписанный URL Supabase** (`createSignedUrl`, 6ч; подпись подключалась на пользовательском `createClient()` через cookies чтобы не зависеть от service-role). **НЕ АКТИВНО (ишью #53):** `createSignedUrl` в контейнере падает, внешний тест с `apikey`+`Authorization` проходит. Пока падает — fallback на п.3-4.
+3. **Запрос с Range** — BFF делает upstream `Range: bytes=0-1048575` (1MB), отдаёт 206 + `Content-Range`; клиент (media) склеивает (`fix-range`).
+4. **Plain GET** — веб-страница-«сборщик» (assist): JS клиента сам выкатывает слайсы по 1MB и собирает Blob (PDF и др.). Проверено end-to-end, работает для файлов любых размеров.
+
+### Service worker (`public/sw.js, v5`)
+- Не клонирует RSC-ответы (ошибка «Response whose body is locked» валила `Сохранить урок»); не таймаутит навигацию (был ложный `503 Offline`); кэширует только `/_next/static/`. Версия меняется через `nf-v{n}`; активация — перезагрузка браузера.
+
+### Origin из шлюза (`src/lib/request-origin.ts`)
+Yandex gateway направляет запрос в контейнер с реальным origin как `https://0.0.0.0:8080` — нельзя читать из `request.url`/`headers.host`. Origin берётся из `x-forwarded-proto`/`x-forwarded-host` (их ставит шлюз), иначе падает на `proto`/`host`, в самом крайнем случае — `https://localhost:3000`.
+
+### Ручной деплой — ОБЯЗАТЕЛЬНО build-args + Environment
+`NEXT_PUBLIC_*` запекаются на сборке. Для прод-ревизии должны совпадать со `deploy.yml`:
+- build-args: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL=https://naranja.outmilk.online`;
+- `--environment` ревизии: прод-значения + секреты из `.env.local` (SMTP, Yandex, CRON_SECRET).
+- `.env.local` НЕ использовать для прод-сборки: там `NEXT_PUBLIC_SITE_URL=http://localhost:3000`.
+
+### Известные проблемы среды (05.09.2026)
+- `SUPABASE_SERVICE_ROLE_KEY` в `.env.local` просрочен (`Invalid Compact JWS` на `/storage/v1/object/sign`; проверено и с `apikey`-заголовком). Ломает `createServiceClient/createAdminClient` (оплата, админ-операции). Заменить из Supabase Studio → Settings → API → service_role (ишью #55).
+- GET-тесты к Supabase Storage требуют ДВА заголовка: `apikey` + `Authorization: Bearer` — иначе ложный `403 Invalid Compact JWS`.

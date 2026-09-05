@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createPayment } from "@/lib/yookassa";
+import { requestOrigin } from "@/lib/request-origin";
 
 const PLANS: Record<string, { price: number; days: number; label: string }> = {
   "1m": { price: 700, days: 30, label: "Подписка на 1 месяц" },
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   if (!plan) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
 
   const svc = createServiceClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
+  const siteUrl = requestOrigin(req);
 
   const yooPayment = await createPayment({
     amount: plan.price,

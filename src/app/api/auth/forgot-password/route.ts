@@ -2,8 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseFetch } from "@/lib/supabase/server";
+import { requestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: Request) {
+  const origin = requestOrigin(request);
   const { email } = await request.json();
   if (!email) {
     return NextResponse.json({ error: "Email обязателен" }, { status: 400 });
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
   );
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL!}/auth/callback?next=/reset-password`,
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
   });
 
   if (error) {
