@@ -60,3 +60,6 @@ next-env.d.ts
 # local dev-only utilities / rollback backups (not for the repo)
 backup-pre-opt/
 src/app/api/debug/perf/
+
+# dev-materialized media cache (route downloads storage files here in dev)
+public/_media/

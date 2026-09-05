@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, Plus, X, FlipHorizontal, List, Shuffle, ArrowLeft, ArrowRight, Volume2, Layers, MessageCircle, GraduationCap } from "lucide-react";
+import { speakSpanish } from "@/lib/speech";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -34,6 +35,7 @@ export default function VocabularyPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [cardIdx, setCardIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [playBusy, setPlayBusy] = useState(false);
 
   const load = async (q?: string) => {
     const params = new URLSearchParams();
@@ -181,8 +183,9 @@ export default function VocabularyPage() {
                     <td className="p-2"><input type="checkbox" checked={selected.has(w.id)} className="accent-primary-500"
                       onChange={() => setSelected(prev => { const n = new Set(prev); if (n.has(w.id)) n.delete(w.id); else n.add(w.id); return n; })} /></td>
                     <td className="p-2 font-medium text-accent whitespace-nowrap">{w.word}
-                      <button onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(w.word); u.lang = "es-ES"; u.rate = 0.8; speechSynthesis.speak(u); }}
-                        className="ml-1.5 p-1 rounded hover:bg-primary-50 text-primary-400 hover:text-primary-600 transition-colors align-middle inline-flex">
+                      <button onClick={(e) => { e.stopPropagation(); if (playBusy) return; setPlayBusy(true); speakSpanish(w.word, () => setPlayBusy(false)); }}
+                        title="Озвучить"
+                        className={`ml-1.5 p-1 rounded transition-all align-middle inline-flex ${playBusy ? "bg-primary-100 text-primary-600 cursor-default" : "hover:bg-primary-50 text-primary-400 hover:text-primary-600"}`}>
                         <Volume2 className="w-3.5 h-3.5" />
                       </button>
                     </td>

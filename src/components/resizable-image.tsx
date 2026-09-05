@@ -1,6 +1,7 @@
 import { NodeViewProps, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import { Image as TiptapImage } from "@tiptap/extension-image";
 import { useCallback, useRef, useEffect, useState } from "react";
+import { proxyImgUrl } from "@/lib/image-proxy";
 
 const ResizableImageComponent = ({ node, updateAttributes, selected }: NodeViewProps) => {
   const imgRef = useRef<HTMLImageElement>(null);
@@ -40,7 +41,7 @@ const ResizableImageComponent = ({ node, updateAttributes, selected }: NodeViewP
       setIsResizing(false);
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
-      updateAttributes({ style: `max-width: ${lastWidthRef.current}px; height: auto;` });
+      updateAttributes({ style: `max-width: ${Math.round(lastWidthRef.current)}px; height: auto;` });
     };
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
@@ -54,7 +55,7 @@ const ResizableImageComponent = ({ node, updateAttributes, selected }: NodeViewP
       <div className={`inline-block relative ${selected || isResizing ? "ring-2 ring-primary-400 rounded" : ""}`} style={{ textAlign: "initial" }}>
         <img
           ref={imgRef}
-          src={node.attrs.src}
+          src={proxyImgUrl(node.attrs.src) || node.attrs.src}
           alt={node.attrs.alt || ""}
           style={{ maxWidth: "100%", height: "auto", display: "block", ...(style ? parseStyle(style) : {}) }}
           onLoad={() => {

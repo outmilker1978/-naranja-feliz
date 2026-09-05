@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useVocabPicker } from "@/components/vocab-picker-context";
 import { BookOpen, BookMarked, X, Volume2, Loader2, Check, Languages } from "lucide-react";
+import { speakSpanish } from "@/lib/speech";
 
 const TIMEOUT = 10000;
 
@@ -53,6 +54,7 @@ export function VocabPickerFab({ lessonId }: { lessonId: string }) {
 
   const [fullTrans, setFullTrans] = useState<{ text: string; translation: string } | null>(null);
   const [fullTransLoading, setFullTransLoading] = useState(false);
+  const [playBusy, setPlayBusy] = useState(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -330,12 +332,8 @@ export function VocabPickerFab({ lessonId }: { lessonId: string }) {
               </div>
             </div>
             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
-              <button onClick={() => {
-                const u = new SpeechSynthesisUtterance(fullTrans.text);
-                u.lang = "es-ES"; u.rate = 0.7;
-                speechSynthesis.speak(u);
-              }} className="flex items-center gap-1.5 text-xs font-medium text-primary-500 hover:text-primary-600 transition-colors">
-                <Volume2 className="w-4 h-4" /> Озвучить
+              <button onClick={() => { if (playBusy) return; setPlayBusy(true); speakSpanish(fullTrans.text, () => setPlayBusy(false)); }} className={`flex items-center gap-1.5 text-xs font-medium rounded-lg px-2 py-1 transition-all ${playBusy ? "bg-primary-100 text-primary-600 cursor-default" : "text-primary-500 hover:bg-primary-50 hover:text-primary-600"}`}>
+                <Volume2 className="w-4 h-4" /> {playBusy ? "Озвучиваю…" : "Озвучить"}
               </button>
             </div>
           </div>
@@ -361,8 +359,9 @@ export function VocabPickerFab({ lessonId }: { lessonId: string }) {
 
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold text-accent">{word}</span>
-                  <button onClick={() => { const u = new SpeechSynthesisUtterance(word); u.lang = "es-ES"; u.rate = 0.8; speechSynthesis.speak(u); }}
-                    className="p-1.5 rounded-lg hover:bg-primary-50 text-primary-500 transition-colors">
+<button onClick={() => { if (playBusy) return; setPlayBusy(true); speakSpanish(word, () => setPlayBusy(false)); }}
+                    title="Озвучить"
+                    className={`p-1.5 rounded-lg border transition-all ${playBusy ? "bg-primary-100 border-primary-200 text-primary-600 cursor-default" : "border-transparent text-primary-500 hover:bg-primary-50 hover:border-primary-200"}`}>
                     <Volume2 className="w-4 h-4" />
                   </button>
                 </div>

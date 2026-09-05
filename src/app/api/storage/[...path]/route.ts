@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import http from "node:http";
+import https from "node:https";
 import sharp from "sharp";
 
 const SUPABASE_URL = "https://zphehhzgbudetyzezunk.supabase.co";
@@ -36,6 +39,100 @@ function cacheGet(key: string) {
     return null;
   }
   return hit;
+}
+
+const MEDIA_EXTS = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "mp4", "webm", "ogv"]);
+
+const mediaInflight = new Set<string>();
+
+let lastStage = "init";
+
+// Fetch one range slice with node's own http client. The Next-patched fetch
+// chokes on upstream Range responses ("TypeError: terminated"), so media is
+// read here instead. Returns the slice bytes + total size from Content-Range.
+function rawGet(
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs = 30000,
+): Promise<{
+  ok: boolean;
+  statusCode: number;
+  statusText: string;
+  headers: Record<string, string | string[] | undefined>;
+  buffer: Buffer;
+}> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const mod = u.protocol === "http:" ? http : https;
+    const req = mod.request(
+      {
+        method: "GET",
+        hostname: u.hostname,
+        port: u.port || (u.protocol === "http:" ? 80 : 443),
+        path: `${u.pathname}${u.search}`,
+        headers: {
+          Accept: "*/*",
+          "Accept-Encoding": "identity",
+          "User-Agent": "NaranjaFeliz/1.0",
+          "X-Client-Info": "node-https/1.0",
+          Connection: "close",
+          ...headers,
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("error", (e) => reject(e));
+        res.on("end", () => {
+          resolve({
+            ok: res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300,
+            statusCode: res.statusCode ?? 0,
+            statusText: res.statusMessage ?? "",
+            headers: res.headers as Record<string, string | string[] | undefined>,
+            buffer: Buffer.concat(chunks),
+          });
+        });
+      },
+    );
+    req.setTimeout(timeoutMs, () => req.destroy(new Error("upstream timeout")));
+    req.on("error", (e) => reject(e));
+    req.end();
+  });
+}
+
+async function rawGetRetryFull(url: string, headers: Record<string, string>, attempts = 5) {
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await rawGet(url, headers);
+      if (!res.ok) throw new Error(`upstream ${res.statusCode} ${res.statusText}`);
+      return res;
+    } catch (e) {
+      lastErr = e as Error;
+      await new Promise((r) => setTimeout(r, 800));
+    }
+  }
+  throw lastErr ?? new Error("upstream fetch failed");
+}
+
+async function rawGetRetry(url: string, headers: Record<string, string>, start: number, end: number, attempts = 5) {
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const res = await rawGet(url, { ...headers, Range: `bytes=${start}-${end}` });
+      if (!res.ok) throw new Error(`slice ${start}-${end}: ${res.statusCode} ${res.statusText}`);
+      return res;
+    } catch (e) {
+      lastErr = e as Error;
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+  }
+  throw lastErr ?? new Error("slice fetch failed");
+}
+
+function parseTotal(contentRange: string | string[] | undefined): number {
+  const m = /bytes \d+-\d+\/(\d+)/.exec(Array.isArray(contentRange) ? contentRange[0] ?? "" : contentRange ?? "");
+  return m ? Number.parseInt(m[1], 10) : -1;
 }
 
 function parseQuality(q: string | null, fallback: number): number {
@@ -138,18 +235,53 @@ export async function GET(
   }
 
   try {
-    const resp = await fetch(upstream);
-    if (!resp.ok) {
-      return NextResponse.json({ error: resp.statusText }, { status: resp.status });
+    // Present as an anonymous Supabase user: some buckets are readable via the
+    // anon RLS policy but NOT opened publicly (key-less GET returns 403).
+    // Sending the (public by design) anon key keeps the proxy working for both cases.
+    const range = req.headers.get("range");
+    let rangeHeader = range ?? undefined;
+    // DEV-ONLY: this machine's ISP drops large bodies from supabase.co (audio/video
+    // hang at 0%). The <audio> initial probe is often an open-ended "bytes=0-" which
+    // proxies the whole file. Cap any range bigger than 1MB to a bounded window so
+    // the first chunk arrives fast and the browser continues with small ranges.
+    if (process.env.NODE_ENV === "development") {
+      const m = /^bytes=(\d+)-(\d+)?$/.exec(range ?? "");
+      if (m) {
+        const start = parseInt(m[1], 10);
+        const end = m[2] ? parseInt(m[2], 10) : Number.MAX_SAFE_INTEGER;
+        if (end - start > 1024 * 1024) rangeHeader = `bytes=${start}-${start + 1024 * 1024 - 1}`;
+      } else if (!range) {
+        rangeHeader = "bytes=0-1048575";
+      }
     }
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""}`,
+      ...(rangeHeader ? { Range: rangeHeader } : {}),
+    };
 
-    const buffer = Buffer.from(await resp.arrayBuffer());
-    const contentType = EXT_TO_MIME[ext] || resp.headers.get("content-type") || "application/octet-stream";
-
-    let output: Buffer;
-    let outMime = contentType;
-    let vary = false;
     if (isImage) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      let resp: Response;
+      try {
+        resp = await fetch(upstream, { headers, signal: controller.signal, cache: "no-store" });
+      } catch (e) {
+        clearTimeout(timeoutId);
+        if ((e as Error).name === "AbortError") {
+          return NextResponse.json({ error: "upstream timeout" }, { status: 504 });
+        }
+        throw e;
+      }
+      clearTimeout(timeoutId);
+      if (!resp.ok) {
+        return NextResponse.json({ error: resp.statusText }, { status: resp.status });
+      }
+      const buffer = Buffer.from(await resp.arrayBuffer());
+      const contentType = EXT_TO_MIME[ext] || resp.headers.get("content-type") || "application/octet-stream";
+
+      let output: Buffer;
+      let outMime = contentType;
+      let vary = false;
       // Convert animated gif to a static first frame only if a resize is requested.
       let pipeline = sharp(buffer, { animated: ext === "gif" });
       if (width) {
@@ -163,30 +295,116 @@ export async function GET(
       outMime = format === "webp" ? "image/webp" : format === "avif" ? "image/avif" : "image/jpeg";
       // Only vary on Accept when we're doing format negotiation (no explicit ?fm=)
       vary = !requestedFm;
-    } else {
-      output = buffer;
+
+      if (cacheKey && output.length > 0) {
+        cache.set(cacheKey, { buf: output, mime: outMime, vary, ts: Date.now() });
+        if (cache.size > 500) {
+          // Evict oldest entries when the map grows (keep memory bounded)
+          const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts).slice(0, cache.size - 400);
+          for (const [k] of oldest) cache.delete(k);
+        }
+      }
+
+      return new NextResponse(new Uint8Array(output), {
+        status: 200,
+        headers: {
+          "Content-Type": outMime,
+          // Vary: Accept so format negotiation is cached correctly
+          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+          ...(vary ? { "Vary": "Accept" } : {}),
+          "X-Storage-Cache": "miss",
+        },
+      });
     }
 
-    if (cacheKey && output.length > 0) {
-      cache.set(cacheKey, { buf: output, mime: outMime, vary, ts: Date.now() });
-      if (cache.size > 500) {
-        // Evict oldest entries when the map grows (keep memory bounded)
-        const oldest = [...cache.entries()].sort((a, b) => a[1].ts - b[1].ts).slice(0, cache.size - 400);
-        for (const [k] of oldest) cache.delete(k);
+    // Non-image (audio/video/pdf/files): read upstream with node's own http
+    // client. The Next-patched fetch terminates on Range bodies, and the whole
+    // file read must complete before we do anything else (the gateway drops
+    // idle upstream connections after ~5s). Media bytes come back as one
+    // bounded buffer: in dev capped at 1MB; on prod the requested range (or the
+    // full file for plain GETs — our audio files are <=8MB).
+    lastStage = "rawGet";
+    const got = await rawGetRetryFull(upstream, headers);
+    if (!got.ok) {
+      return NextResponse.json({ error: got.statusText }, { status: got.statusCode });
+    }
+    const contentType = EXT_TO_MIME[ext] || (firstHeader(got.headers, "content-type") ?? "application/octet-stream");
+    const respStatus = got.statusCode;
+    const contentRange = firstHeader(got.headers, "content-range");
+    const contentLengthHeader = firstHeader(got.headers, "content-length");
+    const firstBuf = got.buffer;
+
+    // DEV build: media elements request with Accept-Encoding: identity, and the
+    // Next dev server never delivers the BODY of a dynamic route-handler
+    // response for identity requests (headers arrive, body stalls forever) —
+    // static assets stream fine. So in dev we materialize the real file in 1MB
+    // slices to public/_media/ and redirect (302) to the static URL; playback
+    // then works like any static file. First request downloads once, later
+    // requests are served from disk instantly. Production keeps this proxy.
+    if (process.env.NODE_ENV === "development" && MEDIA_EXTS.has(ext)) {
+      const name = filePath.split("/").pop() || "media";
+      const dir = `${process.cwd()}/public/_media`;
+      const target = `${dir}/${name}`;
+      const staticUrl = `/_media/${name}`;
+      if (!existsSync(target) && !mediaInflight.has(name)) {
+        mediaInflight.add(name);
+        try {
+          mkdirSync(dir, { recursive: true });
+          const tmp = `${target}.part`;
+          if (!existsSync(target)) {
+            let total = -1;
+            let i = 0;
+            const step = 1024 * 1024;
+            const chunks: Buffer[] = [];
+            while (total < 0 || i * step < total) {
+              const start = i * step;
+              const end = total >= 0 ? Math.min(start + step - 1, total - 1) : start + step - 1;
+              const slice = await rawGetRetry(upstream, { Authorization: headers.Authorization }, start, end);
+              chunks.push(slice.buffer);
+              total = parseTotal(slice.headers["content-range"]);
+              i++;
+            }
+            writeFileSync(tmp, Buffer.concat(chunks));
+            renameSync(tmp, target);
+          }
+          mediaInflight.delete(name);
+        } catch (e) {
+          mediaInflight.delete(name);
+          // materialization failed → fall through to dynamic buffered/stream path
+        }
+      }
+      if (existsSync(target)) {
+        return new NextResponse(null, {
+          status: 302,
+          headers: { Location: staticUrl, "Cache-Control": "no-store" },
+        });
       }
     }
 
-    return new NextResponse(new Uint8Array(output), {
-      status: 200,
-      headers: {
-        "Content-Type": outMime,
-        // Vary: Accept so format negotiation is cached correctly
-        "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-        ...(vary ? { "Vary": "Accept" } : {}),
-        "X-Storage-Cache": "miss",
-      },
+    // Non-image fallback (dev, if materialization failed; and prod): serve the
+    // already-read upstream bytes with the upstream Range/Content-Range.
+    const streamHeaders = new Headers({
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=3600",
+      "Accept-Ranges": "bytes",
+      "Vary": "Range",
+      "x-nf-mode": "buffer",
     });
+    if (contentRange) streamHeaders.set("Content-Range", contentRange);
+    if (contentLengthHeader) streamHeaders.set("Content-Length", contentLengthHeader);
+
+    lastStage = "bufferOrStream";
+    return new NextResponse(new Uint8Array(firstBuf), { status: respStatus, headers: streamHeaders });
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 });
+    return NextResponse.json({ error: String(e), stage: lastStage }, { status: 500 });
   }
+}
+
+function firstHeader(
+  headers: Record<string, string | string[] | undefined>,
+  key: string,
+): string | null {
+  const v = headers[key];
+  if (v === undefined) return null;
+  return Array.isArray(v) ? v[0] ?? null : v;
 }

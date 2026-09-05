@@ -10,6 +10,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import { ResizableImage } from "@/components/resizable-image";
 import { TranslationMark } from "@/components/translation-mark";
 import { OrangeDividerExtension } from "@/components/tiptap-divider";
+import { speakSpanish } from "@/lib/speech";
 import { EmojiPicker } from "@/components/emoji-picker";
 import { createClient } from "@/lib/supabase/client";
 import { Table } from "@tiptap/extension-table";
@@ -368,10 +369,7 @@ function PreviewWithTranslations({ html, onBack }: { html: string; onBack: () =>
   }, []);
 
   const speak = (text: string) => {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "es-ES";
-    u.rate = 0.8;
-    speechSynthesis.speak(u);
+    speakSpanish(text);
   };
 
   return (

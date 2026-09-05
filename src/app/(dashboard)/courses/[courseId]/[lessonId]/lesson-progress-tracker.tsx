@@ -1,36 +1,27 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { getLessonStatus, setLessonProgress } from "@/lib/lesson-api";
 
 export function LessonProgressTracker({
   lessonId,
-  studentId,
 }: {
   lessonId: string;
-  studentId: string;
 }) {
-  const supabase = createClient();
-
   useEffect(() => {
     const track = async () => {
-      const { data: existing } = await supabase
-        .from("lesson_progress")
-        .select("id")
-        .eq("lesson_id", lessonId)
-        .eq("student_id", studentId)
-        .single();
-
-      if (!existing) {
-        await supabase.from("lesson_progress").insert({
-          lesson_id: lessonId,
-          student_id: studentId,
-          completed: false,
-        });
+      try {
+        const status = await getLessonStatus(lessonId);
+        // Создаём строку прогресса при первом открытии урока.
+        if (!status.hasProgressRow) {
+          await setLessonProgress(lessonId, false);
+        }
+      } catch {
+        // Транзиентный сбой — прогресс создастся при следующем действии.
       }
     };
     track();
-  }, [lessonId, studentId]);
+  }, [lessonId]);
 
   return null;
 }

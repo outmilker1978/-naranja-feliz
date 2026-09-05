@@ -35,20 +35,42 @@ export default async function StudentLessonPage({
   const isAdmin = role === "admin";
   const isOwner = course?.created_by === user.id;
 
-  if (!isOwner && !isAdmin && !rpc.has_access) {
-    redirect("/courses");
-  }
-
-  // Неопубликованный урок виден только владельцу и админу (директор/учительский превью)
-  if (!isOwner && !isAdmin && !lesson.published) {
-    redirect(`/courses/${courseId}`);
-  }
-
   // Навигация: вычисляем prev/next из all_lessons
   const allLessons = rpc.all_lessons ?? [];
   const currentIdx = allLessons.findIndex((l: any) => l.id === lessonId);
   const prevLesson = currentIdx > 0 ? allLessons[currentIdx - 1] : null;
   const nextLesson = currentIdx < allLessons.length - 1 ? allLessons[currentIdx + 1] : null;
+
+  // RPC не возвращает поле "published" урока; опубликованность надёжно
+  // определяется через all_lessons (в него попадают только опубликованные).
+  const isPublished = allLessons.some((l: any) => l.id === lessonId);
+
+  if (!isOwner && !isAdmin && !rpc.has_access) {
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <h1 className="text-xl font-semibold text-zinc-800 mb-2">Урок недоступен</h1>
+      <p className="text-zinc-500 mb-6">
+        Доступ к этому курсу не найден: подписка или подаренный доступ пока не покрывают этот курс.
+      </p>
+      <Link href="/courses" className="inline-block bg-primary-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors">
+        К списку курсов
+      </Link>
+    </main>
+  );
+}
+
+// Неопубликованный урок виден только владельцу и админу (директор/учительский превью)
+if (!isOwner && !isAdmin && !isPublished) {
+  return (
+    <main className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <h1 className="text-xl font-semibold text-zinc-800 mb-2">Урок ещё не опубликован</h1>
+      <p className="text-zinc-500 mb-6">Учитель пока не открыл этот урок для учеников.</p>
+      <Link href={`/courses/${courseId}`} className="inline-block bg-primary-500 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-primary-600 transition-colors">
+        К списку уроков
+      </Link>
+    </main>
+  );
+}
 
   const lessonBlocks = rpc.blocks ?? [];
 
@@ -69,8 +91,8 @@ export default async function StudentLessonPage({
               ← {course?.title}
             </Link>
             <div className="flex items-center gap-2">
-              <LessonProgressTracker lessonId={lessonId} studentId={user.id} />
-              <AutoCompleteLesson lessonId={lessonId} studentId={user.id} blocks={lessonBlocks} initialCompleted={completed} />
+              <LessonProgressTracker lessonId={lessonId} />
+              <AutoCompleteLesson lessonId={lessonId} initialCompleted={completed} />
               <ClearAnswersButton lessonId={lessonId} studentId={user.id} />
             </div>
           </div>
@@ -82,7 +104,7 @@ export default async function StudentLessonPage({
             <BlockRenderer key={block.id} block={block} studentId={user.id} savedByBlock={savedByBlock} />
           ))}
           <div className="mt-8 text-center">
-            <CompleteLessonButton lessonId={lessonId} studentId={user.id} blocks={lessonBlocks} initialCompleted={completed} />
+            <CompleteLessonButton lessonId={lessonId} initialCompleted={completed} />
           </div>
         </div>
       </div>

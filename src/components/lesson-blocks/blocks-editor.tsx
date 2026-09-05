@@ -3,8 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { proxyImgUrl } from "@/lib/image-proxy";
+import { ChevronUp, ChevronDown, Pencil, Trash2 } from "lucide-react";
 import { TiptapEditor } from "@/components/tiptap-editor";
 import { LessonBlock, BlockType, BLOCK_LABELS, BLOCK_DESCRIPTIONS, TextContent, ImageContent, VideoContent, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, DragOrderContent, ImagePickContent, GroupDragContent, MemoryContent } from "./types";
+import { MediaAsset } from "./media-asset";
 
 function convertOldContent(html: string): string {
   return html
@@ -12,7 +15,29 @@ function convertOldContent(html: string): string {
     .replace(/<span[^>]*data-answer="([^"]*)"[^>]*>.*?<\/span>/gi, (_, a) => `[[${a}]]`);
 }
 
-function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock>; onSave: (b: Partial<LessonBlock>) => void; onCancel: () => void }) {
+function VideoBlockPreview({ block }: { block: LessonBlock }) {
+  const c = block.content as VideoContent;
+  const src = c.src;
+  const isEmbed = /(?:youtube\.com\/watch\?v=|youtu\.be\/)/.test(src) || src.includes("rutube.ru/video/") || /(?:vk\.com|vkvideo\.ru)\/video/.test(src);
+  const isCloud = /(?:drive\.google\.com\/file\/d\/|yadi\.sk|disk\.yandex\.)/.test(src);
+  const mediaSrc = proxyImgUrl(src) ?? src;
+  return (
+    <div className="space-y-1">
+      {c.caption && <p className="font-medium text-zinc-700 text-sm">{c.caption}</p>}
+      {isEmbed ? (
+        <span className="text-zinc-400 text-sm">Видео по внешней ссылке (плеер — на уроке)</span>
+      ) : isCloud ? (
+        <a href={src} target="_blank" className="text-primary-500 hover:underline text-sm">Открыть на внешнем сайте</a>
+      ) : c.type === "audio" || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(src) ? (
+        <MediaAsset src={mediaSrc} variant="audio" className="max-w-sm" />
+      ) : (
+        <MediaAsset src={mediaSrc} variant="video" className="max-w-sm rounded-lg" />
+      )}
+    </div>
+  );
+}
+
+function BlockEditForm({ block, onSave, onCancel, saving }: { block: Partial<LessonBlock>; onSave: (b: Partial<LessonBlock>) => void; onCancel: () => void; saving?: boolean }) {
   const type = block.type || "text";
   const content = block.content || {};
 
@@ -264,7 +289,7 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
               <div className="flex gap-2 flex-wrap">
                 {images.map((img, i) => (
                   <div key={i} className="text-xs text-zinc-400">
-                    {i + 1}) {img.src ? <img src={img.src} alt="" loading="lazy" className="w-12 h-12 object-cover rounded border" /> : <span className="text-zinc-300">нет URL</span>}
+                    {i + 1}) {img.src ? <img src={proxyImgUrl(img.src) || img.src} alt="" loading="lazy" className="w-12 h-12 object-cover rounded border" /> : <span className="text-zinc-300">нет URL</span>}
                   </div>
                 ))}
               </div>
@@ -383,8 +408,8 @@ function BlockEditForm({ block, onSave, onCancel }: { block: Partial<LessonBlock
       )}
 
       <div className="flex gap-2 pt-2">
-        <button onClick={() => onSave({ ...block, content: buildContent() })} className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600">Сохранить</button>
-        <button onClick={onCancel} className="text-zinc-500 px-4 py-1.5 rounded-lg text-sm hover:bg-zinc-100">Отмена</button>
+        <button onClick={() => onSave({ ...block, content: buildContent() })} disabled={saving} className="bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-600 disabled:opacity-50">{saving ? "Сохраняю…" : "Сохранить"}</button>
+        <button onClick={onCancel} disabled={saving} className="text-zinc-500 px-4 py-1.5 rounded-lg text-sm hover:bg-zinc-100 disabled:opacity-50">Отмена</button>
       </div>
     </div>
   );
@@ -396,24 +421,36 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
   const [showAdd, setShowAdd] = useState(false);
   const [newType, setNewType] = useState<BlockType>("text");
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const saveBlock = async (block: Partial<LessonBlock>, index: number) => {
     setSaving(true);
-    if (block.id) {
-      await supabase.from("lesson_blocks").update({ content: block.content }).eq("id", block.id);
-    } else {
-      await supabase.from("lesson_blocks").insert({
-        lesson_id: lessonId,
-        type: block.type,
-        content: block.content,
-        order_index: index,
-      });
+    const { error } = block.id
+      ? await supabase.from("lesson_blocks").update({ content: block.content }).eq("id", block.id)
+      : await supabase.from("lesson_blocks").insert({
+          lesson_id: lessonId,
+          type: block.type,
+          content: block.content,
+          order_index: index,
+        });
+    setSaving(false);
+    if (error) {
+      setToast({ kind: "err", text: "Ошибка сохранения: " + error.message });
+      return;
     }
     setBlocks(blocks.map((b, i) => i === index ? { ...b, ...block } as LessonBlock : b));
     setEditingBlockId(null);
-    setSaving(false);
+    setToast({ kind: "ok", text: "✓ Сохранено" });
     router.refresh();
   };
 
@@ -458,48 +495,99 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
     router.refresh();
   };
 
-  const moveBlock = async (index: number, direction: -1 | 1) => {
+  const persistOrder = async (arr: LessonBlock[]) => {
+    const next = arr.map((b, i) => ({ ...b, order_index: i }));
+    setBlocks(next);
+    await Promise.all(next.map((b) => supabase.from("lesson_blocks").update({ order_index: b.order_index }).eq("id", b.id)));
+    router.refresh();
+  };
+
+  const moveBlock = (index: number, direction: -1 | 1) => {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= blocks.length) return;
     const arr = [...blocks];
     [arr[index], arr[newIndex]] = [arr[newIndex], arr[index]];
-    arr.forEach((b, i) => { b.order_index = i; });
-    setBlocks(arr);
-    for (const b of arr) {
-      await supabase.from("lesson_blocks").update({ order_index: b.order_index }).eq("id", b.id);
-    }
-    router.refresh();
+    persistOrder(arr);
+  };
+
+  const reorderTo = (from: number, to: number) => {
+    if (to < 0 || to >= blocks.length || to === from) return;
+    const arr = [...blocks];
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+    persistOrder(arr);
   };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-zinc-800">Блоки урока ({blocks.length})</h2>
+        {toast && (
+          <span className={`text-sm px-3 py-1 rounded ${toast.kind === "ok" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+            {toast.text}
+          </span>
+        )}
       </div>
 
       {blocks.map((block, i) => (
-        <div key={block.id} className="relative group border border-zinc-200 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs bg-primary-50 text-primary-500 px-2 py-0.5 rounded-full font-medium">{BLOCK_LABELS[block.type]}</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => moveBlock(i, -1)} disabled={i === 0} className="text-zinc-400 hover:text-secondary disabled:opacity-30 text-sm px-1">↑</button>
-              <button onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1} className="text-zinc-400 hover:text-secondary disabled:opacity-30 text-sm px-1">↓</button>
-              {editingBlockId !== block.id && <button onClick={() => setEditingBlockId(block.id)} className="text-zinc-400 hover:text-blue-600 text-sm px-1">✎</button>}
-              <button onClick={() => deleteBlock(block.id)} className="text-zinc-400 hover:text-red-600 text-sm px-1">✕</button>
-            </div>
+        <div
+          key={block.id}
+          onDragOver={(e) => { e.preventDefault(); setDragTarget(i); }}
+          onDrop={() => { if (dragIndex !== null && dragIndex !== i) reorderTo(dragIndex, i); setDragIndex(null); setDragTarget(null); }}
+          onDragLeave={() => setDragTarget(null)}
+          onDragEnd={() => { setDragIndex(null); setDragTarget(null); }}
+          className={`relative group flex gap-3 border rounded-xl p-4 transition-colors ${
+            dragTarget === i ? "border-primary-400 bg-primary-50/40"
+              : dragIndex === i ? "border-zinc-300 bg-zinc-50 opacity-60"
+              : "border-zinc-200 bg-white"
+          }`}
+        >
+          <div
+            draggable
+            onDragStart={() => setDragIndex(i)}
+            title="Потяни, чтобы переставить (или стрелками)"
+            className="flex flex-col items-center justify-center gap-1 shrink-0 w-12 bg-zinc-50 border border-zinc-200 rounded-lg cursor-grab active:cursor-grabbing py-1.5 select-none"
+          >
+            <button onClick={() => moveBlock(i, -1)} disabled={i === 0} title="Переместить выше"
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-zinc-500 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition active:scale-95">
+              <ChevronUp className="w-5 h-5" />
+            </button>
+            <span className="text-[10px] font-medium text-zinc-400">{i + 1}</span>
+            <button onClick={() => moveBlock(i, 1)} disabled={i === blocks.length - 1} title="Переместить ниже"
+              className="flex items-center justify-center w-9 h-9 rounded-lg text-zinc-500 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition active:scale-95">
+              <ChevronDown className="w-5 h-5" />
+            </button>
           </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs bg-primary-50 text-primary-500 px-2 py-0.5 rounded-full font-medium">{BLOCK_LABELS[block.type]}</span>
+              <div className="flex items-center gap-1.5">
+                {editingBlockId !== block.id && (
+                  <button onClick={() => setEditingBlockId(block.id)} title="Редактировать"
+                    className="flex items-center justify-center w-9 h-9 rounded-lg text-zinc-500 hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 transition active:scale-95">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                <button onClick={() => deleteBlock(block.id)} title="Удалить блок"
+                  className="flex items-center justify-center w-9 h-9 rounded-lg text-zinc-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition active:scale-95">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
           {editingBlockId === block.id ? (
             <BlockEditForm
               block={block}
               onSave={(b) => saveBlock(b, i)}
               onCancel={() => setEditingBlockId(null)}
+              saving={saving}
             />
           ) : (
             <div className="text-sm text-zinc-600">
               {block.type === "text" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: convertOldContent((block.content as TextContent).html || "") }} />}
               {block.type === "image" && <span className="text-zinc-400">{(block.content as ImageContent).caption || (block.content as ImageContent).src} {(block.content as ImageContent).width && <span className="text-zinc-300">({(block.content as ImageContent).width})</span>}</span>}
-              {block.type === "video" && <span>{(block.content as VideoContent).caption || (block.content as VideoContent).src}</span>}
+              {block.type === "video" && <VideoBlockPreview block={block} />}
               {block.type === "fill_blank" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as FillBlankContent).text }} />}
               {block.type === "choice" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as ChoiceContent).question }} />}
               {block.type === "open_question" && <div className="prose prose-sm max-w-none line-clamp-3" dangerouslySetInnerHTML={{ __html: (block.content as OpenQuestionContent).question }} />}
@@ -521,6 +609,7 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
               )}
             </div>
           )}
+          </div>
         </div>
       ))}
 

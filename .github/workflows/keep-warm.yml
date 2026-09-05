@@ -1,0 +1,24 @@
+name: Warm container (manual)
+
+# Холодный старт serverless-контейнера (issue #39) решён на code-уровне (BFF +
+# таймауты) — «зависаний» больше нет, остаётся лишь первый медленный заход
+# 20-30с после простоя. Это осознанный компромисс бесплатного тарифа:
+#   - Автопинг каждые 4 мин держал бы контейнер "включённым" почти 24/7 —
+#     это уже фактическая аренда всегда-включённого ресурса (деньги, C1/C2).
+#   - Автопинг из GitHub каждые 4/30 мин сжигал бы бесплатные 2000 мин/мес
+#     Actions (нужны для деплоев) и всё равно не попадал в окно простоя.
+# Поэтому на расписании - НИЧЕГО (0 затрат). Прогрев вручную перед заходом
+# учеников: Actions -> Actions -> "Warm container (manual)" -> Run workflow.
+# Если понадобится настоящий аптайм - это этап C1/C2 (аренда), не keep-warm.
+on:
+  workflow_dispatch:
+
+jobs:
+  keep-warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -sS --max-time 25 -o /dev/null -w "health: %{http_code} in %{time_total}s\n" \
+            "https://naranja.outmilk.online/api/health"
+          if [ $? -ne 0 ]; then exit 1; fi

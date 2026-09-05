@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, MessageSquare, ThumbsUp } from "lucide-react";
 import { SubmissionThread } from "@/components/submission-thread";
 import Avatar from "@/components/avatar";
+import { proxyFileUrl } from "@/lib/image-proxy";
 
 export function SubmissionsList({ submissions }: { submissions: any[] }) {
   const [commenting, setCommenting] = useState<string | null>(null);
@@ -96,12 +97,12 @@ export function SubmissionsList({ submissions }: { submissions: any[] }) {
 
             {isAudio && (
               <div className="mb-2">
-                <audio controls src={sub.answer} className="w-full max-w-md" />
+                <audio controls src={proxyFileUrl(sub.answer) ?? sub.answer} className="w-full max-w-md" />
               </div>
             )}
             {isVideo && (
               <div className="mb-2">
-                <video controls src={sub.answer} className="w-full max-w-md rounded" />
+                <video controls src={proxyFileUrl(sub.answer) ?? sub.answer} className="w-full max-w-md rounded" />
               </div>
             )}
             {!isAudio && !isVideo && (

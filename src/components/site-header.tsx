@@ -52,6 +52,10 @@ export default async function SiteHeader() {
   const userEmail = user.email!;
   const avatarUrl = proxyUrl(profile?.avatar_url || user.user_metadata?.avatar_url || null);
 
+  const subscriptionUntil = (profile?.subscription_until as string | null) ?? null;
+  const subActive = !!subscriptionUntil && new Date(subscriptionUntil) > new Date();
+  const subDaysLeft = subActive ? Math.ceil((new Date(subscriptionUntil!).getTime() - Date.now()) / 86400000) : 0;
+
   const linkClass = (href: string) =>
     `text-sm font-medium transition-colors duration-200 text-muted hover:text-accent`;
 
@@ -93,10 +97,11 @@ export default async function SiteHeader() {
             </div>
           )}
           <div className="hidden lg:block"><ToolsButton /></div>
-          {realRole === "student" && profile?.subscription_until && new Date(profile.subscription_until) > new Date() && (
-            <div className="flex items-center gap-1.5 text-xs text-secondary-500 font-semibold bg-secondary-50 px-2.5 py-1 rounded-full" title={`Подписка активна до ${new Date(profile.subscription_until).toLocaleDateString("ru-RU")}`}>
+          {realRole === "student" && subActive && (
+            <div className="flex items-center gap-1.5 text-xs text-secondary-500 font-semibold bg-secondary-50 px-2.5 py-1 rounded-full"
+              title={`Подписка активна до ${new Date(subscriptionUntil!).toLocaleDateString("ru-RU")}`}>
               <span className="w-2 h-2 rounded-full bg-secondary-500 inline-block" />
-              {Math.ceil((new Date(profile.subscription_until).getTime() - Date.now()) / 86400000)} дн.
+              {subDaysLeft} дн.
             </div>
           )}
           <BellIcon />

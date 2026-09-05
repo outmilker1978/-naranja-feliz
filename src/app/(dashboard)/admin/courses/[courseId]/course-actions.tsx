@@ -33,6 +33,7 @@ export function CourseActions({
   const [imageUrl, setImageUrl] = useState(initialImageUrl ?? "");
 
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const supabase = createClient();
@@ -59,7 +60,7 @@ export function CourseActions({
   const saveCourse = async () => {
     if (!title.trim()) return;
     setSaving(true);
-    await supabase.from("courses").update({
+    const { error } = await supabase.from("courses").update({
       title,
       description: description || null,
       level,
@@ -67,7 +68,10 @@ export function CourseActions({
       image_url: imageUrl || null,
     }).eq("id", courseId);
     setSaving(false);
+    if (error) { alert("Ошибка сохранения: " + error.message); return; }
     setEditing(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
     router.refresh();
   };
 
@@ -105,7 +109,8 @@ export function CourseActions({
         </div>
         <div className="flex gap-2">
           <button onClick={saveCourse} disabled={saving} className="btn-gradient px-4 py-1.5 text-sm font-medium disabled:opacity-50 transition-all duration-200">{saving ? "..." : "Сохранить"}</button>
-          <button onClick={() => { setEditing(false); setTitle(initialTitle); setDescription(initialDescription ?? ""); setLevel(initialLevel); setImageUrl(initialImageUrl ?? ""); }} className="text-zinc-500 px-4 py-1.5 rounded-lg text-sm hover:bg-zinc-100">Отмена</button>
+          <button onClick={() => { setEditing(false); setTitle(initialTitle); setDescription(initialDescription ?? ""); setLevel(initialLevel); setImageUrl(initialImageUrl ?? ""); }} disabled={saving} className="text-zinc-500 px-4 py-1.5 rounded-lg text-sm hover:bg-zinc-100 disabled:opacity-50">Отмена</button>
+          {saved && <span className="text-sm text-green-600 font-medium self-center">✓ Сохранено</span>}
         </div>
       </div>
     );

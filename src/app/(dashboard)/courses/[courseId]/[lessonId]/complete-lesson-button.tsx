@@ -2,87 +2,54 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-
-const INTERACTIVE_TYPES = new Set([
-  "choice",
-  "fill_blank",
-  "open_question",
-  "audio_answer",
-  "video_answer",
-  "drag_order",
-  "image_pick",
-  "group_drag",
-]);
-
-const REVIEW_TYPES = new Set(["open_question", "audio_answer", "video_answer"]);
+import { getLessonStatus, setLessonProgress } from "@/lib/lesson-api";
 
 export function CompleteLessonButton({
   lessonId,
-  studentId,
-  blocks,
   initialCompleted,
 }: {
   lessonId: string;
-  studentId: string;
-  blocks: { id: string; type: string }[];
   initialCompleted: boolean;
 }) {
   const [completed, setCompleted] = useState(initialCompleted);
   const [loading, setLoading] = useState(false);
   const [allDone, setAllDone] = useState(false);
-  const supabase = createClient();
   const router = useRouter();
 
   useEffect(() => {
-    const interactive = blocks.filter((b) => INTERACTIVE_TYPES.has(b.type));
-    if (interactive.length === 0) {
-      setAllDone(true);
-      return;
-    }
+    let mounted = true;
 
     const check = async () => {
-      const { data: submissions } = await supabase
-        .from("block_submissions")
-        .select("lesson_block_id, reviewed")
-        .in("lesson_block_id", interactive.map((b) => b.id))
-        .eq("student_id", studentId);
-
-      const subMap = new Map((submissions || []).map((s: any) => [s.lesson_block_id, s]));
-
-      const done = interactive.every((block) => {
-        const sub = subMap.get(block.id);
-        if (!sub) return false;
-        if (REVIEW_TYPES.has(block.type)) return !!sub.reviewed;
-        return true;
-      });
-      setAllDone(done);
+      try {
+        const status = await getLessonStatus(lessonId);
+        if (!mounted) return;
+        setAllDone(status.allDone);
+        setCompleted(status.completed);
+      } catch {
+        // Транзиентный сбой — следующий тик повторит.
+      }
     };
 
     check();
     const interval = setInterval(check, 5000);
-    return () => clearInterval(interval);
-  }, [lessonId, studentId, blocks, supabase]);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [lessonId]);
 
   const toggle = async () => {
     setLoading(true);
     const next = !completed;
-
-    if (next) {
-      await supabase.from("lesson_progress").upsert(
-        { lesson_id: lessonId, student_id: studentId, completed: true, completed_at: new Date().toISOString() },
-        { onConflict: "lesson_id,student_id" },
-      );
-    } else {
-      await supabase.from("lesson_progress").upsert(
-        { lesson_id: lessonId, student_id: studentId, completed: false, completed_at: null },
-        { onConflict: "lesson_id,student_id" },
-      );
+    try {
+      await setLessonProgress(lessonId, next);
+      setCompleted(next);
+      router.refresh();
+    } catch {
+      alert("Не удалось обновить прогресс. Попробуйте ещё раз.");
+    } finally {
+      setLoading(false);
     }
-
-    setCompleted(next);
-    setLoading(false);
-    router.refresh();
   };
 
   const canToggle = allDone && !loading;

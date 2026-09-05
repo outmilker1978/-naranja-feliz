@@ -179,6 +179,17 @@ src/
 | `/api/course-access/check` | GET | Проверка доступа |
 | `/api/course-access/student-courses` | GET | Список доступов ученика |
 | `/api/course-access/revoke` | POST | Отзыв доступа |
+| `/api/storage/[...path]` | GET | Прокси Supabase Storage (картинки через Sharp; медиа пасстримом; node:https + retry) |
+| `/api/health` | GET | Проверка живости контейнера (без auth) |
+| `/api/tts` | GET | Серверная озвучка (Edge neural → Google TTS), приоритет мужа-голоса, единое воспроизведение |
+| `/api/lesson/status`, `/api/lesson/progress`, `/api/lesson/clear-answers` | GET/POST | BFF урока (1 RPC вместо клиентского Supabase) |
+| `/api/dev/media` | GET | DEV-only: материаллизация медиа в `public/_media/` (spawn node, в проде 404) |
+
+## Медиа в dev (почему важно)
+
+- Media-элементы (`<audio>/<video>`) шлют `Accept-Encoding: identity;q=1,*;q=0`, и dev-сервер Next **не доставляет тело** динамического route-handler ответа (заголовки 206 приходят, байты зависают — одинаково для 200/206/302). Статика под `public/` отдаётся мгновенно.
+- **Как работает:** компонент `src/components/lesson-blocks/media-asset.tsx` (`MediaAsset`) в dev переписывает src на `/_media/<basename>` и зовёт `/api/dev/media?path=<proxy-url>`; роут материаллизует файл отдельным node-процессом `scripts/materialize-media.mjs` (куски 1 МБ × retry 6 — in-process fetch флейкит на этой сети), дальше файл лежит в `public/_media/` (gitignored) и раздаётся как статика. В проде `MediaAsset` отдаёт прежний прокси-URL.
+- **Если добавили новый медиа-файл** — он материаллизуется автоматически при первом открытии урока (первые секунды — «Загрузка аудио…»), можно прогнать вручную: `curl "http://localhost:3000/api/dev/media?path=<proxy-url>"`.
 
 ---
 

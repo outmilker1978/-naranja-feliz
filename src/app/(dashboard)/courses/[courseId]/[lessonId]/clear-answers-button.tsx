@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { clearLessonAnswers } from "@/lib/lesson-api";
 import { Trash2 } from "lucide-react";
 
 export function ClearAnswersButton({
@@ -15,22 +15,18 @@ export function ClearAnswersButton({
   const [loading, setLoading] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const clearAll = async () => {
     setLoading(true);
-    // 1 RPC вместо 2 запросов + перезагрузки — удаляет ответы и сбрасывает прогресс в одной транзакции
-    const { error } = await supabase.rpc("clear_lesson_answers", {
-      student_id: studentId,
-      lesson_id: lessonId,
-    });
-    setLoading(false);
-    if (error) {
+    try {
+      await clearLessonAnswers(lessonId, studentId);
+      setConfirm(false);
+      router.refresh();
+    } catch {
       alert("Не удалось очистить ответы. Попробуйте ещё раз.");
-      return;
+    } finally {
+      setLoading(false);
     }
-    setConfirm(false);
-    router.refresh();
   };
 
   if (!confirm) {

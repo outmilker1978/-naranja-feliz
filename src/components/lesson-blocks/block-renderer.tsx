@@ -3,9 +3,48 @@
 import { useState, useEffect, useRef } from "react";
 import { Volume2, Mic, Video, Square, HardDrive, Folder, ArrowUpRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { proxyImgUrl, proxyFileUrl, proxyHtmlUrls } from "@/lib/image-proxy";
 import { LessonBlock, FillBlankContent, ChoiceContent, OpenQuestionContent, AudioAnswerContent, TextContent, ImageContent, VideoContent, DragOrderContent, ImagePickContent, GroupDragContent, MemoryContent, SavedSubmission, SavedByBlock } from "./types";
 import { SubmissionThread } from "@/components/submission-thread";
 import { useVocabPicker } from "@/components/vocab-picker-context";
+import { speakSpanish } from "@/lib/speech";
+import { MediaAsset } from "./media-asset";
+
+// Замена [[ответ]] на разметку ТОЛЬКО в тексте (не внутри HTML-атрибутов,
+// иначе ломается markup, когда перевод/атрибут сам содержит [[...]])
+function replaceBracketsOutsideTags(html: string, build: (answer: string, index: number) => string): string {
+  let out = "";
+  let last = 0;
+  let idx = 0;
+  const re = /<[^>]*>|\[\[([^\]]+)\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    out += html.slice(last, m.index);
+    if (m[0].startsWith("<")) {
+      out += m[0];
+    } else {
+      out += build(m[1], idx);
+      idx++;
+    }
+    last = re.lastIndex;
+  }
+  out += html.slice(last);
+  return out;
+}
+
+function buildFillBlank(text: string): { html: string; answers: string[] } {
+  const answers: string[] = [];
+  const html = replaceBracketsOutsideTags(text, (answer, idx) => {
+    answers.push(answer);
+    return `<span class="inline-flex items-center gap-1 mx-0.5">
+        <input type="text" data-idx="${idx}" data-answer="${answer}" value=""
+          placeholder="..." autocomplete="off"
+          class="inline-blank-input border-2 rounded px-2 py-0.5 text-sm w-28 border-primary-300 bg-white" />
+        <span class="fillblank-feedback text-xs" data-idx="${idx}"></span>
+      </span>`;
+  });
+  return { html, answers };
+}
 
 function TextBlock({ block }: { block: LessonBlock }) {
   const c = block.content as TextContent;
@@ -14,8 +53,9 @@ function TextBlock({ block }: { block: LessonBlock }) {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&amp;/g, "&");
+  html = proxyHtmlUrls(html);
   html = html.replace(/<span[^>]*data-answer="([^"]*)"[^>]*>.*?<\/span>/gi, (_, a: string) => `[[${a}]]`);
-  html = html.replace(/\[\[([^\]]+)\]\]/g, (_, a) => `<span class="inline-blank-wrapper"><input type="text" class="inline-blank-input" data-answer="${a}" placeholder="..." autocomplete="off"> <span class="inline-blank-feedback"></span></span>`);
+  html = replaceBracketsOutsideTags(html, (a) => `<span class="inline-blank-wrapper"><input type="text" class="inline-blank-input" data-answer="${a}" placeholder="..." autocomplete="off"> <span class="inline-blank-feedback"></span></span>`);
   return <TextBlockRenderer html={html} />;
 }
 
@@ -49,12 +89,7 @@ function TextBlockRenderer({ html }: { html: string }) {
     };
   }, []);
 
-  const speak = (text: string) => {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "es-ES";
-    u.rate = 0.8;
-    speechSynthesis.speak(u);
-  };
+  const speak = (text: string) => speakSpanish(text);
 
   return (
     <>
@@ -104,6 +139,9 @@ function ImageBlock({ block }: { block: LessonBlock }) {
 
   if (gdriveMatch) {
     src = `https://drive.google.com/uc?export=view&id=${gdriveMatch[1]}`;
+  } else {
+    // Storage URLs -> our proxy (browser never hits supabase.co directly)
+    src = proxyFileUrl(src) ?? src;
   }
 
   if (yadiskMatch) {
@@ -165,14 +203,18 @@ function VideoBlock({ block }: { block: LessonBlock }) {
     if (hashMatch) embedUrl = `https://vk.com/video_ext.php?oid=${vkMatch[1]}&id=${vkMatch[2]}&hash=${hashMatch[1]}`;
   }
 
+  // Storage-hosted media -> our proxy (avoids direct supabase.co -> reset/403).
+  const mediaSrc = proxyFileUrl(src) ?? src;
+  const isAudioFile = /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(src);
+
   const player = embedUrl ? (
     <div className="aspect-video rounded-lg overflow-hidden bg-black">
       <iframe src={embedUrl} className="w-full h-full" allowFullScreen title="Video" />
     </div>
-  ) : c.type === "audio" ? (
-    <audio src={src} controls className="w-full" />
+  ) : c.type === "audio" || isAudioFile ? (
+    <MediaAsset src={mediaSrc} variant="audio" />
   ) : (
-    <video src={src} controls className="w-full rounded-lg" />
+    <MediaAsset src={mediaSrc} variant="video" />
   );
 
   return (
@@ -197,7 +239,10 @@ function FillBlankBlock({ block, initialSubmission }: { block: LessonBlock; init
   const [attemptsExhausted, setAttemptsExhausted] = useState(false);
   const [attemptMessage, setAttemptMessage] = useState("");
 
-  const blanks = [...c.text.matchAll(/\[\[([^\]]+)\]\]/g)];
+  const blanks = buildFillBlank(c.text).answers.map((a): [string, string] => ["", a]);
+  const [transPopup, setTransPopup] = useState<{ text: string; translation: string; x: number; y: number } | null>(null);
+  const transPopupRef = useRef<HTMLDivElement>(null);
+  const speakFull = (text: string) => speakSpanish(text);
 
   useEffect(() => {
     setValues(new Array(blanks.length).fill(""));
@@ -214,16 +259,7 @@ function FillBlankBlock({ block, initialSubmission }: { block: LessonBlock; init
 
   useEffect(() => {
     if (!contentRef.current || htmlSet.current) return;
-    let idx = 0;
-    contentRef.current.innerHTML = c.text.replace(/\[\[([^\]]+)\]\]/g, (_, answer) => {
-      const i = idx++;
-      return `<span class="inline-flex items-center gap-1 mx-0.5">
-        <input type="text" data-idx="${i}" data-answer="${answer}" value=""
-          placeholder="..." autocomplete="off"
-          class="inline-blank-input border-2 rounded px-2 py-0.5 text-sm w-28 border-primary-300 bg-white" />
-        <span class="fillblank-feedback text-xs" data-idx="${i}"></span>
-      </span>`;
-    });
+    contentRef.current.innerHTML = buildFillBlank(c.text).html;
     htmlSet.current = true;
   }, [c.text]);
 
@@ -271,6 +307,34 @@ function FillBlankBlock({ block, initialSubmission }: { block: LessonBlock; init
     return () => root.removeEventListener("input", handler);
   }, [checked]);
 
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root) return;
+    const onTranslate = (e: MouseEvent) => {
+      const span = (e.target as HTMLElement)?.closest("[data-translate]") as HTMLElement | null;
+      if (!span) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setTransPopup({
+        text: span.textContent || "",
+        translation: span.getAttribute("data-translate") || "",
+        x: e.clientX,
+        y: e.clientY,
+      });
+    };
+    const close = (e: MouseEvent) => {
+      if (transPopupRef.current && !transPopupRef.current.contains(e.target as Node)) setTransPopup(null);
+    };
+    root.addEventListener("contextmenu", onTranslate);
+    root.addEventListener("click", onTranslate);
+    document.addEventListener("mousedown", close);
+    return () => {
+      root.removeEventListener("contextmenu", onTranslate);
+      root.removeEventListener("click", onTranslate);
+      document.removeEventListener("mousedown", close);
+    };
+  }, []);
+
   const handleCheck = () => {
     setChecked(true);
     const allCorrect = blanks.every(([, a], i) => (values[i] || "").trim().toLowerCase() === a.trim().toLowerCase());
@@ -305,7 +369,21 @@ function FillBlankBlock({ block, initialSubmission }: { block: LessonBlock; init
 
   return (
     <div>
-      <div ref={contentRef} className="text-content" />
+      <div className="text-content [&_[data-translate]]:cursor-help [&_[data-translate]]:border-b-2 [&_[data-translate]]:border-secondary-400 [&_[data-translate]]:bg-secondary-50/30 [&_[data-translate]]:transition-colors [&_[data-translate]:hover]:bg-secondary-100/50" ref={contentRef} />
+      {transPopup && (
+        <div
+          ref={transPopupRef}
+          className="fixed z-50 bg-white rounded-xl shadow-xl border border-border p-4 max-w-sm"
+          style={{ left: transPopup.x + 12, top: transPopup.y + 12 }}
+        >
+          <p className="text-sm font-semibold text-accent mb-1">{transPopup.text}</p>
+          <p className="text-sm text-muted mb-3">{transPopup.translation}</p>
+          <button onClick={() => speakFull(transPopup.text)}
+            className="flex items-center gap-1.5 text-xs font-medium text-primary-500 hover:text-primary-600 transition-colors">
+            <Volume2 className="w-4 h-4" /> Прослушать
+          </button>
+        </div>
+      )}
       {attemptsExhausted && !allCorrect && (
         <div className="mt-2 p-2 bg-zinc-50 rounded text-sm text-zinc-600">
           {blanks.map(([, a], i) => (
@@ -574,7 +652,7 @@ function AudioAnswerBlock({ block, studentId, initialSubmission }: { block: Less
     return (
       <div className={`rounded-lg p-4 ${reviewed ? "bg-green-50 border border-green-200" : "bg-primary-50 border border-primary-200"}`}>
         <div className="font-medium mb-1 text-content" dangerouslySetInnerHTML={{ __html: c.prompt }} />
-        <audio src={audioUrl!} controls className="w-full" />
+        <audio src={proxyFileUrl(audioUrl) ?? audioUrl!} controls className="w-full" />
         {reviewed ? (
           <>
             <p className="text-xs text-green-600 font-medium mt-1">✓ Проверено</p>
@@ -600,7 +678,7 @@ function AudioAnswerBlock({ block, studentId, initialSubmission }: { block: Less
       )}
       {audioUrl && (
         <div className="mt-2">
-          <audio src={audioUrl} controls className="w-full" />
+          <audio src={proxyFileUrl(audioUrl) ?? audioUrl} controls className="w-full" />
           <button onClick={handleSubmit} className="mt-2 bg-primary-500 text-white px-4 py-1.5 rounded-lg text-sm">Отправить</button>
         </div>
       )}
@@ -863,6 +941,15 @@ function ImagePickBlock({ block, initialSubmission }: { block: LessonBlock; init
 
   if (loading) return <div className="border border-primary-200 rounded-lg p-4 text-sm text-zinc-400">Загрузка...</div>;
 
+  if (!c.images.length) {
+    return (
+      <div className="border border-primary-200 rounded-lg p-4">
+        <div className="font-medium text-zinc-800 mb-3 text-content" dangerouslySetInnerHTML={{ __html: c.question }} />
+        <p className="text-sm text-zinc-400">В этом задании ещё нет изображений — учитель добавит их.</p>
+      </div>
+    );
+  }
+
   if (submitted) {
     return (
       <div className={`rounded-lg p-4 ${isCorrect ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
@@ -870,7 +957,7 @@ function ImagePickBlock({ block, initialSubmission }: { block: LessonBlock; init
         <div className="grid grid-cols-2 gap-2">
           {c.images.map((img, i) => (
             <div key={i} className={`rounded-lg border-2 p-1 ${selected.includes(i) ? "border-primary-500" : "border-transparent"}`}>
-              <img src={img.src} alt={img.label} loading="lazy" className="w-full h-24 object-cover rounded" />
+              <img src={proxyImgUrl(img.src) || img.src} alt={img.label} loading="lazy" className="w-full h-24 object-cover rounded" />
               <p className="text-xs text-center mt-1">{img.label}</p>
             </div>
           ))}
@@ -888,7 +975,7 @@ function ImagePickBlock({ block, initialSubmission }: { block: LessonBlock; init
           <button key={i} onClick={() => toggle(i)}
             className={`rounded-lg border-2 overflow-hidden transition-colors ${selected.includes(i) ? "border-primary-500 ring-2 ring-primary-300" : "border-zinc-200 hover:border-primary-300"} ${attemptsExhausted ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <img src={img.src} alt={img.label} loading="lazy" className="w-full h-28 object-cover" />
+            <img src={proxyImgUrl(img.src) || img.src} alt={img.label} loading="lazy" className="w-full h-28 object-cover" />
             <p className="text-xs text-center py-1 bg-white">{img.label}</p>
           </button>
         ))}
@@ -998,7 +1085,7 @@ function VideoAnswerBlock({ block, initialSubmission }: { block: LessonBlock; in
     return (
       <div className={`rounded-lg p-4 ${reviewed ? "bg-green-50 border border-green-200" : "bg-primary-50 border border-primary-200"}`}>
         <div className="font-medium mb-2 text-content" dangerouslySetInnerHTML={{ __html: c.prompt }} />
-        {videoUrl && <video src={videoUrl} controls className="w-full max-w-md rounded" />}
+        {videoUrl && <video src={proxyFileUrl(videoUrl) ?? videoUrl} controls className="w-full max-w-md rounded" />}
         {reviewed ? (
           <>
             <p className="text-xs text-green-600 font-medium mt-1">✓ Проверено</p>
@@ -1030,7 +1117,7 @@ function VideoAnswerBlock({ block, initialSubmission }: { block: LessonBlock; in
 
       {videoUrl && !recording && (
         <div>
-          <video src={videoUrl} controls className="w-full max-w-md rounded mb-2" />
+          <video src={proxyFileUrl(videoUrl) ?? videoUrl} controls className="w-full max-w-md rounded mb-2" />
           <div className="flex gap-2">
             <button onClick={() => { setVideoUrl(null); }} className="text-sm text-zinc-500 hover:underline">✎ Перезаписать</button>
             <button onClick={handleSubmit} disabled={sending || !recordedBlob.current}

@@ -8,7 +8,7 @@ import Avatar from "@/components/avatar";
 
 const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
 
-export function SettingsForm({ userId, email, fullName: initialFullName, avatarUrl: initialAvatarUrl, role, languageLevel: initialLevel, languageLevelConfirmedBy, subscriptionUntil: initialSubscriptionUntil, subscriptionRequestedAt: initialSubscriptionRequestedAt, creditDays }: { userId: string; email: string; fullName: string; avatarUrl: string | null; role: string; languageLevel: string | null; languageLevelConfirmedBy: string | null; subscriptionUntil: string | null; subscriptionRequestedAt: string | null; creditDays: number }) {
+export function SettingsForm({ userId, email, fullName: initialFullName, avatarUrl: initialAvatarUrl, role, languageLevel: initialLevel, languageLevelConfirmedBy, subscriptionUntil: initialSubscriptionUntil, courseAccess, subscriptionRequestedAt: initialSubscriptionRequestedAt, creditDays }: { userId: string; email: string; fullName: string; avatarUrl: string | null; role: string; languageLevel: string | null; languageLevelConfirmedBy: string | null; subscriptionUntil: string | null; courseAccess: { courseTitle: string; expiresAt: string | null }[]; subscriptionRequestedAt: string | null; creditDays: number }) {
   const [fullName, setFullName] = useState(initialFullName);
   const [savingName, setSavingName] = useState(false);
   const [nameSaved, setNameSaved] = useState(false);
@@ -210,14 +210,16 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
         <div className="card p-6 md:col-span-2">
           <h2 className="text-lg font-semibold text-accent mb-4">Подписка</h2>
           {(() => {
-            const isActive = subscriptionUntil && new Date(subscriptionUntil) > new Date();
-            const untilDate = subscriptionUntil ? new Date(subscriptionUntil).toLocaleDateString("ru-RU") : null;
-            if (isActive) {
+            const now = new Date();
+            const subActive = !!subscriptionUntil && new Date(subscriptionUntil) > now;
+            const subDate = subscriptionUntil ? new Date(subscriptionUntil).toLocaleDateString("ru-RU") : null;
+            const subDaysLeft = subActive ? Math.max(1, Math.ceil((new Date(subscriptionUntil!).getTime() - now.getTime()) / 86400000)) : null;
+            if (subActive) {
               return (
                 <div>
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                     <p className="text-green-700 font-medium">✓ Подписка активна</p>
-                    <p className="text-sm text-green-600 mt-1">До {untilDate}</p>
+                    <p className="text-sm text-green-600 mt-1">До {subDate} ({subDaysLeft} {subDaysLeft === 1 ? "день" : subDaysLeft! < 5 ? "дня" : "дней"})</p>
                     {creditDays > 0 && (
                       <p className="text-sm text-red-500 mt-1">Кредит: {creditDays} дн. — оплати пакет, чтобы погасить</p>
                     )}
@@ -270,6 +272,26 @@ export function SettingsForm({ userId, email, fullName: initialFullName, avatarU
           })()}
 
           <CreditHistory />
+        </div>
+      )}
+
+      {courseAccess.length > 0 && (
+        <div className="card p-6 md:col-span-2">
+          <h2 className="text-lg font-semibold text-accent mb-4">Доступ к курсам</h2>
+          <ul className="space-y-2">
+            {courseAccess.map((g, i) => {
+              const active = g.expiresAt === null || new Date(g.expiresAt) > new Date();
+              return (
+                <li key={i} className={`flex items-center justify-between text-sm ${active ? "" : "opacity-50"}`}>
+                  <span className="font-medium text-accent">{g.courseTitle}</span>
+                  <span className={active ? "text-green-600" : "text-muted"}>
+                    {g.expiresAt === null ? "навсегда" : active ? `до ${new Date(g.expiresAt).toLocaleDateString("ru-RU")}` : "закончился"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-xs text-muted mt-3">Навсегда — бессрочный подарок учителя на этот курс; не зависит от подписки.</p>
         </div>
       )}
 

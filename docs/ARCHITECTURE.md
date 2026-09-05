@@ -88,12 +88,12 @@ Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
 - **Назначение:** сервер-серверный fetch до Supabase Storage (обходит блокировки провайдера)
 - **Upstream:** `https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/{path}`
 - **Поддержка signed URL:** путь `/api/storage/object/sign/{bucket}/{file}?token=...` проксирует на `/storage/v1/object/sign/{path}?token=...` (нужен для старых записей, где URL был signed)
-- **Query-параметры сжатия:** `?w` (ширина), `?q` (качество), `?fm` (формат) — используются next/image srcset
-- **Обработка изображений:** Sharp resize (fit inside, без увеличений) + JPEG quality + `sharp.rotate()` (EXIF-ориентация)
-- **Content-Type:** принудительно `image/jpeg` для изображений (Supabase отдаёт `text/plain`)
-- **Accept-negotiation:** отдаёт WebP/AVIF если браузер поддерживает (+`Vary: Accept`)
-- **Кэш:** `Cache-Control: public, max-age=86400`
-- **Fallback:** не-image файлы (видео, аудио, PDF) — passthrough без изменений
+- **Авторизация upstream:** `Authorization: Bearer <anon key>` (без него — 403 для `lesson-files/uploads/*/*.mp3`)
+- **Картинки** (ext в IMG_EXTS + Sharp-параметры): патченный Next-fetch + Sharp (resize `?w`/`?q`/`?fm`, JPEG q80, 1920px max, EXIF-ориентация, WebP/AVIF по Accept), `Cache-Control: public, max-age=86400`, in-memory кэш 10 мин (`X-Storage-Cache`)
+- **Не-картинки (аудио/видео/PDF):** чтение через `node:https` `rawGet`/`rawGetRetryFull` (5 попыток, backoff) — **НЕ через Next-patched fetch** (рвётся на Range-ответах апстрима, `TypeError: terminated`). Прод: буферный ответ целиком (файлы ≤8 МБ). Dev: кап любой Range >1 МБ и GET без Range до 1 МБ — плеер читает кусками; если файл материаллизован — 302 на статику
+- **Dev-медиа (`/_media/`):** `<audio>/<video>` в dev идут НЕ на динамический маршрут (dev-сервер не доставляет тело dynamic-route ответа для `Accept-Encoding: identity`, одинаково для 200/206/302), а на статический `/api/dev/media` + `scripts/materialize-media.mjs` (материаллизация кусками 1 МБ, retry 6, отдельный node-процесс) → файл кладётся в `public/_media/<basename>` (gitignored) и отдаётся статикой Next (любой Range за ~7 мс). Фронт: `src/components/lesson-blocks/media-asset.tsx` (`MediaAsset`) в dev направляет src на `/_media/<basename>`, в прод — на прокси
+- **Прочее:** не-image файлы (видео, аудио, PDF) — passthrough без изменений (прод)
+- **Отладка сборки:** `/api/dev/media` — dev-only (в проде 404)
 
 ## 7. Оптимизация изображений на фронтенде (next/image + StorageImage)
 - Компонент `StorageImage` (`src/components/storage-image.tsx`, обёртка над next/image) — для контентных картинок из Supabase Storage.

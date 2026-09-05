@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Shuffle, ArrowLeft, ArrowRight, RotateCcw, Layers, BookOpen, MessageCircle, GraduationCap, Volume2 } from "lucide-react";
+import { speakSpanish } from "@/lib/speech";
 
 export default function CardsGamePage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function CardsGamePage() {
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [known, setKnown] = useState<Set<number>>(new Set());
+  const [playBusy, setPlayBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -98,8 +100,9 @@ export default function CardsGamePage() {
           <div className="absolute inset-0 glass-card flex flex-col items-center justify-center p-4 sm:p-8 backface-hidden rounded-2xl overflow-hidden">
             <p className="text-xl sm:text-3xl lg:text-4xl font-bold text-accent text-center break-words leading-tight max-w-full [hyphens:auto]">{w?.word}</p>
             {w?.transcription && <p className="text-sm text-muted mt-3">[{w.transcription}]</p>}
-            <button onClick={e => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(w?.word); u.lang = "es-ES"; u.rate = 0.8; speechSynthesis.speak(u); }}
-              className="mt-4 p-2 rounded-full bg-primary-50 text-primary-500 hover:bg-primary-100 transition-colors">
+            <button onClick={e => { e.stopPropagation(); if (playBusy) return; setPlayBusy(true); speakSpanish(w?.word ?? "", () => setPlayBusy(false)); }}
+              title="Озвучить"
+              className={`mt-4 p-2 rounded-full transition-all ${playBusy ? "bg-primary-100 text-primary-600 cursor-default" : "bg-primary-50 text-primary-500 hover:bg-primary-100"}`}>
               <Volume2 className="w-5 h-5" />
             </button>
             {known.has(idx) && <span className="absolute top-2 sm:top-4 right-2 sm:right-4 text-green-500 text-sm font-medium">✓ Знаю</span>}

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Plus, X, Volume2, Check, Loader2 } from "lucide-react";
+import { speakSpanish } from "@/lib/speech";
 
 interface Props {
   word: string;
@@ -17,6 +18,7 @@ export function AddWordFromLesson({ word, contextSentence, lessonId, onAdded, ch
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [playBusy, setPlayBusy] = useState(false);
   const popupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,12 +92,9 @@ export function AddWordFromLesson({ word, contextSentence, lessonId, onAdded, ch
 
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-bold text-accent">{word}</span>
-                  <button onClick={() => {
-                    const u = new SpeechSynthesisUtterance(word);
-                    u.lang = "es-ES";
-                    u.rate = 0.8;
-                    speechSynthesis.speak(u);
-                  }} className="p-1 rounded-lg hover:bg-primary-50 text-primary-500 transition-colors">
+                  <button onClick={() => { if (playBusy) return; setPlayBusy(true); speakSpanish(word, () => setPlayBusy(false)); }}
+                    title="Озвучить"
+                    className={`p-1 rounded-lg border transition-all ${playBusy ? "bg-primary-100 border-primary-200 text-primary-600 cursor-default" : "border-transparent text-primary-500 hover:bg-primary-50 hover:border-primary-200"}`}>
                     <Volume2 className="w-4 h-4" />
                   </button>
                 </div>

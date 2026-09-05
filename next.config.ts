@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  async headers() {
+    return [
+      {
+        // Service worker must always be revalidated, otherwise a stale nf-v2 SW
+        // keeps controlling pages and kills /api/storage media fetches.
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }],
+      },
+    ];
+  },
   images: {
     loader: "custom",
     loaderFile: "./src/lib/image-loader.ts",
