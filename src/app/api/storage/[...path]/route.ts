@@ -43,6 +43,14 @@ function cacheGet(key: string) {
 
 const MEDIA_EXTS = new Set(["mp3", "wav", "ogg", "m4a", "aac", "flac", "mp4", "webm", "ogv"]);
 
+// Yandex Serverless Containers kill any response whose entity is larger than
+// 3,670,016 B (~3.5 MB) with JobResponseTooLong -> 502 / unexpected EOF / blank
+// page for the browser. Non-image files (audio/video/pdf) must therefore NEVER
+// be proxied whole: each response is capped to one slice (which we align to the
+// client's range). Media elements + PDF viewers continue with small Range
+// requests, so playback/seeking works exactly like a static file server.
+const MAX_MEDIA_SLICE = 1024 * 1024;
+
 const mediaInflight = new Set<string>();
 
 let lastStage = "init";
@@ -239,19 +247,27 @@ export async function GET(
     // anon RLS policy but NOT opened publicly (key-less GET returns 403).
     // Sending the (public by design) anon key keeps the proxy working for both cases.
     const range = req.headers.get("range");
-    let rangeHeader = range ?? undefined;
-    // DEV-ONLY: this machine's ISP drops large bodies from supabase.co (audio/video
-    // hang at 0%). The <audio> initial probe is often an open-ended "bytes=0-" which
-    // proxies the whole file. Cap any range bigger than 1MB to a bounded window so
-    // the first chunk arrives fast and the browser continues with small ranges.
-    if (process.env.NODE_ENV === "development") {
-      const m = /^bytes=(\d+)-(\d+)?$/.exec(range ?? "");
-      if (m) {
-        const start = parseInt(m[1], 10);
-        const end = m[2] ? parseInt(m[2], 10) : Number.MAX_SAFE_INTEGER;
-        if (end - start > 1024 * 1024) rangeHeader = `bytes=${start}-${start + 1024 * 1024 - 1}`;
-      } else if (!range) {
-        rangeHeader = "bytes=0-1048575";
+    let rangeHeader: string | undefined;
+    // Non-image (audio/video/pdf) responses are capped to MAX_MEDIA_SLICE in
+    // EVERY environment: a bigger response entity gets killed by the Yandex
+    // serverless limit (~3.5 MB) => 502/EOF/blank page. The client's range is
+    // honored, but its end is clamped to start + MAX_MEDIA_SLICE - 1. A plain
+    // GET without Range returns the first slice as 206 with a Content-Range, so
+    // players/PDF viewers resume with follow-up range requests. This also keeps
+    // dev fast (this ISP drops huge bodies from supabase.co).
+    if (!isImage) {
+      if (range) {
+        const m = /^bytes=(\d+)-(\d+)?$/.exec(range);
+        if (m) {
+          const start = parseInt(m[1], 10);
+          const reqEnd = m[2] ? parseInt(m[2], 10) : Number.MAX_SAFE_INTEGER;
+          const end = Math.min(reqEnd, start + MAX_MEDIA_SLICE - 1);
+          rangeHeader = `bytes=${start}-${end}`;
+        } else {
+          rangeHeader = `bytes=0-${MAX_MEDIA_SLICE - 1}`;
+        }
+      } else {
+        rangeHeader = `bytes=0-${MAX_MEDIA_SLICE - 1}`;
       }
     }
     const headers: Record<string, string> = {

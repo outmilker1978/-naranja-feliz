@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { proxyImgUrl } from "@/lib/image-proxy";
 import { ChevronUp, ChevronDown, Pencil, Trash2 } from "lucide-react";
@@ -425,7 +424,6 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragTarget, setDragTarget] = useState<number | null>(null);
   const supabase = createClient();
-  const router = useRouter();
 
   useEffect(() => {
     if (!toast) return;
@@ -451,7 +449,6 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
     setBlocks(blocks.map((b, i) => i === index ? { ...b, ...block } as LessonBlock : b));
     setEditingBlockId(null);
     setToast({ kind: "ok", text: "✓ Сохранено" });
-    router.refresh();
   };
 
   const addBlock = async () => {
@@ -492,14 +489,12 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
     if (!confirm("Удалить блок?")) return;
     await supabase.from("lesson_blocks").delete().eq("id", blockId);
     setBlocks(blocks.filter(b => b.id !== blockId));
-    router.refresh();
   };
 
   const persistOrder = async (arr: LessonBlock[]) => {
     const next = arr.map((b, i) => ({ ...b, order_index: i }));
     setBlocks(next);
     await Promise.all(next.map((b) => supabase.from("lesson_blocks").update({ order_index: b.order_index }).eq("id", b.id)));
-    router.refresh();
   };
 
   const moveBlock = (index: number, direction: -1 | 1) => {
