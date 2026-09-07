@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import sharp from "sharp";
-import { createClient } from "@/lib/supabase/server";
 
 const SUPABASE_URL = "https://zphehhzgbudetyzezunk.supabase.co";
 
@@ -148,6 +147,67 @@ function parseTotal(contentRange: string | string[] | undefined): number {
   return m ? Number.parseInt(m[1], 10) : -1;
 }
 
+// Cap concurrent image pipelines: sharp on a 1 vCPU / 1 GB container plus a few
+// cold upstream fetches at once stalls everything and the gateway answers with
+// 502 bursts. Images are also cached, so this mostly matters for the first hit.
+let imageSlots = 3;
+const imageQueue: Array<() => void> = [];
+function acquireImageSlot(): Promise<void> {
+  if (imageSlots > 0) {
+    imageSlots--;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => imageQueue.push(resolve));
+}
+function releaseImageSlot() {
+  const next = imageQueue.shift();
+  if (next) next();
+  else imageSlots++;
+}
+
+// Issue a Supabase signed URL with a single REST call (anon key). Deliberately
+// avoids the supabase-js client (its createSignedUrl was failing inside the
+// container) — this proven call works with the "apikey" + Bearer pair.
+function rawPostSign(bucket: string, objectPath: string, expiresIn = 21600): Promise<string | null> {
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  const body = JSON.stringify({ expiresIn });
+  return new Promise((resolve) => {
+    const u = new URL(`${SUPABASE_URL}/storage/v1/object/sign/${bucket}/${objectPath}`);
+    const mod = u.protocol === "http:" ? http : https;
+    const req = mod.request(
+      {
+        method: "POST",
+        hostname: u.hostname,
+        port: u.port || (u.protocol === "http:" ? 80 : 443),
+        path: `${u.pathname}${u.search}`,
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body),
+          "apikey": anon,
+          "Authorization": `Bearer ${anon}`,
+          "Connection": "close",
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          try {
+            const json = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+            resolve(typeof json.signedURL === "string" ? json.signedURL : null);
+          } catch {
+            resolve(null);
+          }
+        });
+      },
+    );
+    req.setTimeout(15000, () => req.destroy(new Error("sign timeout")));
+    req.on("error", () => resolve(null));
+    req.write(body);
+    req.end();
+  });
+}
+
 function parseQuality(q: string | null, fallback: number): number {
   if (!q) return fallback;
   const n = Number.parseInt(q, 10);
@@ -281,7 +341,31 @@ export async function GET(
       ...(rangeHeader ? { Range: rangeHeader } : {}),
     };
 
+    // Prod: big non-image files bypass the gateway's ~3.5 MB response cap via a
+    // short-lived signed URL straight to Supabase — media gets native Range
+    // seeking, PDFs of any size open whole. If signing fails at all, we fall
+    // through to the slice/assist machinery below.
+    if (!isImage && process.env.NODE_ENV !== "development") {
+      const slash = filePath.indexOf("/");
+      const bucket = slash > 0 ? filePath.slice(0, slash) : "";
+      const objectPath = slash > 0 ? filePath.slice(slash + 1) : "";
+      if (bucket && objectPath) {
+        const signedUrl = await rawPostSign(bucket, objectPath);
+        if (signedUrl) {
+          return new NextResponse(null, {
+            status: 307,
+            headers: {
+              Location: `${SUPABASE_URL}${signedUrl}`,
+              "Cache-Control": "private, no-store",
+              "x-nf-mode": "signed",
+            },
+          });
+        }
+      }
+    }
+
     if (isImage) {
+      await acquireImageSlot();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
       let resp: Response;
@@ -290,12 +374,15 @@ export async function GET(
       } catch (e) {
         clearTimeout(timeoutId);
         if ((e as Error).name === "AbortError") {
+          releaseImageSlot();
           return NextResponse.json({ error: "upstream timeout" }, { status: 504 });
         }
+        releaseImageSlot();
         throw e;
       }
       clearTimeout(timeoutId);
       if (!resp.ok) {
+        releaseImageSlot();
         return NextResponse.json({ error: resp.statusText }, { status: resp.status });
       }
       const buffer = Buffer.from(await resp.arrayBuffer());
@@ -327,6 +414,7 @@ export async function GET(
         }
       }
 
+      releaseImageSlot();
       return new NextResponse(new Uint8Array(output), {
         status: 200,
         headers: {
@@ -414,41 +502,7 @@ export async function GET(
       const staticUrl = `/_media/${name}`;
       if (!existsSync(target) && !mediaInflight.has(name)) {
         mediaInflight.add(name);
-// AUTH-GATED DIRECT DOWNLOADS. The Yandex serverless gateway caps any
-  // response body at ~3.5MB — far too small for real lesson media and books.
-  // Instead of proxying (and slicing) audio/video/PDF ourselves, hand the
-  // client a short-lived Supabase signed URL: the browser/player then fetches
-  // the file straight from Supabase, bypassing the gateway cap entirely (PDFs
-  // of any size open instantly; media gets native range seeking). Signed URLs
-  // are issued only by this server (service role) and expire in 6h, so bucket
-  // access stays gated. Images keep using the resize proxy above.
-  if (!isImage) {
-    const slash = filePath.indexOf("/");
-    const bucket = slash > 0 ? filePath.slice(0, slash) : "";
-    const objectPath = slash > 0 ? filePath.slice(slash + 1) : "";
-    if (bucket && objectPath) {
-      try {
-        // User-scoped (session cookie) signing: works without the service-role
-        // key and respects each bucket's RLS policy.
-        const svc = await createClient();
-        const { data, error } = await svc.storage.from(bucket).createSignedUrl(objectPath, 21600);
-        if (!error && data?.signedUrl) {
-          return new NextResponse(null, {
-            status: 307,
-            headers: {
-              Location: data.signedUrl,
-              "Cache-Control": "private, no-store",
-              "x-nf-mode": "signed",
-            },
-          });
-        }
-      } catch {
-        // Signed-URL service hiccup → fall through to the slice proxy below.
-      }
-    }
-  }
-
-  try {
+        try {
           mkdirSync(dir, { recursive: true });
           const tmp = `${target}.part`;
           if (!existsSync(target)) {

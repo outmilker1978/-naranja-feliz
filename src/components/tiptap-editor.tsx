@@ -19,7 +19,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import {
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
-  Heading1, Heading2, Heading3, Quote, LinkIcon, ImageIcon, Languages, Undo, Redo, Eye, Edit3, Volume2, AlignLeft, AlignCenter, AlignRight, Table as TableIcon,
+  Heading1, Heading2, Heading3, Quote, LinkIcon, FileIcon, ImageIcon, Languages, Undo, Redo, Eye, Edit3, Volume2, AlignLeft, AlignCenter, AlignRight, Table as TableIcon,
 } from "lucide-react";
 
 function ToolBtn({
@@ -101,6 +101,22 @@ export function TiptapEditor({
       return;
     }
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }, [editor]);
+
+  const insertFileByLink = useCallback(() => {
+    if (!editor) return;
+    const url = window.prompt("Ссылка на файл (PDF/аудио/видео):", "https://");
+    if (url === null || url.trim() === "" || url.trim() === "https://") return;
+    let defaultName = url.trim();
+    try {
+      const parts = new URL(url.trim()).pathname.split("/").filter(Boolean);
+      if (parts.length) defaultName = decodeURIComponent(parts[parts.length - 1]);
+    } catch {}
+    const name = window.prompt("Название для ссылки:", defaultName);
+    if (name === null || name.trim() === "") return;
+    const safeUrl = url.trim().replace(/["\\]/g, "");
+    const safeName = name.trim().replace(/["\\]/g, "");
+    editor.chain().focus().insertContent(`<a href="${safeUrl}" target="_blank">${safeName}</a>`).run();
   }, [editor]);
 
   const compressImage = useCallback(async (file: File): Promise<File> => {
@@ -260,6 +276,7 @@ export function TiptapEditor({
           <ImageIcon className="w-4 h-4" />
           <input ref={fileInputRef} type="file" accept="image/*,audio/*,video/*,.pdf" onChange={uploadFile} className="hidden" />
         </label>
+        <ToolBtn onClick={insertFileByLink} title="Вставить файл по ссылке (PDF/аудио/видео)"><FileIcon className="w-4 h-4" /></ToolBtn>
         <span className="w-px h-5 bg-zinc-300 mx-1" />
         <ToolBtn onClick={() => editor.chain().focus().undo().run()} title="Отменить"><Undo className="w-4 h-4" /></ToolBtn>
         <ToolBtn onClick={() => editor.chain().focus().redo().run()} title="Повторить"><Redo className="w-4 h-4" /></ToolBtn>

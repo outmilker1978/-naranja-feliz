@@ -11,7 +11,7 @@
      non-streaming). Everything else is a transparent pass-through so the
      network is the single source of truth, with a plain 503 only on real
      network failures. */
-const CACHE = "nf-v5";
+const CACHE = "nf-v6";
 
 const OFFLINE = new Response("Нет соединения", {
   status: 503,
@@ -51,13 +51,14 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.match(req).then((cached) => {
         if (cached) return cached;
-return fetch(req).then((res) => {
+        return fetch(req).then((res) => {
           if (res.ok) {
             const copy = res.clone();
             caches.open(CACHE).then((c) => c.put(req, copy));
           }
           return res;
-        }).catch(() => OFFLINE)
+        }).catch(() => OFFLINE);
+      })
     );
     return;
   }
