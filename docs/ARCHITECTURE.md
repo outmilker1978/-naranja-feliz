@@ -1,138 +1,138 @@
-﻿# Naranja Feliz вЂ” РђСЂС…РёС‚РµРєС‚СѓСЂР°, РёРЅС„СЂР°СЃС‚СЂСѓРєС‚СѓСЂР° Рё СЂР°Р·РІС‘СЂС‚С‹РІР°РЅРёРµ
+# Naranja Feliz — Архитектура, инфраструктура и развёртывание
 
-## 1. РћР±С‰Р°СЏ Р°СЂС…РёС‚РµРєС‚СѓСЂР°
+## 1. Общая архитектура
 
 ```
-РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ (Р±СЂР°СѓР·РµСЂ)
-    в†“
+Пользователь (браузер)
+    ↓
 naranja.outmilk.online
-    в†“
-Yandex API Gateway (РїСЂРѕРєСЃРё)
-    в†“
+    ↓
+Yandex API Gateway (прокси)
+    ↓
 Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
-    в†“
+    ↓
 Yandex Serverless Container (Next.js SSR, 1GB RAM, 1vCPU)
-    в”‚
-    в”њв”Ђв”Ђв†’ /api/storage/[...path] (РїСЂРѕРєСЃРё СЃ Sharp: СЂРµСЃР°Р№Р· 1920px, JPEG q80)
-    в”‚       в†“
-    в”‚   Supabase Storage (server-to-server fetch вЂ” РЅРµ Р±Р»РѕРєРёСЂСѓРµС‚СЃСЏ РїСЂРѕРІР°Р№РґРµСЂРѕРј)
-    в”‚
-    в”њв”Ђв”Ђв†’ /api/auth/signup (admin.createUser СЃ auto-confirm)
-    в”њв”Ђв”Ђв†’ /api/auth/login (signInWithPassword + cookie)
-    в”њв”Ђв”Ђв†’ /api/auth/forgot-password (resetPasswordForEmail)
-    в”њв”Ђв”Ђв†’ /api/auth/update-password (updateUser)
-    в”‚
-    в”њв”Ђв”Ђв†’ Supabase (PostgreSQL + Auth)
-    в”њв”Ђв”Ђв†’ Supabase Storage (lesson-files bucket)
-    в””в”Ђв”Ђв†’ Yandex Translate API (РїРµСЂРµРІРѕРґ СЃР»РѕРІ РЅР° СѓСЂРѕРєР°С…)
+    │
+    ├──→ /api/storage/[...path] (прокси с Sharp: ресайз 1920px, JPEG q80)
+    │       ↓
+    │   Supabase Storage (server-to-server fetch — не блокируется провайдером)
+    │
+    ├──→ /api/auth/signup (admin.createUser с auto-confirm)
+    ├──→ /api/auth/login (signInWithPassword + cookie)
+    ├──→ /api/auth/forgot-password (resetPasswordForEmail)
+    ├──→ /api/auth/update-password (updateUser)
+    │
+    ├──→ Supabase (PostgreSQL + Auth)
+    ├──→ Supabase Storage (lesson-files bucket)
+    └──→ Yandex Translate API (перевод слов на уроках)
 ```
 
-## 2. РРЅС„СЂР°СЃС‚СЂСѓРєС‚СѓСЂР° (Yandex Cloud)
+## 2. Инфраструктура (Yandex Cloud)
 
-### РћСЂРіР°РЅРёР·Р°С†РёСЏ
+### Организация
 - **Cloud ID:** b1gnm48rbktakl54i8vb
 - **Folder ID:** b1gsrqv6ri6jr7ue41fc
 - **Default Zone:** ru-central1-a
 
 ### Serverless Container
 - **Container ID:** bba12ti21lgmv9glfl7k
-- **РќР°Р·РІР°РЅРёРµ:** naranja-backend
-- **РЎРѕСЃС‚РѕСЏРЅРёРµ:** ACTIVE
-- **Р РµСЃСѓСЂСЃС‹:** 1GB RAM, 1 vCPU (100%), С‚Р°Р№РјР°СѓС‚ 300s, concurrency 8
-- **РћР±СЂР°Р·:** `cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:deploy-XXX`
-- **РЎРµСЂРІРёСЃРЅС‹Р№ Р°РєРєР°СѓРЅС‚ (naranja-container-sa):** ajep2inmg605fd6ttbb2
+- **Название:** naranja-backend
+- **Состояние:** ACTIVE
+- **Ресурсы:** 1GB RAM, 1 vCPU (100%), таймаут 300s, concurrency 8
+- **Образ:** `cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend:deploy-XXX`
+- **Сервисный аккаунт (naranja-container-sa):** ajep2inmg605fd6ttbb2
 
 ### Container Registry
 - **Registry ID:** crpusm23v7g9ch5c5t9h
-- **Р РµРїРѕР·РёС‚РѕСЂРёР№:** `naranja-backend` (С‚РѕР»СЊРєРѕ РѕРЅ, naranja-feliz СѓРґР°Р»С‘РЅ)
+- **Репозиторий:** `naranja-backend` (только он, naranja-feliz удалён)
 
 ### API Gateway
-- **РЎРїРµРєСѓР»СЏС†РёСЏ:** gateway-spec.yaml
-- **Р”РѕРјРµРЅ:** naranja.outmilk.online
+- **Спекуляция:** gateway-spec.yaml
+- **Домен:** naranja.outmilk.online
 
-### РЎРµСЂРІРёСЃРЅС‹Рµ Р°РєРєР°СѓРЅС‚С‹
-1. **ajep2inmg605fd6ttbb2** (naranja-container-sa) вЂ” РґР»СЏ РєРѕРЅС‚РµР№РЅРµСЂР°
-   - Р РѕР»Рё: `container-registry.images.puller` (РЅР° registry), `serverless-containers.editor` (РЅР° РєРѕРЅС‚РµР№РЅРµСЂ)
-2. **ajefscetirf01br3unuc** (naranja-github-actions) вЂ” РґР»СЏ GitHub Actions
-   - Р РѕР»Рё: `container-registry.images.pusher` (РЅР° registry), `serverless-containers.editor` (РЅР° РєРѕРЅС‚РµР№РЅРµСЂ), `iam.serviceAccounts.user` (РЅР° container-sa)
+### Сервисные аккаунты
+1. **ajep2inmg605fd6ttbb2** (naranja-container-sa) — для контейнера
+   - Роли: `container-registry.images.puller` (на registry), `serverless-containers.editor` (на контейнер)
+2. **ajefscetirf01br3unuc** (naranja-github-actions) — для GitHub Actions
+   - Роли: `container-registry.images.pusher` (на registry), `serverless-containers.editor` (на контейнер), `iam.serviceAccounts.user` (на container-sa)
 
 ## 3. CI/CD (GitHub Actions)
 
-### РљР°Рє СЂР°Р±РѕС‚Р°РµС‚
-1. РџСѓС€ РІ РІРµС‚РєСѓ `main` в†’ GitHub Actions
-2. РЈСЃС‚Р°РЅРѕРІРєР° Р·Р°РІРёСЃРёРјРѕСЃС‚РµР№, СЃР±РѕСЂРєР° Next.js, СЃР±РѕСЂРєР° Docker-РѕР±СЂР°Р·Р°
-3. РџСѓС€ РѕР±СЂР°Р·Р° РІ Yandex Container Registry
-4. РЎРѕР·РґР°РЅРёРµ РЅРѕРІРѕР№ СЂРµРІРёР·РёРё Serverless Container
+### Как работает
+1. Пуш в ветку `main` → GitHub Actions
+2. Установка зависимостей, сборка Next.js, сборка Docker-образа
+3. Пуш образа в Yandex Container Registry
+4. Создание новой ревизии Serverless Container
 5. Health check (HTTP 200)
 
-### Р¤Р°Р№Р»: `.github/workflows/deploy.yml`
-### Р¤Р°Р№Р»: `.github/workflows/cron-subscription.yml` вЂ” РµР¶РµРґРЅРµРІРЅС‹Р№ cron СѓРІРµРґРѕРјР»РµРЅРёР№ Рѕ РїРѕРґРїРёСЃРєРµ (06:00 UTC)
-### РЎРµРєСЂРµС‚С‹ GitHub: `YC_SA_KEY_JSON`, `SUPABASE_SERVICE_ROLE_KEY`, `YANDEX_API_KEY`, `SMTP_USER`, `SMTP_PASS`, `CRON_SECRET`
+### Файл: `.github/workflows/deploy.yml`
+### Файл: `.github/workflows/cron-subscription.yml` — ежедневный cron уведомлений о подписке (06:00 UTC)
+### Секреты GitHub: `YC_SA_KEY_JSON`, `SUPABASE_SERVICE_ROLE_KEY`, `YANDEX_API_KEY`, `SMTP_USER`, `SMTP_PASS`, `CRON_SECRET`
 
-РџРѕРґСЂРѕР±РЅРµРµ вЂ” РІ `docs/CI_CD_PIPELINE.md`.
+Подробнее — в `docs/CI_CD_PIPELINE.md`.
 
 ## 4. Supabase
 - **URL:** https://zphehhzgbudetyzezunk.supabase.co
-- **РџР»Р°РЅ:** Free Tier
-- **РљР»СЋС‡Рё:** РІ `.env.local` Рё GitHub Secrets
+- **План:** Free Tier
+- **Ключи:** в `.env.local` и GitHub Secrets
 
-### РўР°Р±Р»РёС†С‹
-(СЃРј. `supabase/migration.sql` Рё `docs/ADMIN_GUIDE.md`)
+### Таблицы
+(см. `supabase/migration.sql` и `docs/ADMIN_GUIDE.md`)
 
 ## 5. Yandex Translate
-- **API Key:** РІ `.env.local` РєР°Рє `YANDEX_API_KEY`
+- **API Key:** в `.env.local` как `YANDEX_API_KEY`
 - **Folder ID:** b1gsrqv6ri6jr7ue41fc
-- **Р¦РµРїРѕС‡РєР°:** Yandex в†’ DeepL (РѕРїС†РёРѕРЅР°Р»СЊРЅРѕ) в†’ Google в†’ LibreTranslate в†’ MyMemory
+- **Цепочка:** Yandex → DeepL (опционально) → Google → LibreTranslate → MyMemory
 
-## 6. РџСЂРѕРєСЃРё-СЂРѕСѓС‚ `/api/storage/[...path]`
-- **РќР°Р·РЅР°С‡РµРЅРёРµ:** СЃРµСЂРІРµСЂ-СЃРµСЂРІРµСЂРЅС‹Р№ fetch РґРѕ Supabase Storage (РѕР±С…РѕРґРёС‚ Р±Р»РѕРєРёСЂРѕРІРєРё РїСЂРѕРІР°Р№РґРµСЂР°)
+## 6. Прокси-роут `/api/storage/[...path]`
+- **Назначение:** сервер-серверный fetch до Supabase Storage (обходит блокировки провайдера)
 - **Upstream:** `https://zphehhzgbudetyzezunk.supabase.co/storage/v1/object/public/{path}`
-- **РџРѕРґРґРµСЂР¶РєР° signed URL:** РїСѓС‚СЊ `/api/storage/object/sign/{bucket}/{file}?token=...` РїСЂРѕРєСЃРёСЂСѓРµС‚ РЅР° `/storage/v1/object/sign/{path}?token=...` (РЅСѓР¶РµРЅ РґР»СЏ СЃС‚Р°СЂС‹С… Р·Р°РїРёСЃРµР№, РіРґРµ URL Р±С‹Р» signed)
-- **РђРІС‚РѕСЂРёР·Р°С†РёСЏ upstream:** `Authorization: Bearer <anon key>` (Р±РµР· РЅРµРіРѕ вЂ” 403 РґР»СЏ `lesson-files/uploads/*/*.mp3`)
-- **РљР°СЂС‚РёРЅРєРё** (ext РІ IMG_EXTS + Sharp-РїР°СЂР°РјРµС‚СЂС‹): РїР°С‚С‡РµРЅРЅС‹Р№ Next-fetch + Sharp (resize `?w`/`?q`/`?fm`, JPEG q80, 1920px max, EXIF-РѕСЂРёРµРЅС‚Р°С†РёСЏ, WebP/AVIF РїРѕ Accept), `Cache-Control: public, max-age=86400`, in-memory РєСЌС€ 10 РјРёРЅ (`X-Storage-Cache`)
-- **РќРµ-РєР°СЂС‚РёРЅРєРё (Р°СѓРґРёРѕ/РІРёРґРµРѕ/PDF):** С‡С‚РµРЅРёРµ С‡РµСЂРµР· `node:https` `rawGet`/`rawGetRetryFull` (5 РїРѕРїС‹С‚РѕРє, backoff) вЂ” **РќР• С‡РµСЂРµР· Next-patched fetch** (СЂРІС‘С‚СЃСЏ РЅР° Range-РѕС‚РІРµС‚Р°С… Р°РїСЃС‚СЂРёРјР°, `TypeError: terminated`). РџСЂРѕРґ: Р±СѓС„РµСЂРЅС‹Р№ РѕС‚РІРµС‚ С†РµР»РёРєРѕРј (С„Р°Р№Р»С‹ в‰¤8 РњР‘). Dev: РєР°Рї Р»СЋР±РѕР№ Range >1 РњР‘ Рё GET Р±РµР· Range РґРѕ 1 РњР‘ вЂ” РїР»РµРµСЂ С‡РёС‚Р°РµС‚ РєСѓСЃРєР°РјРё; РµСЃР»Рё С„Р°Р№Р» РјР°С‚РµСЂРёР°Р»Р»РёР·РѕРІР°РЅ вЂ” 302 РЅР° СЃС‚Р°С‚РёРєСѓ
-- **Dev-РјРµРґРёР° (`/_media/`):** `<audio>/<video>` РІ dev РёРґСѓС‚ РќР• РЅР° РґРёРЅР°РјРёС‡РµСЃРєРёР№ РјР°СЂС€СЂСѓС‚ (dev-СЃРµСЂРІРµСЂ РЅРµ РґРѕСЃС‚Р°РІР»СЏРµС‚ С‚РµР»Рѕ dynamic-route РѕС‚РІРµС‚Р° РґР»СЏ `Accept-Encoding: identity`, РѕРґРёРЅР°РєРѕРІРѕ РґР»СЏ 200/206/302), Р° РЅР° СЃС‚Р°С‚РёС‡РµСЃРєРёР№ `/api/dev/media` + `scripts/materialize-media.mjs` (РјР°С‚РµСЂРёР°Р»Р»РёР·Р°С†РёСЏ РєСѓСЃРєР°РјРё 1 РњР‘, retry 6, РѕС‚РґРµР»СЊРЅС‹Р№ node-РїСЂРѕС†РµСЃСЃ) в†’ С„Р°Р№Р» РєР»Р°РґС‘С‚СЃСЏ РІ `public/_media/<basename>` (gitignored) Рё РѕС‚РґР°С‘С‚СЃСЏ СЃС‚Р°С‚РёРєРѕР№ Next (Р»СЋР±РѕР№ Range Р·Р° ~7 РјСЃ). Р¤СЂРѕРЅС‚: `src/components/lesson-blocks/media-asset.tsx` (`MediaAsset`) РІ dev РЅР°РїСЂР°РІР»СЏРµС‚ src РЅР° `/_media/<basename>`, РІ РїСЂРѕРґ вЂ” РЅР° РїСЂРѕРєСЃРё
-- **РџСЂРѕС‡РµРµ:** РЅРµ-image С„Р°Р№Р»С‹ (РІРёРґРµРѕ, Р°СѓРґРёРѕ, PDF) вЂ” passthrough Р±РµР· РёР·РјРµРЅРµРЅРёР№ (РїСЂРѕРґ)
-- **РћС‚Р»Р°РґРєР° СЃР±РѕСЂРєРё:** `/api/dev/media` вЂ” dev-only (РІ РїСЂРѕРґРµ 404)
+- **Поддержка signed URL:** путь `/api/storage/object/sign/{bucket}/{file}?token=...` проксирует на `/storage/v1/object/sign/{path}?token=...` (нужен для старых записей, где URL был signed)
+- **Авторизация upstream:** `Authorization: Bearer <anon key>` (без него — 403 для `lesson-files/uploads/*/*.mp3`)
+- **Картинки** (ext в IMG_EXTS + Sharp-параметры): патченный Next-fetch + Sharp (resize `?w`/`?q`/`?fm`, JPEG q80, 1920px max, EXIF-ориентация, WebP/AVIF по Accept), `Cache-Control: public, max-age=86400`, in-memory кэш 10 мин (`X-Storage-Cache`)
+- **Не-картинки (аудио/видео/PDF):** чтение через `node:https` `rawGet`/`rawGetRetryFull` (5 попыток, backoff) — **НЕ через Next-patched fetch** (рвётся на Range-ответах апстрима, `TypeError: terminated`). Прод: буферный ответ целиком (файлы ≤8 МБ). Dev: кап любой Range >1 МБ и GET без Range до 1 МБ — плеер читает кусками; если файл материаллизован — 302 на статику
+- **Dev-медиа (`/_media/`):** `<audio>/<video>` в dev идут НЕ на динамический маршрут (dev-сервер не доставляет тело dynamic-route ответа для `Accept-Encoding: identity`, одинаково для 200/206/302), а на статический `/api/dev/media` + `scripts/materialize-media.mjs` (материаллизация кусками 1 МБ, retry 6, отдельный node-процесс) → файл кладётся в `public/_media/<basename>` (gitignored) и отдаётся статикой Next (любой Range за ~7 мс). Фронт: `src/components/lesson-blocks/media-asset.tsx` (`MediaAsset`) в dev направляет src на `/_media/<basename>`, в прод — на прокси
+- **Прочее:** не-image файлы (видео, аудио, PDF) — passthrough без изменений (прод)
+- **Отладка сборки:** `/api/dev/media` — dev-only (в проде 404)
 
-## 7. РћРїС‚РёРјРёР·Р°С†РёСЏ РёР·РѕР±СЂР°Р¶РµРЅРёР№ РЅР° С„СЂРѕРЅС‚РµРЅРґРµ (next/image + StorageImage)
-- РљРѕРјРїРѕРЅРµРЅС‚ `StorageImage` (`src/components/storage-image.tsx`, РѕР±С‘СЂС‚РєР° РЅР°Рґ next/image) вЂ” РґР»СЏ РєРѕРЅС‚РµРЅС‚РЅС‹С… РєР°СЂС‚РёРЅРѕРє РёР· Supabase Storage.
-- Storage-URL (public Рё signed) Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРµСЂРµРїРёСЃС‹РІР°СЋС‚СЃСЏ РІ РїСЂРѕРєСЃРё-РїСѓС‚СЊ `/api/storage/...` (`toProxyPath`/`isProxyable`); responsive srcset (`?w=256..2560`), Р»РµРЅРёРІР°СЏ Р·Р°РіСЂСѓР·РєР°, `priority` С‚Р°Рј РіРґРµ РЅР°РґРѕ, Р·Р°С‰РёС‚Р° РѕС‚ layout-shift (fill/РїСЂРѕРїРѕСЂС†РёРё).
-- Р’СЃС‘ РѕСЃС‚Р°Р»СЊРЅРѕРµ (РІРЅРµС€РЅРёРµ hotlink-Рё: Google Drive / РЇРЅРґРµРєСЃ.Р”РёСЃРє, gif, svg, Р»РѕРєР°Р»СЊРЅС‹Рµ Р°СЃСЃРµС‚С‹ `/logo-128.png`) fallback РЅР° РѕР±С‹С‡РЅС‹Р№ `<img>` (`raw`) вЂ” С‡РµСЂРµР· РїСЂРѕРєСЃРё РЅРµ РіРѕРЅСЏРµС‚СЃСЏ.
-- `next.config.ts`: `images.loader: "custom"` (loader в†’ `/api/storage`), `images.formats: ["image/avif","image/webp"]`.
-- `upload-file` Р±РѕР»СЊС€Рµ **РЅРµ СЃРѕР·РґР°С‘С‚ signed URL** вЂ” РІРѕР·РІСЂР°С‰Р°РµС‚ public URL (`/object/public/`), Р±Р°РєРµС‚ `lesson-files` РїСѓР±Р»РёС‡РЅС‹Р№.
-- Р Р°СЃРїСЂРѕСЃС‚СЂР°РЅРµРЅРѕ РЅР° РІСЃРµ РїСѓР±Р»РёС‡РЅС‹Рµ СЃС‚СЂР°РЅРёС†С‹: РіР»Р°РІРЅР°СЏ, catalog, content/[id], reviews, about, teachers, teachers/[id], content-carousel, СЃР»Р°Р№РґС€РѕСѓ, CTA.
-- РўСЏР¶С‘Р»С‹Рµ РєР»РёРµРЅС‚СЃРєРёРµ Р±РёР±Р»РёРѕС‚РµРєРё (editor/ProseMirror, recharts) РїРѕРґС‚РІРµСЂР¶РґРµРЅС‹ **РІРЅРµ РїСѓР±Р»РёС‡РЅРѕРіРѕ РїСѓС‚Рё** вЂ” route-splitting РЅРµ С‚СЏРЅРµС‚ РёС… РЅР° Р»РµРЅРґРёРЅРі.
+## 7. Оптимизация изображений на фронтенде (next/image + StorageImage)
+- Компонент `StorageImage` (`src/components/storage-image.tsx`, обёртка над next/image) — для контентных картинок из Supabase Storage.
+- Storage-URL (public и signed) автоматически переписываются в прокси-путь `/api/storage/...` (`toProxyPath`/`isProxyable`); responsive srcset (`?w=256..2560`), ленивая загрузка, `priority` там где надо, защита от layout-shift (fill/пропорции).
+- Всё остальное (внешние hotlink-и: Google Drive / Яндекс.Диск, gif, svg, локальные ассеты `/logo-128.png`) fallback на обычный `<img>` (`raw`) — через прокси не гоняется.
+- `next.config.ts`: `images.loader: "custom"` (loader → `/api/storage`), `images.formats: ["image/avif","image/webp"]`.
+- `upload-file` больше **не создаёт signed URL** — возвращает public URL (`/object/public/`), бакет `lesson-files` публичный.
+- Распространено на все публичные страницы: главная, catalog, content/[id], reviews, about, teachers, teachers/[id], content-carousel, слайдшоу, CTA.
+- Тяжёлые клиентские библиотеки (editor/ProseMirror, recharts) подтверждены **вне публичного пути** — route-splitting не тянет их на лендинг.
 
-## 8. Auth (Р°РІС‚РѕСЂРёР·Р°С†РёСЏ)
-- **Р РµРіРёСЃС‚СЂР°С†РёСЏ:** `POST /api/auth/signup` в†’ `admin.createUser({ email_confirm: true })` в†’ СЃСЂР°Р·Сѓ РІС…РѕРґ
-- **Р’С…РѕРґ:** `POST /api/auth/login` в†’ `signInWithPassword()` в†’ СѓСЃС‚Р°РЅРѕРІРєР° cookie С‡РµСЂРµР· `pendingCookies`
-- **Р’С‹С…РѕРґ:** `POST /api/auth/logout` в†’ РѕС‡РёСЃС‚РєР° СЃРµСЃСЃРёРё
-- **РЎР±СЂРѕСЃ РїР°СЂРѕР»СЏ:** `/forgot-password` в†’ `resetPasswordForEmail()` в†’ РїРёСЃСЊРјРѕ в†’ `/auth/callback` в†’ `/reset-password` в†’ `updateUser()`
-- **Auth callback:** `/auth/callback` в†’ `exchangeCodeForSession()` в†’ СЂРµРґРёСЂРµРєС‚ РЅР° NEXT_PUBLIC_SITE_URL (РЅРµ РЅР° request.url)
-- **РўРµРєСѓС‰РёР№ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ (BFF):** `GET /api/auth/me` в†’ РІРѕР·РІСЂР°С‰Р°РµС‚ `{ user: { id, email, user_metadata } }` РёР· СЃРµСЂРІРµСЂРЅРѕР№ СЃРµСЃСЃРёРё (РєСѓРєРё). РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ **РєР»РёРµРЅС‚СЃРєРёРјРё** СЃС‚СЂР°РЅРёС†Р°РјРё/РєРѕРјРїРѕРЅРµРЅС‚Р°РјРё РІРјРµСЃС‚Рѕ Р±СЂР°СѓР·РµСЂРЅРѕРіРѕ `supabase.auth.getUser()`. Р­С‚Рѕ СѓР±РёСЂР°РµС‚ РїСЂСЏРјРѕР№ РІС‹Р·РѕРІ Supabase РёР· Р±СЂР°СѓР·РµСЂР° в†’ РЅРµС‚ Р·Р°РІРёСЃР°РЅРёР№ РЅР° РјРµРґР»РµРЅРЅС‹С… СЃРµС‚СЏС…, Рё Р·Р°РґР°С‘С‚ РЅР°РїСЂР°РІР»РµРЅРёРµ **BFF** (Frontend С…РѕРґРёС‚ РІ РЅР°С€ API, РЅРµ РІ Supabase РЅР°РїСЂСЏРјСѓСЋ).
+## 8. Auth (авторизация)
+- **Регистрация:** `POST /api/auth/signup` → `admin.createUser({ email_confirm: true })` → сразу вход
+- **Вход:** `POST /api/auth/login` → `signInWithPassword()` → установка cookie через `pendingCookies`
+- **Выход:** `POST /api/auth/logout` → очистка сессии
+- **Сброс пароля:** `/forgot-password` → `resetPasswordForEmail()` → письмо → `/auth/callback` → `/reset-password` → `updateUser()`
+- **Auth callback:** `/auth/callback` → `exchangeCodeForSession()` → редирект на NEXT_PUBLIC_SITE_URL (не на request.url)
+- **Текущий пользователь (BFF):** `GET /api/auth/me` → возвращает `{ user: { id, email, user_metadata } }` из серверной сессии (куки). Используется **клиентскими** страницами/компонентами вместо браузерного `supabase.auth.getUser()`. Это убирает прямой вызов Supabase из браузера → нет зависаний на медленных сетях, и задаёт направление **BFF** (Frontend ходит в наш API, не в Supabase напрямую).
 
-### Р—Р°РєР°Р»РєР° СЃРѕРµРґРёРЅРµРЅРёР№ Рє Supabase (РЅР°РґС‘Р¶РЅРѕСЃС‚СЊ)
-- РќР° **РІСЃРµС… СЃРµСЂРІРµСЂРЅС‹С…** Supabase-РєР»РёРµРЅС‚Р°С… (`createClient/createAdminClient/createServiceClient`, `middleware.ts`, auth-СЂРѕСѓС‚С‹, `tools-panel-wrapper`) РїСЂРёРјРµРЅСЏРµС‚СЃСЏ `supabaseFetch` РёР· `lib/supabase/server.ts` вЂ” РѕР±С‘СЂС‚РєР°, С„РѕСЂСЃРёСЂСѓСЋС‰Р°СЏ `Connection: close` РЅР° РєР°Р¶РґРѕРј Р·Р°РїСЂРѕСЃРµ.
-- **Р—Р°С‡РµРј:** РґРѕР»РіРѕР¶РёРІСѓС‰РёР№ РїСЂРѕС†РµСЃСЃ РЅР°РєР°РїР»РёРІР°РµС‚ В«РїСЂРѕС‚СѓС…С€РёРµВ» keep-alive СЃРѕРєРµС‚С‹ Рє Supabase в†’ СЃР»СѓС‡Р°Р№РЅС‹Р№ Р·Р°РїСЂРѕСЃ Р·Р°РІРёСЃР°Р» РЅР° 20вЂ“70СЃ (РѕСЃРѕР±РµРЅРЅРѕ РІ dev Рё РЅР° РјРµРґР»РµРЅРЅС‹С… СЃРµС‚СЏС…). `Connection: close` РЅРµ РґР°С‘С‚ РїРµСЂРµРёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїСЂРѕС‚СѓС…С€РёРµ СЃРѕРєРµС‚С‹ в†’ СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚СЊ.
-- **РћРіСЂР°РЅРёС‡РµРЅРёРµ:** СЌС‚Рѕ Р·Р°РєР°Р»РєР° РЅР°РґС‘Р¶РЅРѕСЃС‚Рё, Р° РЅРµ РѕРїС‚РёРјСѓРј. РџСЂР°РІРёР»СЊРЅРµРµ вЂ” РЅР°СЃС‚СЂРѕРёС‚СЊ undici Agent (keepAliveTimeout) Рё **СЃРѕРєСЂР°С‚РёС‚СЊ С‡РёСЃР»Рѕ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅС‹С… Р·Р°РїСЂРѕСЃРѕРІ** (СЃРј. РЅР°РїСЂР°РІР»РµРЅРёРµ B + RPC). Р”Р»СЏ РЅРёР·РєРѕРіРѕ С‚СЂР°С„РёРєР° С‚РµРєСѓС‰РµРµ СЂРµС€РµРЅРёРµ РїСЂРёРµРјР»РµРјРѕ.
+### Закалка соединений к Supabase (надёжность)
+- На **всех серверных** Supabase-клиентах (`createClient/createAdminClient/createServiceClient`, `middleware.ts`, auth-роуты, `tools-panel-wrapper`) применяется `supabaseFetch` из `lib/supabase/server.ts` — обёртка, форсирующая `Connection: close` на каждом запросе.
+- **Зачем:** долгоживущий процесс накапливает «протухшие» keep-alive сокеты к Supabase → случайный запрос зависал на 20–70с (особенно в dev и на медленных сетях). `Connection: close` не даёт переиспользовать протухшие сокеты → стабильность.
+- **Ограничение:** это закалка надёжности, а не оптимум. Правильнее — настроить undici Agent (keepAliveTimeout) и **сократить число последовательных запросов** (см. направление B + RPC). Для низкого трафика текущее решение приемлемо.
 
-### РќР°РїСЂР°РІР»РµРЅРёРµ BFF (РІР°Р¶РЅРѕ РґР»СЏ Android)
-- Р‘СЂР°СѓР·РµСЂ/РјРѕР±РёР»СЊРЅС‹Р№ РєР»РёРµРЅС‚ **РЅРµ РґРѕР»Р¶РµРЅ** С…РѕРґРёС‚СЊ РІ Supabase РЅР°РїСЂСЏРјСѓСЋ (Р°РЅРѕРЅ-РєР»СЋС‡ + Р·Р°РІРёСЃР°РЅРёСЏ). Р’СЃРµ РґР°РЅРЅС‹Рµ вЂ” С‡РµСЂРµР· РЅР°С€ Next-API (`/api/*`), СЃРµСЂРІРµСЂ вЂ” РµРґРёРЅСЃС‚РІРµРЅРЅС‹Р№, РєС‚Рѕ Р·РЅР°РµС‚ СЃРµРєСЂРµС‚С‹.
-- РљРѕРЅС‚РµРЅС‚РЅС‹Рµ СЃС‚СЂР°РЅРёС†С‹ (СѓСЂРѕРєРё, РєСѓСЂСЃС‹) СѓР¶Рµ СЃРѕР±РёСЂР°СЋС‚СЃСЏ РЅР° СЃРµСЂРІРµСЂРµ. РљР»РёРµРЅС‚СЃРєРёРµ СЃС†РµРЅР°СЂРёРё, РєРѕС‚РѕСЂС‹Рј РЅСѓР¶РµРЅ `getUser`, РїРµСЂРµРІРѕРґСЏС‚СЃСЏ РЅР° `/api/auth/me`.
+### Направление BFF (важно для Android)
+- Браузер/мобильный клиент **не должен** ходить в Supabase напрямую (анон-ключ + зависания). Все данные — через наш Next-API (`/api/*`), сервер — единственный, кто знает секреты.
+- Контентные страницы (уроки, курсы) уже собираются на сервере. Клиентские сценарии, которым нужен `getUser`, переводятся на `/api/auth/me`.
 
-## 9. Р®Kassa
-- **РЎС‚Р°С‚СѓСЃ:** РќР• РќРђРЎРўР РћР•РќРђ
-- **shop_id / secret_key:** РѕР¶РёРґР°СЋС‚СЃСЏ РѕС‚ РјРµРЅРµРґР¶РµСЂР° Р®Kassa
+## 9. ЮKassa
+- **Статус:** НЕ НАСТРОЕНА
+- **shop_id / secret_key:** ожидаются от менеджера ЮKassa
 
 ## 10. GitHub
-- **Р РµРїРѕР·РёС‚РѕСЂРёР№:** https://github.com/outmilker1978/-naranja-feliz.git
-- **Р’РµС‚РєР°:** main (РµРґРёРЅСЃС‚РІРµРЅРЅР°СЏ, Р·Р°С‰РёС‰С‘РЅРЅР°СЏ)
+- **Репозиторий:** https://github.com/outmilker1978/-naranja-feliz.git
+- **Ветка:** main (единственная, защищённая)
 
-## 11. .env.local (Р»РѕРєР°Р»СЊРЅР°СЏ СЂР°Р·СЂР°Р±РѕС‚РєР°)
+## 11. .env.local (локальная разработка)
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://zphehhzgbudetyzezunk.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_... (СЂРµР°Р»СЊРЅС‹Р№ вЂ” С‚РѕР»СЊРєРѕ РІ .env.local, РЅРµ РєРѕРјРјРёС‚РёС‚СЊ, СѓР±СЂР°РЅРѕ РёР· РґРѕРєРѕРІ РїРѕ РіРёРіРёРµРЅРµ) 
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_... (реальный — только в .env.local, не коммитить, убрано из доков по гигиене) 
 SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_SITE_URL=http://localhost:3100
 YANDEX_API_KEY=...
@@ -140,254 +140,254 @@ YANDEX_FOLDER_ID=b1gsrqv6ri6jr7ue41fc
 SMTP_HOST=smtp.yandex.ru
 SMTP_PORT=465
 SMTP_USER=naranja-feliz@yandex.ru
-SMTP_PASS=<РїР°СЂРѕР»СЊ РїСЂРёР»РѕР¶РµРЅРёСЏ РЇРЅРґРµРєСЃ, СЃРѕР·РґР°РЅРЅС‹Р№ РІ id.yandex.ru/security/app-passwords>
+SMTP_PASS=<пароль приложения Яндекс, созданный в id.yandex.ru/security/app-passwords>
 SMTP_FROM=naranja-feliz@yandex.ru
-CRON_SECRET=<СЃР»СѓС‡Р°Р№РЅР°СЏ СЃС‚СЂРѕРєР° РґР»СЏ Р·Р°С‰РёС‚С‹ cron endpoint>
+CRON_SECRET=<случайная строка для защиты cron endpoint>
 YOO_KASSA_SHOP_ID=
 YOO_KASSA_SECRET_KEY=
 ```
 
-## 12. Р›РѕРєР°Р»СЊРЅР°СЏ СЂР°Р·СЂР°Р±РѕС‚РєР°
+## 12. Локальная разработка
 ```bash
 npm install
 npm run dev      # localhost:3100
-npm run build    # production СЃР±РѕСЂРєР° (output: standalone)
+npm run build    # production сборка (output: standalone)
 ```
 
-## 13. РЎР¶Р°С‚РёРµ РёР·РѕР±СЂР°Р¶РµРЅРёР№
-- **РџСЂРё Р·Р°РіСЂСѓР·РєРµ:** Sharp (JPEG mozjpeg q82, PNGв†’WebP, СЂРµСЃР°Р№Р· >1920px), fallback РїСЂРё РѕС€РёР±РєРµ
-- **РџР°РєРµС‚РЅРѕРµ:** `scripts/compress-storage.mjs` вЂ” РїСЂРѕС€С‘Р»СЃСЏ РїРѕ РІСЃРµРј bucket-С„Р°Р№Р»Р°Рј >300KB
-- **Р§РµСЂРµР· РїСЂРѕРєСЃРё:** `/api/storage/[...path]` вЂ” Sharp РЅР° Р»РµС‚Сѓ (JPEG q80, 1920px)
+## 13. Сжатие изображений
+- **При загрузке:** Sharp (JPEG mozjpeg q82, PNG→WebP, ресайз >1920px), fallback при ошибке
+- **Пакетное:** `scripts/compress-storage.mjs` — прошёлся по всем bucket-файлам >300KB
+- **Через прокси:** `/api/storage/[...path]` — Sharp на лету (JPEG q80, 1920px)
 
-## 14. РўРµСЃС‚РѕРІС‹Рµ Р°РєРєР°СѓРЅС‚С‹
-- РЈС‡РёС‚РµР»СЊ Рё СѓС‡РµРЅРёРє вЂ” РІ Supabase Auth, roles РІ `profiles`
+## 14. Тестовые аккаунты
+- Учитель и ученик — в Supabase Auth, roles в `profiles`
 
-## 15. РЎРёСЃС‚РµРјР° Р±Р»РѕРєРѕРІ РєРѕРЅС‚РµРЅС‚Р° РїРѕСЂС‚Р°Р»Р°
+## 15. Система блоков контента портала
 
-### РўРёРїС‹ Р±Р»РѕРєРѕРІ
-- **page_section** вЂ” СЃС‚Р°С‚РёС‡РЅС‹Рµ СЃРµРєС†РёРё РіР»Р°РІРЅРѕР№: hero (locked), features, about, testimonials, faq, cta (locked). РљР°Р¶РґР°СЏ вЂ” РѕРґРЅР° Р·Р°РїРёСЃСЊ РІ `content` СЃ `type=page_section` Рё `category`.
-- **news** вЂ” РєРѕР»Р»РµРєС†РёСЏ РЅРѕРІРѕСЃС‚РµР№ (РѕРґРЅР° Р·Р°РїРёСЃСЊ = РѕРґРЅР° РЅРѕРІРѕСЃС‚СЊ), РіСЂСѓРїРїРёСЂСѓСЋС‚СЃСЏ РІ Р±Р»РѕРє "РќРѕРІРѕСЃС‚Рё".
-- **article** / **ad** вЂ” РґРёРЅР°РјРёС‡РµСЃРєРёРµ Р±Р»РѕРєРё РёР· `content_blocks` С‚Р°Р±Р»РёС†С‹, СЃРѕРґРµСЂР¶Р°С‚ СЃСЃС‹Р»РєРё РЅР° Р·Р°РїРёСЃРё РІ `content`.
+### Типы блоков
+- **page_section** — статичные секции главной: hero (locked), features, about, testimonials, faq, cta (locked). Каждая — одна запись в `content` с `type=page_section` и `category`.
+- **news** — коллекция новостей (одна запись = одна новость), группируются в блок "Новости".
+- **article** / **ad** — динамические блоки из `content_blocks` таблицы, содержат ссылки на записи в `content`.
 
-### РџРѕСЂСЏРґРѕРє Р±Р»РѕРєРѕРІ
-- **РђРґРјРёРЅРєР°:** `buildSectionBlocks` в†’ STATIC_BLOCK_DEFS (featuresв†’aboutв†’testimonialsв†’faqв†’news) + content_blocks, СЃРѕСЂС‚РёСЂРѕРІРєР°: hero first, cta last, РѕСЃС‚Р°Р»СЊРЅРѕРµ РїРѕ `sort_order`.
-- **РџРѕСЂС‚Р°Р» (page.tsx):** Hero в†’ Courses в†’ Features в†’ About в†’ Testimonials в†’ FAQ в†’ News в†’ Article/Ad Р±Р»РѕРєРё в†’ CTA. РљР°Р¶РґРѕР№ СЃРµРєС†РёРё РїСЂРёСЃРІР°РёРІР°РµС‚СЃСЏ `order` (sort_order РёР· Р‘Р” РґР»СЏ page_sections/content_blocks, Infinity РґР»СЏ CTA).
+### Порядок блоков
+- **Админка:** `buildSectionBlocks` → STATIC_BLOCK_DEFS (features→about→testimonials→faq→news) + content_blocks, сортировка: hero first, cta last, остальное по `sort_order`.
+- **Портал (page.tsx):** Hero → Courses → Features → About → Testimonials → FAQ → News → Article/Ad блоки → CTA. Каждой секции присваивается `order` (sort_order из БД для page_sections/content_blocks, Infinity для CTA).
 
-### Р РµРѕСЂРґРµСЂ Р±Р»РѕРєРѕРІ (`moveBlock`)
-1. РљРѕРїРёСЂСѓРµС‚СЃСЏ РјР°СЃСЃРёРІ `sectionBlocks`, РјРµРЅСЏСЋС‚СЃСЏ РјРµСЃС‚Р°РјРё РґРІР° СЃРѕСЃРµРґРЅРёС… Р±Р»РѕРєР°.
-2. locked-Р±Р»РѕРєРё (hero, cta) РёСЃРєР»СЋС‡Р°СЋС‚СЃСЏ РёР· РїРµСЂРµРЅСѓРјРµСЂР°С†РёРё.
-3. Р’СЃРµ unlocked-Р±Р»РѕРєРё РїРѕР»СѓС‡Р°СЋС‚ `sort_order = index Г— 1000`.
-4. РЎС‚Р°С‚РёРєРё РѕР±РЅРѕРІР»СЏСЋС‚СЃСЏ С‡РµСЂРµР· `/api/content/reorder`, РґРёРЅР°РјРёРєРё вЂ” С‡РµСЂРµР· `/api/content-blocks/reorder`.
-5. РџРѕСЃР»Рµ СЃРѕС…СЂР°РЅРµРЅРёСЏ вЂ” `fetchAll()` РїРµСЂРµРіСЂСѓР¶Р°РµС‚ РґР°РЅРЅС‹Рµ СЃ СЃРµСЂРІРµСЂР°.
+### Реордер блоков (`moveBlock`)
+1. Копируется массив `sectionBlocks`, меняются местами два соседних блока.
+2. locked-блоки (hero, cta) исключаются из перенумерации.
+3. Все unlocked-блоки получают `sort_order = index × 1000`.
+4. Статики обновляются через `/api/content/reorder`, динамики — через `/api/content-blocks/reorder`.
+5. После сохранения — `fetchAll()` перегружает данные с сервера.
 
-### Р РµРѕСЂРґРµСЂ РІРЅСѓС‚СЂРё Р±Р»РѕРєР° (`moveItemInBlock`)
-- Р’СЃРµ items Р±Р»РѕРєР° РїРѕР»СѓС‡Р°СЋС‚ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅС‹Рµ sort_order (0, 1, 2...) С‡РµСЂРµР· `/api/content/reorder`.
+### Реордер внутри блока (`moveItemInBlock`)
+- Все items блока получают последовательные sort_order (0, 1, 2...) через `/api/content/reorder`.
 
-## 16. Р’Р°Р¶РЅС‹Рµ С„Р°Р№Р»С‹
-| Р¤Р°Р№Р» | РќР°Р·РЅР°С‡РµРЅРёРµ |
+## 16. Важные файлы
+| Файл | Назначение |
 |------|-----------|
-| `Dockerfile` | РњРЅРѕРіРѕСЃС‚Р°РґРёР№РЅР°СЏ СЃР±РѕСЂРєР° Next.js (standalone) |
+| `Dockerfile` | Многостадийная сборка Next.js (standalone) |
 | `gateway-spec.yaml` | API Gateway routes |
 | `.github/workflows/deploy.yml` | CI/CD pipeline |
-| `supabase/migration.sql` | РЎС…РµРјР° Рё РјРёРіСЂР°С†РёРё Р‘Р” |
+| `supabase/migration.sql` | Схема и миграции БД |
 | `next.config.ts` | output: "standalone" |
-| `.dockerignore` | РСЃРєР»СЋС‡РµРЅРёСЏ РґР»СЏ Docker |
+| `.dockerignore` | Исключения для Docker |
 | `src/proxy.ts` | Middleware (Next.js 16 proxy convention) |
-| `src/lib/image-proxy.ts` | РЈС‚РёР»РёС‚Р° Р·Р°РјРµРЅС‹ URL РЅР° РїСЂРѕРєСЃРё-СЂРѕСѓС‚ |
-| `src/app/api/storage/[...path]/route.ts` | Proxy-СЂРѕСѓС‚ СЃ Sharp |
-| `src/app/api/auth/signup/route.ts` | Р РµРіРёСЃС‚СЂР°С†РёСЏ СЃ auto-confirm |
-| `src/app/api/auth/login/route.ts` | РЎРµСЂРІРµСЂРЅС‹Р№ РІС…РѕРґ |
-| `src/app/api/auth/forgot-password/route.ts` | РЎР±СЂРѕСЃ РїР°СЂРѕР»СЏ |
-| `src/app/api/auth/update-password/route.ts` | РћР±РЅРѕРІР»РµРЅРёРµ РїР°СЂРѕР»СЏ |
+| `src/lib/image-proxy.ts` | Утилита замены URL на прокси-роут |
+| `src/app/api/storage/[...path]/route.ts` | Proxy-роут с Sharp |
+| `src/app/api/auth/signup/route.ts` | Регистрация с auto-confirm |
+| `src/app/api/auth/login/route.ts` | Серверный вход |
+| `src/app/api/auth/forgot-password/route.ts` | Сброс пароля |
+| `src/app/api/auth/update-password/route.ts` | Обновление пароля |
 | `src/app/auth/callback/route.ts` | Auth callback |
-| `scripts/compress-storage.mjs` | РџР°РєРµС‚РЅРѕРµ СЃР¶Р°С‚РёРµ С„РѕС‚Рѕ РІ Storage |
+| `scripts/compress-storage.mjs` | Пакетное сжатие фото в Storage |
 ## 17. TipTap Editor Extensions
 
-РўРµРєСЃС‚РѕРІС‹Рµ Р±Р»РѕРєРё СѓСЂРѕРєРѕРІ РёСЃРїРѕР»СЊР·СѓСЋС‚ TipTap СЂРµРґР°РєС‚РѕСЂ (`tiptap-editor.tsx`). Р—Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅРЅС‹Рµ СЂР°СЃС€РёСЂРµРЅРёСЏ:
+Текстовые блоки уроков используют TipTap редактор (`tiptap-editor.tsx`). Зарегистрированные расширения:
 
-| Р Р°СЃС€РёСЂРµРЅРёРµ | РўРёРї | Р РѕР»СЊ |
+| Расширение | Тип | Роль |
 |-----------|-----|------|
-| `StarterKit` | Р‘Р°РЅРґР» | РџР°СЂР°РіСЂР°С„С‹, Р·Р°РіРѕР»РѕРІРєРё, СЃРїРёСЃРєРё, С„РѕСЂРјР°С‚РёСЂРѕРІР°РЅРёРµ |
-| `Underline` | Mark | РџРѕРґС‡С‘СЂРєРёРІР°РЅРёРµ |
-| `LinkExtension` | Mark | РЎСЃС‹Р»РєРё |
-| `ResizableImage` | Node (React NodeView) | `<img>` СЃ СЂРµСЃР°Р№Р·РѕРј, РІС‹СЂР°РІРЅРёРІР°РЅРёРµ С‡РµСЂРµР· TextAlign |
-| `TranslationMark` | Mark | Р Р°Р·РјРµС‚РєР° `data-translate` РґР»СЏ РїРµСЂРµРІРѕРґР° |
-| `OrangeDividerExtension` | Node (React NodeView) | Р”РµРєРѕСЂР°С‚РёРІРЅС‹Р№ СЂР°Р·РґРµР»РёС‚РµР»СЊ (SVG) |
-| `Placeholder` | Extension | РџР»РµР№СЃС…РѕР»РґРµСЂ СЂРµРґР°РєС‚РѕСЂР° |
-| `TextAlign` | Extension | Р’С‹СЂР°РІРЅРёРІР°РЅРёРµ С‚РµРєСЃС‚Р° Рё РёР·РѕР±СЂР°Р¶РµРЅРёР№ (`types: ["heading", "paragraph", "image"]`) |
+| `StarterKit` | Бандл | Параграфы, заголовки, списки, форматирование |
+| `Underline` | Mark | Подчёркивание |
+| `LinkExtension` | Mark | Ссылки |
+| `ResizableImage` | Node (React NodeView) | `<img>` с ресайзом, выравнивание через TextAlign |
+| `TranslationMark` | Mark | Разметка `data-translate` для перевода |
+| `OrangeDividerExtension` | Node (React NodeView) | Декоративный разделитель (SVG) |
+| `Placeholder` | Extension | Плейсхолдер редактора |
+| `TextAlign` | Extension | Выравнивание текста и изображений (`types: ["heading", "paragraph", "image"]`) |
 
-Р”РІР° РєР°СЃС‚РѕРјРЅС‹С… NodeView РёСЃРїРѕР»СЊР·СѓСЋС‚ `ReactNodeViewRenderer` вЂ” РІ СЂРµРґР°РєС‚РѕСЂРµ СЂРµРЅРґРµСЂСЏС‚СЃСЏ React-РєРѕРјРїРѕРЅРµРЅС‚Р°РјРё, РІ СЃРѕС…СЂР°РЅС‘РЅРЅРѕРј HTML (`editor.getHTML()`) СЃРµСЂРёР°Р»РёР·СѓСЋС‚СЃСЏ С‡РµСЂРµР· `renderHTML()`.
+Два кастомных NodeView используют `ReactNodeViewRenderer` — в редакторе рендерятся React-компонентами, в сохранённом HTML (`editor.getHTML()`) сериализуются через `renderHTML()`.
 
-## 18. Per-course РґРѕСЃС‚СѓРї
+## 18. Per-course доступ
 
-### РЎС…РµРјР° СЂР°Р±РѕС‚С‹
-1. РЎС‚СѓРґРµРЅС‚ РІРёРґРёС‚ РєСѓСЂСЃ СЃ Р±РµР№РґР¶РµРј В«РџРѕ Р·Р°РїСЂРѕСЃСѓВ» в†’ РЅР°Р¶РёРјР°РµС‚ В«Р—Р°РїСЂРѕСЃРёС‚СЊ РґРѕСЃС‚СѓРї Сѓ СѓС‡РёС‚РµР»СЏВ»
-2. РЈС‡РёС‚РµР»СЊ РїРѕР»СѓС‡Р°РµС‚ СѓРІРµРґРѕРјР»РµРЅРёРµ СЃРѕ СЃСЃС‹Р»РєРѕР№ РЅР° СѓС‡РёС‚РµР»СЊСЃРєСѓСЋ СЃ РѕС‚РєСЂС‹С‚РѕР№ РјРѕРґР°Р»РєРѕР№ СЃС‚СѓРґРµРЅС‚Р°
-3. РЈС‡РёС‚РµР»СЊ РІС‹Р±РёСЂР°РµС‚ РєСѓСЂСЃ(С‹) Рё СЃСЂРѕРє в†’ В«Р’С‹РґР°С‚СЊ РґРѕСЃС‚СѓРїВ»
-4. API СЃРѕР·РґР°С‘С‚ Р·Р°РїРёСЃСЊ РІ course_access + Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё upsert РІ enrollments
-5. РЎС‚СѓРґРµРЅС‚ РїРѕР»СѓС‡Р°РµС‚ СѓРІРµРґРѕРјР»РµРЅРёРµ в†’ РїРµСЂРµС…РѕРґРёС‚ РІ СЃРїРёСЃРѕРє РєСѓСЂСЃРѕРІ в†’ РєСѓСЂСЃ СѓР¶Рµ СЃ РїСЂРѕРіСЂРµСЃСЃРѕРј Рё СѓСЂРѕРєР°РјРё
+### Схема работы
+1. Студент видит курс с бейджем «По запросу» → нажимает «Запросить доступ у учителя»
+2. Учитель получает уведомление со ссылкой на учительскую с открытой модалкой студента
+3. Учитель выбирает курс(ы) и срок → «Выдать доступ»
+4. API создаёт запись в course_access + автоматически upsert в enrollments
+5. Студент получает уведомление → переходит в список курсов → курс уже с прогрессом и уроками
 
-### API Endpoints (РЅРѕРІС‹Рµ)
-| Endpoint | РњРµС‚РѕРґ | РќР°Р·РЅР°С‡РµРЅРёРµ |
+### API Endpoints (новые)
+| Endpoint | Метод | Назначение |
 |----------|-------|-----------|
-| /api/course-access/request | POST | РЎС‚СѓРґРµРЅС‚ Р·Р°РїСЂР°С€РёРІР°РµС‚ РґРѕСЃС‚СѓРї (СѓРІРµРґРѕРјР»РµРЅРёРµ СѓС‡РёС‚РµР»СЏРј/Р°РґРјРёРЅР°Рј) |
-| /api/course-access/grant | POST | РЈС‡РёС‚РµР»СЊ РІС‹РґР°С‘С‚ РґРѕСЃС‚СѓРї (course_access + enrollments) |
-| /api/course-access/check?courseId=X | GET | РџСЂРѕРІРµСЂРєР° РґРѕСЃС‚СѓРїР° (С‡РµСЂРµР· RPC check_course_access) |
-| /api/course-access/student-courses?studentId=X | GET | РЎРїРёСЃРѕРє РІС‹РґР°РЅРЅС‹С… РґРѕСЃС‚СѓРїРѕРІ СѓС‡РµРЅРёРєР° (РґР»СЏ РјРѕРґР°Р»РєРё) |
-| /api/course-access/revoke | POST | РћС‚Р·С‹РІ РґРѕСЃС‚СѓРїР° (СѓРґР°Р»РµРЅРёРµ course_access + enrollment) |
+| /api/course-access/request | POST | Студент запрашивает доступ (уведомление учителям/админам) |
+| /api/course-access/grant | POST | Учитель выдаёт доступ (course_access + enrollments) |
+| /api/course-access/check?courseId=X | GET | Проверка доступа (через RPC check_course_access) |
+| /api/course-access/student-courses?studentId=X | GET | Список выданных доступов ученика (для модалки) |
+| /api/course-access/revoke | POST | Отзыв доступа (удаление course_access + enrollment) |
 
-### РўР°Р±Р»РёС†С‹ Р‘Р”
-- **course_access** вЂ” student_id, course_id, granted_by, granted_at, expires_at, eason
-- **profiles** вЂ” РґРѕР±Р°РІР»РµРЅРѕ РїРѕР»Рµ subscription_requested_at (timestamp)
+### Таблицы БД
+- **course_access** — student_id, course_id, granted_by, granted_at, expires_at, eason
+- **profiles** — добавлено поле subscription_requested_at (timestamp)
 
 ### Owner bypass
-РЎРѕР·РґР°С‚РµР»СЊ РєСѓСЂСЃР° (`created_by`) РІСЃРµРіРґР° РёРјРµРµС‚ РґРѕСЃС‚СѓРї вЂ” `check_course_access` РЅРµ РІС‹Р·С‹РІР°РµС‚СЃСЏ РµСЃР»Рё `user.id === course.created_by`. Р РµР°Р»РёР·РѕРІР°РЅРѕ РІ:
-- `courses/[courseId]/page.tsx` вЂ” `isOwner` РїСЂРѕРїСѓСЃРєР°РµС‚ РїСЂРѕРІРµСЂРєСѓ
-- `courses/page.tsx` вЂ” `ownedIds` РґРѕР±Р°РІР»СЏСЋС‚СЃСЏ Рє СЃРїРёСЃРєСѓ РґРѕСЃС‚СѓРїРЅС‹С… РєСѓСЂСЃРѕРІ
-- `api/course-access/check/route.ts` вЂ” РїСЂРѕРІРµСЂРєР° `course.created_by === user.id` в†’ `{ hasAccess: true }`
+Создатель курса (`created_by`) всегда имеет доступ — `check_course_access` не вызывается если `user.id === course.created_by`. Реализовано в:
+- `courses/[courseId]/page.tsx` — `isOwner` пропускает проверку
+- `courses/page.tsx` — `ownedIds` добавляются к списку доступных курсов
+- `api/course-access/check/route.ts` — проверка `course.created_by === user.id` → `{ hasAccess: true }`
 
 ### RPC
-- check_course_access(uid uuid, cid uuid) вЂ” РІРѕР·РІСЂР°С‰Р°РµС‚ true РµСЃР»Рё РµСЃС‚СЊ РґРµР№СЃС‚РІСѓСЋС‰Р°СЏ Р·Р°РїРёСЃСЊ РІ course_access (expires_at IS NULL OR expires_at > now())
+- check_course_access(uid uuid, cid uuid) — возвращает true если есть действующая запись в course_access (expires_at IS NULL OR expires_at > now())
 
-### Р¤СЂРѕРЅС‚РµРЅРґ
-- CourseAccessControl вЂ” РјРѕРґР°Р»РєР° РІС‹РґР°С‡Рё/РѕС‚Р·С‹РІР° РґРѕСЃС‚СѓРїР° РІ СѓС‡РёС‚РµР»СЊСЃРєРѕР№
-- RequestAccessButton вЂ” РєРЅРѕРїРєР° Р·Р°РїСЂРѕСЃР° РґРѕСЃС‚СѓРїР° РЅР° СЃС‚СЂР°РЅРёС†Рµ РєСѓСЂСЃР°
-- EnrollButton вЂ” РїСЂРё 403 (РґРѕСЃС‚СѓРї РѕРіСЂР°РЅРёС‡РµРЅ) РјРµРЅСЏРµС‚ С‚РµРєСЃС‚ РЅР° В«Р—Р°РїСЂРѕСЃРёС‚СЊ РґРѕСЃС‚СѓРї Сѓ СѓС‡РёС‚РµР»СЏВ»
-- РЎС‚СЂР°РЅРёС†С‹: orce-dynamic РґР»СЏ Р°РєС‚СѓР°Р»СЊРЅРѕСЃС‚Рё РґР°РЅРЅС‹С…
+### Фронтенд
+- CourseAccessControl — модалка выдачи/отзыва доступа в учительской
+- RequestAccessButton — кнопка запроса доступа на странице курса
+- EnrollButton — при 403 (доступ ограничен) меняет текст на «Запросить доступ у учителя»
+- Страницы: orce-dynamic для актуальности данных
 
-### Р’Р°Р¶РЅС‹Рµ С„Р°Р№Р»С‹ (РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ)
-| Р¤Р°Р№Р» | РќР°Р·РЅР°С‡РµРЅРёРµ |
+### Важные файлы (дополнительно)
+| Файл | Назначение |
 |------|-----------|
-| src/app/api/course-access/request/route.ts | Р—Р°РїСЂРѕСЃ РґРѕСЃС‚СѓРїР° |
-| src/app/api/course-access/grant/route.ts | Р’С‹РґР°С‡Р° РґРѕСЃС‚СѓРїР° + auto-enrollment |
-| src/app/api/course-access/check/route.ts | РџСЂРѕРІРµСЂРєР° РґРѕСЃС‚СѓРїР° |
-| src/app/api/course-access/student-courses/route.ts | РЎРїРёСЃРѕРє РґРѕСЃС‚СѓРїРѕРІ СѓС‡РµРЅРёРєР° |
-| src/app/api/course-access/revoke/route.ts | РћС‚Р·С‹РІ РґРѕСЃС‚СѓРїР° |
-| src/app/(dashboard)/admin/teachers/course-access-control.tsx | РњРѕРґР°Р»РєР° РІС‹РґР°С‡Рё |
-| src/app/(dashboard)/courses/[courseId]/request-access-button.tsx | РљРЅРѕРїРєР° Р·Р°РїСЂРѕСЃР° |
-| src/app/(dashboard)/courses/enroll-button.tsx | РЈРјРЅР°СЏ РєРЅРѕРїРєР° (403в†’Р·Р°РїСЂРѕСЃ) |
+| src/app/api/course-access/request/route.ts | Запрос доступа |
+| src/app/api/course-access/grant/route.ts | Выдача доступа + auto-enrollment |
+| src/app/api/course-access/check/route.ts | Проверка доступа |
+| src/app/api/course-access/student-courses/route.ts | Список доступов ученика |
+| src/app/api/course-access/revoke/route.ts | Отзыв доступа |
+| src/app/(dashboard)/admin/teachers/course-access-control.tsx | Модалка выдачи |
+| src/app/(dashboard)/courses/[courseId]/request-access-button.tsx | Кнопка запроса |
+| src/app/(dashboard)/courses/enroll-button.tsx | Умная кнопка (403→запрос) |
 
-## 19. РџРѕРґРїРёСЃРєР° Рё СѓРІРµРґРѕРјР»РµРЅРёСЏ
+## 19. Подписка и уведомления
 
-### РЎС‚Р°С‚СѓСЃС‹ РїРѕРґРїРёСЃРєРё
-- `profiles.subscription_until` вЂ” РґР°С‚Р° РѕРєРѕРЅС‡Р°РЅРёСЏ. NULL = РїРѕРґРїРёСЃРєРё РЅРµС‚.
-- `profiles.credit_days` вЂ” РєСЂРµРґРёС‚ (РґРЅРё РІ РґРѕР»Рі РѕС‚ С€РєРѕР»С‹, РїРѕРіР°С€Р°РµС‚СЃСЏ РѕРїР»Р°С‚РѕР№).
-- `subscription_credit_history` вЂ” РёСЃС‚РѕСЂРёСЏ РѕРїРµСЂР°С†РёР№ (gift/credit/payment/writeoff/close).
-- `check_subscription(uid)` RPC вЂ” true РµСЃР»Рё `subscription_until > now()`.
+### Статусы подписки
+- `profiles.subscription_until` — дата окончания. NULL = подписки нет.
+- `profiles.credit_days` — кредит (дни в долг от школы, погашается оплатой).
+- `subscription_credit_history` — история операций (gift/credit/payment/writeoff/close).
+- `check_subscription(uid)` RPC — true если `subscription_until > now()`.
 
-### РЈРІРµРґРѕРјР»РµРЅРёСЏ Рѕ РїРѕРґРїРёСЃРєРµ
-- **РЎС‚Р°РґРёРё:** Р·Р° 5 РґРЅРµР№, Р·Р° 1 РґРµРЅСЊ, В«Р·Р°РєРѕРЅС‡РёР»Р°СЃСЊВ».
-- **РњРµС…Р°РЅРёРєР°:** РµРґРёРЅС‹Р№ РјРѕРґСѓР»СЊ `src/lib/subscription-reminders.ts`:
-  - `getReminderStage(daysLeft)` вЂ” С‚РµРєСЃС‚ РґР»СЏ СЃР°Р№С‚Р° (title/body/link в†’ `/settings`) Рё email (subject/text в†’ `/pricing`).
-  - `ensureSubscriptionReminder()` вЂ” РґРµРґСѓРїР»РёРєР°С†РёСЏ РїРѕ `title+body` (СЃР°Р№С‚) Рё РїРѕ С‚Р°Р±Р»РёС†Рµ `subscription_email_log` (email, retry РїСЂРё СЃР±РѕРµ SMTP).
-  - `sendSubscriptionEmail()` вЂ” nodemailer С‡РµСЂРµР· SMTP РЇРЅРґРµРєСЃ, РѕС€РёР±РєРё Р»РѕРіРёСЂСѓСЋС‚СЃСЏ РІ console.error.
-- **Р—Р°РїСѓСЃРє:**
-  1. **РњРіРЅРѕРІРµРЅРЅРѕ РїСЂРё РІС…РѕРґРµ** вЂ” `SubscriptionCheckOnLogin` РІ `(dashboard)/layout.tsx` в†’ GET `/api/subscription/check` (emailMode "only-on-create").
-  2. **Р•Р¶РµРґРЅРµРІРЅС‹Р№ cron** вЂ” `/api/cron/subscription-expiry` (Р·Р°С‰РёС‰С‘РЅ CRON_SECRET), РІС‹Р·С‹РІР°РµС‚СЃСЏ GitHub Actions `cron-subscription.yml` (06:00 UTC, emailMode "always").
+### Уведомления о подписке
+- **Стадии:** за 5 дней, за 1 день, «закончилась».
+- **Механика:** единый модуль `src/lib/subscription-reminders.ts`:
+  - `getReminderStage(daysLeft)` — текст для сайта (title/body/link → `/settings`) и email (subject/text → `/pricing`).
+  - `ensureSubscriptionReminder()` — дедупликация по `title+body` (сайт) и по таблице `subscription_email_log` (email, retry при сбое SMTP).
+  - `sendSubscriptionEmail()` — nodemailer через SMTP Яндекс, ошибки логируются в console.error.
+- **Запуск:**
+  1. **Мгновенно при входе** — `SubscriptionCheckOnLogin` в `(dashboard)/layout.tsx` → GET `/api/subscription/check` (emailMode "only-on-create").
+  2. **Ежедневный cron** — `/api/cron/subscription-expiry` (защищён CRON_SECRET), вызывается GitHub Actions `cron-subscription.yml` (06:00 UTC, emailMode "always").
 
-### РўР°Р±Р»РёС†Р° subscription_email_log
+### Таблица subscription_email_log
 - `user_id`, `stage` (in_5_days / in_1_day / expired), `UNIQUE(user_id, stage)`.
-- РќСѓР¶РЅР° РґР»СЏ РїРѕРІС‚РѕСЂРЅРѕР№ РѕС‚РїСЂР°РІРєРё РїРёСЃСЊРјР°: РµСЃР»Рё SMTP СѓРїР°Р» РІ РїРµСЂРІС‹Р№ СЂР°Р·, РїРёСЃСЊРјРѕ СѓР№РґС‘С‚ РїСЂРё СЃР»РµРґСѓСЋС‰РµРј Р·Р°РїСѓСЃРєРµ.
+- Нужна для повторной отправки письма: если SMTP упал в первый раз, письмо уйдёт при следующем запуске.
 
-### РљР»СЋС‡РµРІС‹Рµ С„Р°Р№Р»С‹
-| Р¤Р°Р№Р» | РќР°Р·РЅР°С‡РµРЅРёРµ |
+### Ключевые файлы
+| Файл | Назначение |
 |------|-----------|
-| src/lib/subscription-reminders.ts | Р›РѕРіРёРєР° СѓРІРµРґРѕРјР»РµРЅРёР№ + email |
-| src/app/api/subscription/check/route.ts | РњРіРЅРѕРІРµРЅРЅР°СЏ РїСЂРѕРІРµСЂРєР° РїСЂРё РІС…РѕРґРµ |
-| src/app/api/cron/subscription-expiry/route.ts | Cron СѓРІРµРґРѕРјР»РµРЅРёР№ |
-| src/app/api/subscription/extend/route.ts | Р’С‹РґР°С‡Р° РїРѕРґР°СЂРєР°/РєСЂРµРґРёС‚Р°/СЃРїРёСЃР°РЅРёРµ |
-| src/app/api/subscription/credit-history/route.ts | РСЃС‚РѕСЂРёСЏ РѕРїРµСЂР°С†РёР№ |
-| src/app/api/subscription/request-extend/route.ts | Р—Р°РїСЂРѕСЃ РїСЂРѕРґР»РµРЅРёСЏ |
-| src/app/(dashboard)/settings/credit-history.tsx | РСЃС‚РѕСЂРёСЏ РєСЂРµРґРёС‚Р° РґР»СЏ СѓС‡РµРЅРёРєР° |
-| src/components/subscription-check-on-login.tsx | РљР»РёРµРЅС‚СЃРєРёР№ С…СѓРє РїСЂРё РІС…РѕРґРµ |
+| src/lib/subscription-reminders.ts | Логика уведомлений + email |
+| src/app/api/subscription/check/route.ts | Мгновенная проверка при входе |
+| src/app/api/cron/subscription-expiry/route.ts | Cron уведомлений |
+| src/app/api/subscription/extend/route.ts | Выдача подарка/кредита/списание |
+| src/app/api/subscription/credit-history/route.ts | История операций |
+| src/app/api/subscription/request-extend/route.ts | Запрос продления |
+| src/app/(dashboard)/settings/credit-history.tsx | История кредита для ученика |
+| src/components/subscription-check-on-login.tsx | Клиентский хук при входе |
 
-## 20. Р”РёСЂРµРєС‚РѕСЂ С€РєРѕР»С‹
-- `profiles.is_director` вЂ” С„Р»Р°Рі (СЃС‚Р°РІРёС‚ Р°РґРјРёРЅ, С‚РѕР»СЊРєРѕ РѕРґРёРЅ РґРёСЂРµРєС‚РѕСЂ).
-- Р—Р°РїСЂРѕСЃ РїСЂРѕРґР»РµРЅРёСЏ РїРѕРґРїРёСЃРєРё в†’ РґРёСЂРµРєС‚РѕСЂСѓ (РµСЃР»Рё РµСЃС‚СЊ), РёРЅР°С‡Рµ РїРµСЂРІРѕРјСѓ СѓС‡РёС‚РµР»СЋ.
-- Р—Р°РїСЂРѕСЃ РґРѕСЃС‚СѓРїР° Рє РєСѓСЂСЃСѓ в†’ РґРёСЂРµРєС‚РѕСЂСѓ (РµСЃР»Рё РµСЃС‚СЊ), РёРЅР°С‡Рµ РІСЃРµРј СѓС‡РёС‚РµР»СЏРј.
+## 20. Директор школы
+- `profiles.is_director` — флаг (ставит админ, только один директор).
+- Запрос продления подписки → директору (если есть), иначе первому учителю.
+- Запрос доступа к курсу → директору (если есть), иначе всем учителям.
 - `src/lib/director.ts` + `src/app/api/set-director/route.ts`.
 
-## 21. RPC-Р°РіСЂРµРіР°С†РёСЏ (СЌС‚Р°Рї B1 РѕРїС‚РёРјРёР·Р°С†РёРё, v0.7.2)
-РЎРµСЂРІРµСЂРЅС‹Рµ СЃС‚СЂР°РЅРёС†С‹ РїРѕР»СѓС‡Р°СЋС‚ РґР°РЅРЅС‹Рµ **РѕРґРЅРёРј РІС‹Р·РѕРІРѕРј** Postgres-С„СѓРЅРєС†РёРё РІРјРµСЃС‚Рѕ 6вЂ“12 РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅС‹С… Р·Р°РїСЂРѕСЃРѕРІ (51в†’5). Р¤СѓРЅРєС†РёРё РІ `supabase/rpc-aggregation.sql` (РїСЂРёРјРµРЅС‘РЅ РІ Supabase):
+## 21. RPC-агрегация (этап B1 оптимизации, v0.7.2)
+Серверные страницы получают данные **одним вызовом** Postgres-функции вместо 6–12 последовательных запросов (51→5). Функции в `supabase/rpc-aggregation.sql` (применён в Supabase):
 
-| Р¤СѓРЅРєС†РёСЏ | РЎС‚СЂР°РЅРёС†Р° | Р‘С‹Р»Рѕ Р·Р°РїСЂРѕСЃРѕРІ | РЎС‚Р°Р»Рѕ |
+| Функция | Страница | Было запросов | Стало |
 |---------|----------|:---:|:---:|
-| `get_home_data(uid)` | Р“Р»Р°РІРЅР°СЏ `/` | 10 | 1 |
-| `get_course_page(uid, cid)` | РљСѓСЂСЃ `/courses/[courseId]` | 6 | 1 |
-| `get_lesson_page(uid, cid, lid)` | РЈСЂРѕРє `/courses/[courseId]/[lessonId]` | 12 | 1 |
-| `get_course_list(uid)` | РЎРїРёСЃРѕРє `/courses` | 9 | 1+1 |
-| `get_chat_data(uid)` | Р§Р°С‚ `/tools/chat` | 5вЂ“7 | 1 (v0.8.0, СЃРј. В§23) |
+| `get_home_data(uid)` | Главная `/` | 10 | 1 |
+| `get_course_page(uid, cid)` | Курс `/courses/[courseId]` | 6 | 1 |
+| `get_lesson_page(uid, cid, lid)` | Урок `/courses/[courseId]/[lessonId]` | 12 | 1 |
+| `get_course_list(uid)` | Список `/courses` | 9 | 1+1 |
+| `get_chat_data(uid)` | Чат `/tools/chat` | 5–7 | 1 (v0.8.0, см. §23) |
 
-- Р’СЃРµ С„СѓРЅРєС†РёРё вЂ” `SECURITY DEFINER` (`SET search_path='public'`), РїСЂРёРЅРёРјР°СЋС‚ `uid` Рё РїСЂРѕРІРµСЂСЏСЋС‚ РґРѕСЃС‚СѓРї РІРЅСѓС‚СЂРё SQL.
-- Р›РѕРіРёРєР° СЂРµРґРёСЂРµРєС‚РѕРІ СЃРѕС…СЂР°РЅРёР»Р°СЃСЊ: РЅРµРѕРїСѓР±Р»РёРєРѕРІР°РЅРЅС‹Р№ СѓСЂРѕРє РІРёРґРёС‚ С‚РѕР»СЊРєРѕ РІР»Р°РґРµР»РµС† (`@page.tsx:42-44`), РѕС‚СЃСѓС‚СЃС‚РІРёРµ РґРѕСЃС‚СѓРїР° в†’ СЂРµРґРёСЂРµРєС‚ РЅР° `/courses`.
-- РРЅРґРµРєСЃС‹: `lesson_blocks(lesson_id, order_index)`, `enrollments(student_id)`, `course_access(student_id)`, `lesson_progress(student_id, lesson_id)`, `content(type,status,sort_order)`, `chat_messages(chat_id, created_at)` Рё РґСЂ. вЂ” 14 С€С‚СѓРє.
-- РћР±РЅРѕРІР»РµРЅРёРµ С„СѓРЅРєС†РёРё РїРѕСЃР»Рµ РїСЂР°РІРєРё SQL: РїРµСЂРµР·Р°РїСѓСЃС‚РёС‚СЊ `CREATE OR REPLACE FUNCTION ...` РІ Supabase SQL Editor.
+- Все функции — `SECURITY DEFINER` (`SET search_path='public'`), принимают `uid` и проверяют доступ внутри SQL.
+- Логика редиректов сохранилась: неопубликованный урок видит только владелец (`@page.tsx:42-44`), отсутствие доступа → редирект на `/courses`.
+- Индексы: `lesson_blocks(lesson_id, order_index)`, `enrollments(student_id)`, `course_access(student_id)`, `lesson_progress(student_id, lesson_id)`, `content(type,status,sort_order)`, `chat_messages(chat_id, created_at)` и др. — 14 штук.
+- Обновление функции после правки SQL: перезапустить `CREATE OR REPLACE FUNCTION ...` в Supabase SQL Editor.
 
-## 22. Р¤РёРєСЃС‹ UX (v0.7.3)
+## 22. Фиксы UX (v0.7.3)
 
-### `<Avatar>` вЂ” РµРґРёРЅС‹Р№ Р°РІР°С‚Р°СЂ (`src/components/avatar.tsx`)
-- Р’СЃРµ Р°РІР°С‚Р°СЂС‹ (С€Р°РїРєР°, РЅР°СЃС‚СЂРѕР№РєРё, С‡Р°С‚, СѓРІРµРґРѕРјР»РµРЅРёСЏ, СѓС‡РёС‚РµР»СЊСЃРєР°СЏ, РїСЂРѕРІРµСЂРєР°) РёРґСѓС‚ С‡РµСЂРµР· РєРѕРјРїРѕРЅРµРЅС‚ `<Avatar>`:
-  - URL С‡РµСЂРµР· РїСЂРѕРєСЃРё `/api/storage` СЃ `?w={size}&q=65&fm=webp` (РјР°Р»РµРЅСЊРєРёР№ РІРµСЃ).
-  - Р•СЃР»Рё РєР°СЂС‚РёРЅРєР° РЅРµ РіСЂСѓР·РёС‚СЃСЏ (`onError`) вЂ” РїРѕРєР°Р·С‹РІР°РµС‚СЃСЏ РїРµСЂРІР°СЏ Р±СѓРєРІР° РёРјРµРЅРё (fallback).
-- Р—Р°РјРµРЅРёР» СЃС‹СЂС‹Рµ `<img>` РІ: `user-menu`, `dashboard-header`, `settings-form`, `tools/chat`, `notifications`, `admin/teachers/profile-list`, `admin/submissions/submissions-list`, `admin/courses/[courseId]`, `content/[id]`, `submission-thread`.
+### `<Avatar>` — единый аватар (`src/components/avatar.tsx`)
+- Все аватары (шапка, настройки, чат, уведомления, учительская, проверка) идут через компонент `<Avatar>`:
+  - URL через прокси `/api/storage` с `?w={size}&q=65&fm=webp` (маленький вес).
+  - Если картинка не грузится (`onError`) — показывается первая буква имени (fallback).
+- Заменил сырые `<img>` в: `user-menu`, `dashboard-header`, `settings-form`, `tools/chat`, `notifications`, `admin/teachers/profile-list`, `admin/submissions/submissions-list`, `admin/courses/[courseId]`, `content/[id]`, `submission-thread`.
 
-### РљСЌС€ РєР°СЂС‚РёРЅРѕРє РІ РїСЂРѕРєСЃРё (`src/app/api/storage/[...path]/route.ts`)
-- In-memory РєСЌС€ РѕР±СЂР°Р±РѕС‚Р°РЅРЅС‹С… РєР°СЂС‚РёРЅРѕРє: `Map` (РєР»СЋС‡ вЂ” URL), TTL 10 РјРёРЅ, Р»РёРјРёС‚ 500 Р·Р°РїРёСЃРµР№, LRU-evict.
-- РџРѕРІС‚РѕСЂРЅС‹Р№ Р·Р°РїСЂРѕСЃ С‚РѕРіРѕ Р¶Рµ URL в†’ `X-Storage-Cache: hit` (РЅРµ РїРѕРІС‚РѕСЂСЏРµС‚ sharp/fetch).
-- РћС‚РІРµС‚С‹ СЃ `Cache-Control: public, max-age=86400, s-maxage=86400, immutable` вЂ” Р±СЂР°СѓР·РµСЂ РЅРµ РїРµСЂРµРєР°С‡РёРІР°РµС‚.
+### Кэш картинок в прокси (`src/app/api/storage/[...path]/route.ts`)
+- In-memory кэш обработанных картинок: `Map` (ключ — URL), TTL 10 мин, лимит 500 записей, LRU-evict.
+- Повторный запрос того же URL → `X-Storage-Cache: hit` (не повторяет sharp/fetch).
+- Ответы с `Cache-Control: public, max-age=86400, s-maxage=86400, immutable` — браузер не перекачивает.
 
 ### RPC `clear_lesson_answers(student_id, lesson_id)` (`supabase/rpc-aggregation.sql`)
-- РЈРґР°Р»СЏРµС‚ РѕС‚РІРµС‚С‹ Р±Р»РѕРєР° (`block_submissions`) + РїСЂРѕРіСЂРµСЃСЃ СѓСЂРѕРєР° (`lesson_progress`) РІ **РѕРґРЅРѕР№ С‚СЂР°РЅР·Р°РєС†РёРё**.
-- РљРЅРѕРїРєР° В«РћС‡РёСЃС‚РёС‚СЊ РѕС‚РІРµС‚С‹В» (`clear-answers-button.tsx`): 1 РІС‹Р·РѕРІ RPC + `router.refresh()` (Р±РµР· РїРѕР»РЅРѕР№ РїРµСЂРµР·Р°РіСЂСѓР·РєРё СЃС‚СЂР°РЅРёС†С‹).
-- Р Р°РЅСЊС€Рµ Р±С‹Р»Рѕ 2 РєР»РёРµРЅС‚СЃРєРёС… Р·Р°РїСЂРѕСЃР° + `window.location.reload()` вЂ” СѓСЂРѕРє СЃ 13 Р±Р»РѕРєР°РјРё РІРёСЃ РІРёСЃРµР» ~1 РјРёРЅ.
+- Удаляет ответы блока (`block_submissions`) + прогресс урока (`lesson_progress`) в **одной транзакции**.
+- Кнопка «Очистить ответы» (`clear-answers-button.tsx`): 1 вызов RPC + `router.refresh()` (без полной перезагрузки страницы).
+- Раньше было 2 клиентских запроса + `window.location.reload()` — урок с 13 блоками вис висел ~1 мин.
 
-### Р”РѕСЃС‚СѓРї Рє С‡РµСЂРЅРѕРІРёРєР°Рј СѓСЂРѕРєРѕРІ
-- `page.tsx` СѓСЂРѕРєР°: СЂРµРґРёСЂРµРєС‚ РґР»СЏ РЅРµРѕРїСѓР±Р»РёРєРѕРІР°РЅРЅС‹С… СѓСЂРѕРєРѕРІ РїСЂРѕРїСѓСЃРєР°РµС‚ `isAdmin` Рё РІР»Р°РґРµР»СЊС†Р° РєСѓСЂСЃР°.
-- RPC `get_course_page`: СЃРїРёСЃРѕРє СѓСЂРѕРєРѕРІ С„РёР»СЊС‚СЂСѓРµС‚ С‡РµСЂРЅРѕРІРёРєРё (`published OR Р°РґРјРёРЅ OR РІР»Р°РґРµР»РµС†`).
+### Доступ к черновикам уроков
+- `page.tsx` урока: редирект для неопубликованных уроков пропускает `isAdmin` и владельца курса.
+- RPC `get_course_page`: список уроков фильтрует черновики (`published OR админ OR владелец`).
 
-### РЎС‚Р°С‚РёСЃС‚РёРєР°
-- `/api/stats` вЂ” `revalidate = 0` + `Cache-Control: no-store` (Р±С‹Р»Рё СѓСЃС‚Р°СЂРµРІС€РёРµ С†РёС„СЂС‹ РёР· РєСЌС€Р°).
+### Статистика
+- `/api/stats` — `revalidate = 0` + `Cache-Control: no-store` (были устаревшие цифры из кэша).
 
-## 23. РЎРєРѕСЂРѕСЃС‚СЊ РґР°С€Р±РѕСЂРґР° (v0.8.0, Р·Р°РґРµРїР»РѕРµРЅ вЂ” `73e60ff` в†’ `deploy-1788547720`)
+## 23. Скорость дашборда (v0.8.0, задеплоен — `73e60ff` → `deploy-1788547720`)
 
-### Р§Р°С‚ РЅР° 1 Р·Р°РїСЂРѕСЃ (`/api/chat/init`)
-- `src/app/api/chat/init/route.ts`: `POST` в†’ RPC `get_chat_data(uid)` (РїСЂРѕС„РёР»СЊ, СѓС‡РёС‚РµР»СЏ, РёСЃС‚РѕСЂРёСЏ, РїРѕРґРїРёСЃРєР° РІ РѕРґРЅРѕР№ С‚СЂР°РЅР·Р°РєС†РёРё). Р•СЃР»Рё RPC СѓРїР°Р» вЂ” fallback `legacyInit()` РЅР° СЃС‚Р°СЂРѕР№ РєР»РёРµРЅС‚СЃРєРѕР№ Р»РѕРіРёРєРµ (С‡Р°С‚ РЅРµ Р»РѕРјР°РµС‚СЃСЏ).
-- `tools/chat/page.tsx`: РЅР°С‡Р°Р»СЊРЅР°СЏ Р·Р°РіСЂСѓР·РєР° РѕРґРЅРёРј `fetch("/api/chat/init")` РІРјРµСЃС‚Рѕ `/api/auth/me` + `/api/chat/teachers` + `/api/chat`.
+### Чат на 1 запрос (`/api/chat/init`)
+- `src/app/api/chat/init/route.ts`: `POST` → RPC `get_chat_data(uid)` (профиль, учителя, история, подписка в одной транзакции). Если RPC упал — fallback `legacyInit()` на старой клиентской логике (чат не ломается).
+- `tools/chat/page.tsx`: начальная загрузка одним `fetch("/api/chat/init")` вместо `/api/auth/me` + `/api/chat/teachers` + `/api/chat`.
 
-### Р”РµРґСѓРїР»РёРєР°С†РёСЏ СЃРµСЃСЃРёРё РЅР° РґР°С€Р±РѕСЂРґРµ (`src/lib/auth-cache.ts`)
-- `getServerClient()` вЂ” `React.cache()`-РѕР±С‘СЂС‚РєР° РЅР°Рґ `createClient()`: **1 Supabase-РєР»РёРµРЅС‚ РЅР° HTTP-Р·Р°РїСЂРѕСЃ**.
-- `getCurrentUser()` вЂ” `React.cache()`-РѕР±С‘СЂС‚РєР° РЅР°Рґ `auth.getUser()` + `profiles`: **1 `getUser` + 1 `profiles` РЅР° Р·Р°РїСЂРѕСЃ** (Р±С‹Р»Рѕ: 3Г—`getUser` РІ layout + 2Г—`profiles` РІ СЃС‚СЂР°РЅРёС†Р°С…, РєРѕС‚РѕСЂС‹Рµ РґСѓР±Р»РёСЂРѕРІР°Р»Рё РґСЂСѓРі РґСЂСѓРіР°).
-- РџРµСЂРµРІРµРґРµРЅС‹: `(dashboard)/layout.tsx`, РєСѓСЂСЃС‹ (СЃРїРёСЃРѕРє/РєСѓСЂСЃ/СѓСЂРѕРє), `settings`, `admin/teachers`, `admin/submissions`, `admin/courses/[courseId]`, `admin/lessons/[lessonId]` (РґР»СЏ RLS-Р·Р°РїСЂРѕСЃРѕРІ вЂ” `getServerClient()`), `tools/chat`.
-- Client-СЃС‚СЂР°РЅРёС†С‹ (`admin/stats`, `admin/history`, `admin/content*`, `admin/courses/new`) РёСЃРїРѕР»СЊР·СѓСЋС‚ `@/lib/supabase/client` вЂ” РЅРµ Р·Р°С‚СЂРѕРЅСѓС‚С‹.
+### Дедупликация сессии на дашборде (`src/lib/auth-cache.ts`)
+- `getServerClient()` — `React.cache()`-обёртка над `createClient()`: **1 Supabase-клиент на HTTP-запрос**.
+- `getCurrentUser()` — `React.cache()`-обёртка над `auth.getUser()` + `profiles`: **1 `getUser` + 1 `profiles` на запрос** (было: 3×`getUser` в layout + 2×`profiles` в страницах, которые дублировали друг друга).
+- Переведены: `(dashboard)/layout.tsx`, курсы (список/курс/урок), `settings`, `admin/teachers`, `admin/submissions`, `admin/courses/[courseId]`, `admin/lessons/[lessonId]` (для RLS-запросов — `getServerClient()`), `tools/chat`.
+- Client-страницы (`admin/stats`, `admin/history`, `admin/content*`, `admin/courses/new`) используют `@/lib/supabase/client` — не затронуты.
 
-### B7 (РєСЌС€ РїСѓР±Р»РёС‡РЅС‹С… СЃС‚СЂР°РЅРёС†) вЂ” РѕР±СЉСЏСЃРЅРµРЅРёРµ, РїРѕС‡РµРјСѓ РЅРµ СЃРґРµР»Р°РЅРѕ
-- `export const revalidate = 60` РЅР° РїСѓР±Р»РёС‡РЅС‹Рµ СЃС‚СЂР°РЅРёС†С‹ (catalog/content/reviews/about/teachers) **РЅРµ РґР°С‘С‚ ISR**: СЃС‚СЂР°РЅРёС†С‹ РѕСЃС‚Р°СЋС‚СЃСЏ `Ж’ Dynamic`, С‚.Рє. `supabaseFetch` (`server.ts`) РґРµР»Р°РµС‚ РѕР±С‹С‡РЅС‹Р№ `fetch` Р±РµР· `next:{revalidate}`.
-- Р’РєР»СЋС‡РµРЅРёРµ revalidate РїСЂРё РґР°РЅРЅС‹С… РёР· cookies/Р°РІС‚РѕСЂРёР·Р°С†РёРё СЂРёСЃРєРѕРІР°РЅРЅРѕ (СѓСЃС‚Р°СЂРµРІС€РёР№ РєРѕРЅС‚РµРЅС‚ СѓС‡РёС‚РµР»СЏ). РћС‚РєР»РѕРЅРµРЅРѕ РЅР° СЃРµСЃСЃРёРё 04.09.2026.
+### B7 (кэш публичных страниц) — объяснение, почему не сделано
+- `export const revalidate = 60` на публичные страницы (catalog/content/reviews/about/teachers) **не даёт ISR**: страницы остаются `ƒ Dynamic`, т.к. `supabaseFetch` (`server.ts`) делает обычный `fetch` без `next:{revalidate}`.
+- Включение revalidate при данных из cookies/авторизации рискованно (устаревший контент учителя). Отклонено на сессии 04.09.2026.
 
-## РћС‚РґР°С‡Р° С„Р°Р№Р»РѕРІ РёР· Supabase Storage (v0.8.2, 05.09.2026)
+## Отдача файлов из Supabase Storage (v0.8.2, 05.09.2026)
 
-### РџРѕС‚РѕР»РѕРє РїР»Р°С‚С„РѕСЂРјС‹
-Yandex Serverless Containers РѕР±СЂРµР·Р°РµС‚ Р»СЋР±РѕР№ РѕС‚РІРµС‚ РЅР° **3 670 016 Р‘ (~3.5MB)** в†’ `JobResponseTooLong`, Сѓ РєР»РёРµРЅС‚Р° EOF/502/Р±РёС‚С‹Рµ С„Р°Р№Р»С‹. РќРµР»СЊР·СЏ РіРѕРЅСЏС‚СЊ С„Р°Р№Р»С‹ С†РµР»РёРєРѕРј С‡РµСЂРµР· С€Р»СЋР·.
+### Потолок платформы
+Yandex Serverless Containers обрезает любой ответ на **3 670 016 Б (~3.5MB)** → `JobResponseTooLong`, у клиента EOF/502/битые файлы. Нельзя гонять файлы целиком через шлюз.
 
-### РЎС…РµРјР° `/api/storage/[...path]` (v0.8.3)
-1. **РљР°СЂС‚РёРЅРєРё** (`image/*`) вЂ” Р»РѕРєР°Р»СЊРЅС‹Р№ resize-РїСЂРѕРєСЃРё (РґРѕ 1920px, WebP/AVIF). **РЎРµРјР°С„РѕСЂ РЅР° 3 РїР°СЂР°Р»Р»РµР»СЊРЅС‹С… resize** (`imageSlots = 3`): РЅР° С…РѕР»РѕРґРЅРѕРј СЃС‚Р°СЂС‚Рµ sharp+upstream РЅРµ РіРѕРЅСЏСЋС‚ РІСЃРµ Р·Р°РїСЂРѕСЃС‹ СЂР°Р·РѕРј в†’ РёСЃС‡РµР·Р°РµС‚ В«502-С€С‚РѕСЂРјВ» (РёС€СЊСЋ #59). РћС‡РµСЂРµРґСЊ РїР»Р°С‚РЅР°СЏ (РѕР±РґСѓРјР°С‚СЊ РїСЂРё СЂРѕСЃС‚Рµ; Р°Р»СЊС‚РµСЂРЅР°С‚РёРІР° вЂ” СЃР»Р°Р№СЃ РїРѕ РїР°РјСЏС‚Рё РєРѕРЅС‚РµР№РЅРµСЂР°).
-2. **РќРµ-РєР°СЂС‚РёРЅРєРё РЅР° РїСЂРѕРґРµ (`NODE_ENV !== "development"`)** вЂ” **307 в†’ РїРѕРґРїРёСЃР°РЅРЅС‹Р№ URL Supabase** (РёС€СЊСЋ #53, РђРљРўРР’РќРћ): `rawPostSign(bucket, path)` вЂ” РїСЂСЏРјРѕР№ REST `POST https://.../storage/v1/object/sign/<bucket>/<path>` (Р·Р°РіРѕР»РѕРІРєРё `apikey` + `Authorization: Bearer <anon>`, С‚РµР»Рѕ `{"expiresIn":21600}`, `node:https`, timeout 15СЃ) в†’ `307 Location: https://supabase.co<signedURL>`. РџРѕРґРїРёСЃСЊ Р°РЅРѕРЅ-РєР»СЋС‡РѕРј (Р±РµР· service-role). Р—Р°РїСЂРѕСЃ Р±СЂР°СѓР·РµСЂР° СЃСЂР°Р·Сѓ СѓС…РѕРґРёС‚ РЅР° Supabase вЂ” РїР»Р°С‚С„РѕСЂРјРµРЅРЅС‹Р№ РїРѕС‚РѕР»РѕРє С€Р»СЋР·Р° РЅРµ Р·Р°С‚СЂР°РіРёРІР°РµС‚СЃСЏ, С„Р°Р№Р» РѕС‚РґР°С‘С‚СЃСЏ С†РµР»РёРєРѕРј СЃ РЅР°С‚РёРІРЅС‹Рј Range. Р•СЃР»Рё `rawPostSign` РІРµСЂРЅСѓР» null вЂ” fallback РЅР° Рї.3-4.
-3. **Р—Р°РїСЂРѕСЃ СЃ Range** (РµСЃР»Рё РїРѕРґРїРёСЃСЊ РЅРµ СѓРґР°Р»Р°СЃСЊ/РЅРµ-cСѓРґСЊР±Р°) вЂ” BFF РґРµР»Р°РµС‚ upstream `Range: bytes=0-1048575` (1MB), РѕС‚РґР°С‘С‚ 206 + `Content-Range`; РєР»РёРµРЅС‚ (media) СЃРєР»РµРёРІР°РµС‚ (`fix-range`).
-4. **Plain GET** вЂ” РІРµР±-СЃС‚СЂР°РЅРёС†Р°-В«СЃР±РѕСЂС‰РёРєВ» (assist): JS РєР»РёРµРЅС‚Р° СЃР°Рј РІС‹РєР°С‚С‹РІР°РµС‚ СЃР»Р°Р№СЃС‹ РїРѕ 1MB Рё СЃРѕР±РёСЂР°РµС‚ Blob (PDF Рё РґСЂ.). РџСЂРѕРІРµСЂРµРЅРѕ end-to-end, СЂР°Р±РѕС‚Р°РµС‚ РґР»СЏ С„Р°Р№Р»РѕРІ Р»СЋР±С‹С… СЂР°Р·РјРµСЂРѕРІ.
-- РљР°СЂС‚РёРЅРєРё `object/sign/...?token=` (СЃС‚Р°СЂС‹Рµ Р·Р°РїРёСЃРё) вЂ” РїСЂРѕРєСЃРёСЂСѓСЋС‚СЃСЏ РЅР° `storage/v1/object/sign/...` (Р±РµР· РїРѕРґРїРёСЃРё; СЂР°Р·РѕРІРѕРµ 400 вЂ” С‚СЂР°РЅР·РёС‚РЅС‹Р№ QoS, РєРѕРґ С‚СѓС‚ РЅРё РїСЂРё С‡С‘Рј, РёС€СЊСЋ #58).
+### Схема `/api/storage/[...path]` (v0.8.3)
+1. **Картинки** (`image/*`) — локальный resize-прокси (до 1920px, WebP/AVIF). **Семафор на 3 параллельных resize** (`imageSlots = 3`): на холодном старте sharp+upstream не гоняют все запросы разом → исчезает «502-шторм» (ишью #59).
+2. **Не-картинки на проде (`NODE_ENV !== "development"`)** — **307 → подписанный URL Supabase** (ишью #53, АКТИВНО): `rawPostSign(bucket, path)` — прямой REST `POST https://.../storage/v1/object/sign/<bucket>/<path>` (заголовки `apikey` + `Authorization: Bearer <anon>`, тело `{"expiresIn":21600}`, `node:https`, timeout 15с). Ответ публикуется в `Location`. **Нюанс:** REST возвращает `signedURL` в legacy-формате `/object/sign/...` (на платформе 404) — роут нормализует Location до `/storage/v1/object/sign/...` (проверено: 200, PDF 4 421 118 Б). Запрос браузера сразу уходит на Supabase — потолок шлюза не затрагивается, файл целиком с нативным Range. Если подпись не удалась — fallback на п.3-4.
+3. **Запрос с Range** — BFF делает upstream `Range: bytes=0-1048575` (1MB), отдаёт 206 + `Content-Range`; клиент (media) склеивает (`fix-range`).
+4. **Plain GET** — веб-страница-«сборщик» (assist): JS клиента сам выкатывает слайсы по 1MB и собирает Blob (PDF и др.). Проверено end-to-end, работает для файлов любых размеров.
+- Картинки `object/sign/...?token=` (старые записи) — проксируются на `storage/v1/object/sign/...` (без переподписи; разовое 400 — транзитный QoS, не баг кода, ишью #58).
 
 ### Service worker (`public/sw.js, v6`)
-- v5 СЃРѕРґРµСЂР¶Р°Р» СЃРёРЅС‚Р°РєСЃРёС‡РµСЃРєСѓСЋ РѕС€РёР±РєСѓ (В«Unexpected token ')'В» РІ РІРµС‚РєРµ РєСЌС€Р° `/_next/static/`) вЂ” Р±СЂР°СѓР·РµСЂ РЅРµ РјРѕРі РёРЅСЃС‚Р°Р»Р»РёСЂРѕРІР°С‚СЊ СЃРІРµР¶РёР№ SW. Р’ v6 СЃРєРѕР±РєРё РїРѕС‡РёРЅРµРЅС‹, `node --check` РїСЂРѕС…РѕРґРёС‚. Р›РѕРіРёРєР° v5: Р±РµР· РєР»РѕРЅРёСЂРѕРІР°РЅРёСЏ RSC-РѕС‚РІРµС‚РѕРІ, Р±РµР· С‚Р°Р№РјР°СѓС‚Р° РЅР°РІРёРіР°С†РёРё, РєСЌС€ С‚РѕР»СЊРєРѕ `/_next/static/`. Р’РµСЂСЃРёСЏ вЂ” `nf-v{n}`; Р°РєС‚РёРІР°С†РёСЏ вЂ” РѕРґРЅР° РїРµСЂРµР·Р°РіСЂСѓР·РєР° Р±СЂР°СѓР·РµСЂР°.
+- v5 содержал синтаксическую ошибку («Unexpected token ')'», ветка кэша `/_next/static/`) — браузер не инсталлировал свежий SW (ишью #57). В v6 скобки починены, `node --check` чист, кэш-версия `nf-v6`. Логика v5: без клонирования RSC-ответов, без таймаута навигации, кэш только `/_next/static/`. Активация — одна перезагрузка браузера.
 
-### Origin РёР· С€Р»СЋР·Р° (`src/lib/request-origin.ts`)
-Yandex gateway РЅР°РїСЂР°РІР»СЏРµС‚ Р·Р°РїСЂРѕСЃ РІ РєРѕРЅС‚РµР№РЅРµСЂ СЃ СЂРµР°Р»СЊРЅС‹Рј origin РєР°Рє `https://0.0.0.0:8080` вЂ” РЅРµР»СЊР·СЏ С‡РёС‚Р°С‚СЊ РёР· `request.url`/`headers.host`. Origin Р±РµСЂС‘С‚СЃСЏ РёР· `x-forwarded-proto`/`x-forwarded-host` (РёС… СЃС‚Р°РІРёС‚ С€Р»СЋР·), РёРЅР°С‡Рµ РїР°РґР°РµС‚ РЅР° `proto`/`host`, РІ СЃР°РјРѕРј РєСЂР°Р№РЅРµРј СЃР»СѓС‡Р°Рµ вЂ” `https://localhost:3000`.
+### Origin из шлюза (`src/lib/request-origin.ts`)
+Yandex gateway направляет запрос в контейнер с реальным origin как `https://0.0.0.0:8080` — нельзя читать из `request.url`/`headers.host`. Origin берётся из `x-forwarded-proto`/`x-forwarded-host` (их ставит шлюз), иначе падает на `proto`/`host`, в самом крайнем случае — `https://localhost:3000`.
 
-### Р СѓС‡РЅРѕР№ РґРµРїР»РѕР№ вЂ” РћР‘РЇР—РђРўР•Р›Р¬РќРћ build-args + Environment
-`NEXT_PUBLIC_*` Р·Р°РїРµРєР°СЋС‚СЃСЏ РЅР° СЃР±РѕСЂРєРµ. Р”Р»СЏ РїСЂРѕРґ-СЂРµРІРёР·РёРё РґРѕР»Р¶РЅС‹ СЃРѕРІРїР°РґР°С‚СЊ СЃРѕ `deploy.yml`:
+### Ручной деплой — ОБЯЗАТЕЛЬНО build-args + Environment
+`NEXT_PUBLIC_*` запекаются на сборке. Для прод-ревизии должны совпадать со `deploy.yml`:
 - build-args: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL=https://naranja.outmilk.online`;
-- `--environment` СЂРµРІРёР·РёРё: РїСЂРѕРґ-Р·РЅР°С‡РµРЅРёСЏ + СЃРµРєСЂРµС‚С‹ РёР· `.env.local` (SMTP, Yandex, CRON_SECRET).
-- `.env.local` РќР• РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РґР»СЏ РїСЂРѕРґ-СЃР±РѕСЂРєРё: С‚Р°Рј `NEXT_PUBLIC_SITE_URL=http://localhost:3000`.
+- `--environment` ревизии: прод-значения + секреты из `.env.local` (SMTP, Yandex, CRON_SECRET).
+- `.env.local` НЕ использовать для прод-сборки: там `NEXT_PUBLIC_SITE_URL=http://localhost:3000`.
 
-### РР·РІРµСЃС‚РЅС‹Рµ РїСЂРѕР±Р»РµРјС‹ СЃСЂРµРґС‹ (05.09.2026, СѓСЃС‚СЂР°РЅРµРЅРѕ РІ v0.8.3)
-- `SUPABASE_SERVICE_ROLE_KEY` СЃРјРµРЅРёР» СЃС…РµРјСѓ: РІ РЅРѕРІРѕР№ РїР°РЅРµР»Рё Supabase вЂ” **Publishable key** (`sb_publishable_...`, РїСѓР±Р»РёС‡РЅС‹Р№, Р°РЅР°Р»РѕРі anon) Рё **Secret key** (`sb_secret_<из .env.local / GH secrets>`, РїРѕР»РЅС‹Р№ РґРѕСЃС‚СѓРї, Р°РЅР°Р»РѕРі service_role). РЎС‚Р°СЂС‹Р№ service_role РїСЂРѕСЃСЂРѕС‡РµРЅ/СЃС…РµРјР° СѓРїСЂР°Р·РґРЅРµРЅР° (РёС€СЊСЋ #55). `.env.local`, GH secret `SUPABASE_SERVICE_ROLE_KEY` Рё `--environment` РїСЂРѕРґ-СЂРµРІРёР·РёРё РґРµСЂР¶Р°С‚СЊ Р°РєС‚СѓР°Р»СЊРЅС‹Р№ Secret key.
-- GET-С‚РµСЃС‚С‹ Рє Supabase Storage С‚СЂРµР±СѓСЋС‚ Р”Р’Рђ Р·Р°РіРѕР»РѕРІРєР°: `apikey` + `Authorization: Bearer` вЂ” РёРЅР°С‡Рµ Р»РѕР¶РЅС‹Р№ `403 Invalid Compact JWS`.
+### Известные проблемы среды (v0.8.3)
+- В новой панели Supabase сменилась схема ключей: **Publishable key** (`sb_publishable_...`, публичный, аналог anon) и **Secret key** (`sb_secret_...`, полный доступ, аналог service_role). Старый service_role упразднён (ишью #55). Актуальный Secret key держать в `.env.local`, в GH secret `SUPABASE_SERVICE_ROLE_KEY` и в `--environment` прод-ревизии. В доки секреты не писать — реальное значение только в `.env.local`/GitHub secrets.
+- GET-тесты к Supabase Storage требуют ДВА заголовка: `apikey` + `Authorization: Bearer` — иначе ложный `403 Invalid Compact JWS`.

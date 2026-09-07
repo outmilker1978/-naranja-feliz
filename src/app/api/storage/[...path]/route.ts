@@ -352,10 +352,19 @@ export async function GET(
       if (bucket && objectPath) {
         const signedUrl = await rawPostSign(bucket, objectPath);
         if (signedUrl) {
+          // supabase returns "/object/sign/..." (legacy mount, 404s on the
+          // current platform) — normalize to the live /storage/v1 path.
+          let loc = signedUrl;
+          if (!signedUrl.startsWith("http")) {
+            const base = signedUrl.startsWith("/storage/v1")
+              ? `${SUPABASE_URL}${signedUrl}`
+              : `${SUPABASE_URL}/storage/v1${signedUrl.startsWith("/") ? signedUrl : `/${signedUrl}`}`;
+            loc = base;
+          }
           return new NextResponse(null, {
             status: 307,
             headers: {
-              Location: `${SUPABASE_URL}${signedUrl}`,
+              Location: loc,
               "Cache-Control": "private, no-store",
               "x-nf-mode": "signed",
             },
