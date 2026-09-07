@@ -19,8 +19,12 @@ jobs:
 
       - name: Install Yandex Cloud CLI
         run: |
-          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          echo "$HOME/yandex-cloud/bin" >> $GITHUB_PATH
+          YC_VERSION="$(curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 10 https://storage.yandexcloud.net/yandexcloud-yc/release/stable)"
+          mkdir -p "$HOME/yandex-cloud-cli"
+          curl -fSL --retry 5 --retry-delay 2 --connect-timeout 10 \
+            "https://storage.yandexcloud.net/yandexcloud-yc/release/${YC_VERSION}/linux/amd64/yc" -o "$HOME/yandex-cloud-cli/yc"
+          chmod +x "$HOME/yandex-cloud-cli/yc"
+          echo "$HOME/yandex-cloud-cli" >> $GITHUB_PATH
 
       - name: Login to Yandex Container Registry
         env:
