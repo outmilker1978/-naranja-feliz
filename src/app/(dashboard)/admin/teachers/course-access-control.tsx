@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 
 interface Course {
@@ -125,7 +126,7 @@ export function CourseAccessControl({ userId, focusStudentId, focusCourseId }: {
         className="text-[11px] text-primary-500 hover:underline">
         Доступ к курсам
       </button>
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={close}>
           <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
@@ -165,7 +166,7 @@ export function CourseAccessControl({ userId, focusStudentId, focusCourseId }: {
                       className="text-[11px] text-zinc-400 hover:text-zinc-600 hover:underline font-medium">Сброс</button>
                   </div>
                 </div>
-                <p className="text-[11px] text-muted mb-2">Активная подписка у ученика открывает все обычные курсы автоматически. Персональный доступ нужен только для закрытых курсов (будущие «Марафоны») или без подписки.</p>
+                <p className="text-[11px] text-muted mb-2">Активная подписка ученика открывает все обычные курсы автоматически. Персональный доступ нужен только для Марафонов или для доступа к курсам без активной подписки.</p>
                 <div className="space-y-1 mb-4 max-h-60 overflow-y-auto min-h-[100px]">
                   {courses.map(c => (
                     <label key={c.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer">
@@ -202,7 +203,8 @@ export function CourseAccessControl({ userId, focusStudentId, focusCourseId }: {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
