@@ -108,14 +108,25 @@ Supabase (PostgreSQL) — живёт отдельно, НЕ через GitHub Ac
 
 **Команда:**
 ```bash
-# Показать все теги
-yc container image list --repository-name cr.yandex/crpusm23v7g9ch5c5t9h/naranja-backend
+# Показать все образы (с размером)
+yc container image list --registry-id crpusm23v7g9ch5c5t9h --format json
 
 # Удалить всё кроме 2 последних
 # (делает opencode по команде "почисти registry")
+yc container image delete --id <image_id>
 ```
 
 **Правило:** оставлять 2 последних тега (текущий + предыдущий — для отката).
+
+### Ревизии контейнера: удалять НЕЛЬЗЯ
+`yc serverless container revision` имеет только `list/get/deploy` — команды `delete` не существует. Старые ревизии со статусом **OBSOLETE** удаляются Yandex Cloud **сам, по TTL** (~сутки после вытеснения). Большой список ревизий в консоли — это нормальная история, НЕ мусор и НЕ причина проблем. Проверять активную ревизию:
+```bash
+yc serverless container revision list --container-id bba12ti21lgmv9glfl7k --limit 30
+# ACTIVE наверху — это то, что сейчас на проде
+```
+
+### Зависший GitHub Actions run
+Workflow `deploy.yml` НЕ использует `on:`-`concurrency`, поэтому зависший run **не блокирует** новые деплои. Если run крутится дольше ~15 мин — он, вероятно, застрял на этапе сети GitHub→`storage.yandexcloud.net`. Такие ранны не мешают проду (прод получает обновление от следующего успешного run). Остановить зависший run может только владелец репозитория в браузере (opencode/gh без авторизации не могут): **Actions → run → «⋮» → Cancel workflow**. После отмены можно нажать «Re-run all jobs».
 
 ## Откат на предыдущую версию
 
