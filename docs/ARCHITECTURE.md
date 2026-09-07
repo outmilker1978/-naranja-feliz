@@ -369,11 +369,9 @@ npm run build    # production сборка (output: standalone)
 ### Потолок платформы
 Yandex Serverless Containers обрезает любой ответ на **3 670 016 Б (~3.5MB)** → `JobResponseTooLong`, у клиента EOF/502/битые файлы. Нельзя гонять файлы целиком через шлюз.
 
-### Схема `/api/storage/[...path]` (v0.8.3)
+### Схема `/api/storage/[...path]` (v0.8.4)
 1. **Картинки** (`image/*`) — локальный resize-прокси (до 1920px, WebP/AVIF). **Семафор на 3 параллельных resize** (`imageSlots = 3`): на холодном старте sharp+upstream не гоняют все запросы разом → исчезает «502-шторм» (ишью #59).
-2. **Не-картинки на проде (`NODE_ENV !== "development"`)** — **307 → подписанный URL Supabase** (ишью #53, АКТИВНО): `rawPostSign(bucket, path)` — прямой REST `POST https://.../storage/v1/object/sign/<bucket>/<path>` (заголовки `apikey` + `Authorization: Bearer <anon>`, тело `{"expiresIn":21600}`, `node:https`, timeout 15с). Ответ публикуется в `Location`. **Нюанс:** REST возвращает `signedURL` в legacy-формате `/object/sign/...` (на платформе 404) — роут нормализует Location до `/storage/v1/object/sign/...` (проверено: 200, PDF 4 421 118 Б). Запрос браузера сразу уходит на Supabase — потолок шлюза не затрагивается, файл целиком с нативным Range. Если подпись не удалась — fallback на п.3-4.
-3. **Запрос с Range** — BFF делает upstream `Range: bytes=0-1048575` (1MB), отдаёт 206 + `Content-Range`; клиент (media) склеивает (`fix-range`).
-4. **Plain GET** — веб-страница-«сборщик» (assist): JS клиента сам выкатывает слайсы по 1MB и собирает Blob (PDF и др.). Проверено end-to-end, работает для файлов любых размеров.
+2. **Не-картинки** — всегда через наш прокси **same-origin** (ишью #53 РЕВЕРТ v0.8.4): **307-подпись отменена на проде** — кросс-доменный `supabase.co` в ответе ломал встроенный PDF-вьюер Chrome (`ERR_QUIC_PROTOCOL_ERROR`) и медиа-плеер. Схема v0.8.2: запрос с Range → upstream `Range: bytes=0-1048575` → 206 + `Content-Range` (медиа склеивает слайсы, `fix-range`); plain GET ≤3.5MB → целиком, больше → страница-«сборщик» (assist) сдвигает слайсы по 1MB в Blob. `rawPostSign` больше не вызывается (подпись — только для картинок legacy `/object/sign`).
 - Картинки `object/sign/...?token=` (старые записи) — проксируются на `storage/v1/object/sign/...` (без переподписи; разовое 400 — транзитный QoS, не баг кода, ишью #58).
 
 ### Service worker (`public/sw.js, v6`)

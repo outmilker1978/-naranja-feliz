@@ -341,38 +341,6 @@ export async function GET(
       ...(rangeHeader ? { Range: rangeHeader } : {}),
     };
 
-    // Prod: big non-image files bypass the gateway's ~3.5 MB response cap via a
-    // short-lived signed URL straight to Supabase — media gets native Range
-    // seeking, PDFs of any size open whole. If signing fails at all, we fall
-    // through to the slice/assist machinery below.
-    if (!isImage && process.env.NODE_ENV !== "development") {
-      const slash = filePath.indexOf("/");
-      const bucket = slash > 0 ? filePath.slice(0, slash) : "";
-      const objectPath = slash > 0 ? filePath.slice(slash + 1) : "";
-      if (bucket && objectPath) {
-        const signedUrl = await rawPostSign(bucket, objectPath);
-        if (signedUrl) {
-          // supabase returns "/object/sign/..." (legacy mount, 404s on the
-          // current platform) — normalize to the live /storage/v1 path.
-          let loc = signedUrl;
-          if (!signedUrl.startsWith("http")) {
-            const base = signedUrl.startsWith("/storage/v1")
-              ? `${SUPABASE_URL}${signedUrl}`
-              : `${SUPABASE_URL}/storage/v1${signedUrl.startsWith("/") ? signedUrl : `/${signedUrl}`}`;
-            loc = base;
-          }
-          return new NextResponse(null, {
-            status: 307,
-            headers: {
-              Location: loc,
-              "Cache-Control": "private, no-store",
-              "x-nf-mode": "signed",
-            },
-          });
-        }
-      }
-    }
-
     if (isImage) {
       await acquireImageSlot();
       const controller = new AbortController();

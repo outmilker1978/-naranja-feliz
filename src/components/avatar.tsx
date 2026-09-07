@@ -9,15 +9,15 @@ const STORAGE_SIGN_ORIGIN = "https://zphehhzgbudetyzezunk.supabase.co/storage/v1
 /** Rewrite a storage URL to our proxy path with small avatar-friendly params. */
 function avatarProxy(url: string | null | undefined, size: number): string | null {
   if (!url) return null;
+  const append = (p: string) => `${p}${p.includes("?") ? "&" : "?"}w=${size}&q=65&fm=webp`;
   if (url.startsWith("/api/storage/")) {
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}w=${size}&q=65&fm=webp`;
+    return append(url);
   }
   if (url.startsWith(STORAGE_ORIGIN)) {
-    return `/api/storage${url.slice(STORAGE_ORIGIN.length)}?w=${size}&q=65&fm=webp`;
+    return append(`/api/storage${url.slice(STORAGE_ORIGIN.length)}`);
   }
   if (url.startsWith(STORAGE_SIGN_ORIGIN)) {
-    return `/api/storage/object/sign${url.slice(STORAGE_SIGN_ORIGIN.length)}?w=${size}&q=65&fm=webp`;
+    return append(`/api/storage/object/sign${url.slice(STORAGE_SIGN_ORIGIN.length)}`);
   }
   return url;
 }
