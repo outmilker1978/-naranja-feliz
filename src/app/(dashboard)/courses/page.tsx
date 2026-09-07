@@ -30,6 +30,10 @@ export default async function CoursesPage() {
   const ownedCourses = rpc?.owned_courses ?? [];
   const ownedIds = ownedCourses.map((c: any) => c.id);
 
+  const { data: subState } = await supabase.from("profiles").select("subscription_until").eq("id", user.id).single();
+  const hasActiveSub = !!subState?.subscription_until && new Date(subState.subscription_until) > new Date();
+  const unlockedForSub = (course: any) => hasActiveSub && course.access_mode !== "per_course" && course.access_mode !== "marathon";
+
   const lessonProgress = rpc?.lesson_progress ?? [];
   const completedLessonIds = new Set(lessonProgress.filter((p: any) => p.completed).map((p: any) => p.lesson_id));
 
@@ -101,7 +105,7 @@ export default async function CoursesPage() {
             {(availableCourses ?? []).map((course: any) => {
               const isEnrolled = enrolledIds.includes(course.id) || ownedIds.includes(course.id);
               const hasAccess = accessGrantedIds.includes(course.id) || ownedIds.includes(course.id) || isAdmin;
-              if (isEnrolled || hasAccess) {
+              if (isEnrolled || hasAccess || unlockedForSub(course)) {
                 const lc = lessonCountMap.get(course.id);
                 const total = lc?.published ?? lc?.total ?? 0;
                 const completed = [...completedLessonIds].filter(id => (lessonsByCourse ?? []).some(l => l.id === id && l.course_id === course.id)).length;

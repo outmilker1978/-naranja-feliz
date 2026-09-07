@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const days = DURATIONS[duration] ?? 30;
+  const days = Object.prototype.hasOwnProperty.call(DURATIONS, duration) ? DURATIONS[duration] : 30;
   const svc = createServiceClient();
   const teacherName = profile?.full_name || user.user_metadata?.full_name || "Учитель";
   const errors: string[] = [];

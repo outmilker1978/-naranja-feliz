@@ -154,17 +154,30 @@ export function CourseAccessControl({ userId, focusStudentId, focusCourseId }: {
             {courses.length === 0 ? (
               <p className="text-sm text-muted py-4">Загрузка курсов...</p>
             ) : (
-              <div className="space-y-1 mb-4 max-h-60 overflow-y-auto min-h-[100px]">
-                {courses.map(c => (
-                  <label key={c.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer">
-                    <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)}
-                      className="w-4 h-4 rounded border-zinc-300 text-primary-500 focus:ring-primary-400 shrink-0" />
-                    <div className="min-w-0">
-                      <span className="text-sm font-medium text-accent">{c.title}</span>
-                      <span className="text-xs text-muted ml-2">{c.level}</span>
-                    </div>
-                  </label>
-                ))}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-muted">Курсы</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setSelected(new Set(courses.map(c => c.id)))}
+                      className="text-[11px] text-primary-500 hover:underline font-medium">Все курсы</button>
+                    <span className="text-zinc-300">|</span>
+                    <button type="button" onClick={() => setSelected(new Set())}
+                      className="text-[11px] text-zinc-400 hover:text-zinc-600 hover:underline font-medium">Сброс</button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted mb-2">Активная подписка у ученика открывает все обычные курсы автоматически. Персональный доступ нужен только для закрытых курсов (будущие «Марафоны») или без подписки.</p>
+                <div className="space-y-1 mb-4 max-h-60 overflow-y-auto min-h-[100px]">
+                  {courses.map(c => (
+                    <label key={c.id} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer">
+                      <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)}
+                        className="w-4 h-4 rounded border-zinc-300 text-primary-500 focus:ring-primary-400 shrink-0" />
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-accent">{c.title}</span>
+                        <span className="text-xs text-muted ml-2">{c.level}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
             <div className="mb-4 shrink-0">
