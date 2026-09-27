@@ -493,8 +493,28 @@ export function BlocksEditor({ lessonId, initialBlocks }: { lessonId: string; in
 
   const persistOrder = async (arr: LessonBlock[]) => {
     const next = arr.map((b, i) => ({ ...b, order_index: i }));
+    const prev = blocks;
+    const changed = next.filter((b) => {
+      const old = prev.find((p) => p.id === b.id);
+      return old && old.order_index !== b.order_index;
+    });
+    if (changed.length === 0) { setBlocks(next); return; }
     setBlocks(next);
-    await Promise.all(next.map((b) => supabase.from("lesson_blocks").update({ order_index: b.order_index }).eq("id", b.id)));
+    try {
+      const { error } = await supabase.from("lesson_blocks").upsert(
+        changed.map((b) => ({ id: b.id, lesson_id: b.lesson_id, type: b.type, content: b.content, order_index: b.order_index })),
+        { onConflict: "id" }
+      );
+      if (error) {
+        setBlocks(prev);
+        setToast({ kind: "err", text: "Ошибка сохранения порядка: " + error.message });
+      } else {
+        setToast({ kind: "ok", text: "✓ Порядок сохранён" });
+      }
+    } catch {
+      setBlocks(prev);
+      setToast({ kind: "err", text: "Не удалось сохранить порядок. Попробуйте ещё раз." });
+    }
   };
 
   const moveBlock = (index: number, direction: -1 | 1) => {
