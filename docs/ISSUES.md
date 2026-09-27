@@ -163,7 +163,7 @@ _(крупные вехи и закрытые ишью)_
 |---|---|---|
 | #53 | Отдача файлов через 307-подписанный URL Supabase (обход 3.5MB, цельный файл вместо сборки). Код написан (user-scoped `createClient`), падает в рантайме в контейнере — нужна трассировка `createSignedUrl`/supabaseFetch (Connection:close, timeout 12s). | в работе (след. сессия) |
 | #54 | «Вставить файл по ссылке» в редакторе урока (сейчас PDF/Aудио — только загрузка с ПК; аудио/видео-блоки имеют поле «Ссылка», у текстового редактора — нет). Добавить инструмент: вставка по URL + заголовок → `<a target="_blank">`. | бэклог |
-| #55 | `SUPABASE_SERVICE_ROLE_KEY` в `.env.local` **просрочен** (`Invalid Compact JWS` на `/storage/v1/object/sign` даже с `apikey`). Ломает `createServiceClient/createAdminClient`: оплата (ЮKassa → Supabase), админ-действия. Замена: Supabase Studio → Settings → API → service_role → обновить `.env.local` + GH secrets + env ревизии. Ученик-путь (вход/логин/уроки) не затронут. | бэклог (нужны действия пользователя) |
+| #55 | `SUPABASE_SERVICE_ROLE_KEY` в `.env.local` **просрочен** (`Invalid Compact JWS` на `/storage/v1/object/sign` даже с `apikey`). Ломает `createServiceClient/createAdminClient`: оплата (ЮKassa → Supabase), админ-действия. Замена: Supabase Studio → Settings → API → service_role → обновить `.env.local` + GH secrets + env ревизии. Ученик-путь (вход/логин/уроки) не затронут. | **РЕШЕНО (18.09.2026):** GH secret `SUPABASE_SERVICE_ROLE_KEY` обновлён пользователем (Login через Google Authenticator, «Last updated: now»). Новый ключ подхватится при следующем деплое (сравнение MATCH по хэшу). | закрыто |
 | #56 | Мусор в YCR: удалить теги `deploy-1788620200/1170/1750/2200` при закрытии (оставить `deploy-1788622600` + предыдущий). | бэклог (гигиена) |
 
 ### Наблюдения
